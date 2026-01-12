@@ -1,6 +1,6 @@
 [![FINOS - Incubating](https://cdn.jsdelivr.net/gh/finos/contrib-toolbox@master/images/badge-incubating.svg)](https://community.finos.org/docs/governance/Software-Projects/stages/incubating)
 
-# {project name}
+# Morphir Python
 
 Short blurb about what your project does.
 
@@ -42,11 +42,11 @@ List the roadmap steps; alternatively link the Confluence Wiki page where the pr
 3. ....
 
 ## Contributing
-For any questions, bugs or feature requests please open an [issue](https://github.com/finos/{project slug}/issues)
-For anything else please send an email to {project mailing list}.
+For any questions, bugs or feature requests please open an [issue](https://github.com/finos/morphir-python/issues)
+For anything else please send an email to morphir@finos.org.
 
 To submit a contribution:
-1. Fork it (<https://github.com/finos/{project slug}/fork>)
+1. Fork it (<https://github.com/finos/morphir-python/fork>)
 2. Create your feature branch (`git checkout -b feature/fooBar`)
 3. Read our [contribution guidelines](.github/CONTRIBUTING.md) and [Community Code of Conduct](https://www.finos.org/code-of-conduct)
 4. Commit your changes (`git commit -am 'Add some fooBar'`)
@@ -59,7 +59,7 @@ _NOTE:_ Commits and pull requests to FINOS repositories will only be accepted fr
 
 ## License
 
-Copyright {yyyy} {name of copyright owner}
+Copyright 2026 FINOS
 
 Distributed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
 
