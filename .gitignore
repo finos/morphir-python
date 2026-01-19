@@ -1,20 +1,66 @@
-# dependencies
-website/node_modules
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# production
-website/build
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
 
-# generated files
-website/.docusaurus
-.cache-loader
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 
-# misc
-.DS_Store
+# Type checkers
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Build artifacts
+*.manifest
+*.spec
+
+# Environments
+.env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
 
-website/npm-debug.log*
-website/yarn-debug.log*
-website/yarn-error.log*
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# mise
+.mise.local.toml

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Install all dependencies and workspace packages"
+set -euo pipefail
+
+echo "Syncing dependencies..."
+uv sync --all-groups
+
+echo "Installing workspace packages in editable mode..."
+uv pip install -e packages/morphir -e packages/morphir-tools
+
+echo "Install complete!"

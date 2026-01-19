@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Build morphir package
+        run: uv build packages/morphir
+
+      - name: Build morphir-tools package
+        run: uv build packages/morphir-tools
+
+      - name: Upload morphir dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: morphir-dist
+          path: packages/morphir/dist/
+
+      - name: Upload morphir-tools dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: morphir-tools-dist
+          path: packages/morphir-tools/dist/
+
+  publish-morphir:
+    name: Publish morphir to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/morphir/
+    steps:
+      - name: Download morphir dist
+        uses: actions/download-artifact@v4
+        with:
+          name: morphir-dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-morphir-tools:
+    name: Publish morphir-tools to PyPI
+    needs: [build, publish-morphir]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/morphir-tools/
+    steps:
+      - name: Download morphir-tools dist
+        uses: actions/download-artifact@v4
+        with:
+          name: morphir-tools-dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create GitHub Release
+    needs: [publish-morphir, publish-morphir-tools]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
