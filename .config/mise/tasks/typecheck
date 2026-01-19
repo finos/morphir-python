@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Run mypy and pyright type checkers"
+set -euo pipefail
+
+echo "Running mypy..."
+uv run mypy packages/morphir/src packages/morphir-tools/src
+
+echo "Running pyright..."
+uv run pyright packages/morphir/src packages/morphir-tools/src

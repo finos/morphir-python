@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run tests with coverage report"
+set -euo pipefail
+
+uv run pytest tests/ --cov=packages/morphir/src --cov=packages/morphir-tools/src --cov-report=term-missing --cov-report=html

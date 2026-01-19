@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run ruff linter on the codebase"
+set -euo pipefail
+
+uv run ruff check .
