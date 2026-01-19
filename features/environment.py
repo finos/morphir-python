@@ -4,6 +4,8 @@ This module contains hooks that run before and after various stages of
 the BDD test execution lifecycle.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
