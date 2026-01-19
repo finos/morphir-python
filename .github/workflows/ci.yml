@@ -65,7 +65,9 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: |
+          uv sync --all-groups
+          uv pip install -e packages/morphir -e packages/morphir-tools
 
       - name: Run pytest
         run: uv run pytest tests/ --cov=packages/morphir/src --cov=packages/morphir-tools/src --cov-report=xml
