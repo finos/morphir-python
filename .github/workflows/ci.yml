@@ -17,19 +17,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
+      - name: Set up mise
+        uses: jdx/mise-action@v2
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: mise run install
 
       - name: Run ruff linter
-        run: uv run ruff check .
+        run: mise run lint
 
       - name: Check formatting
-        run: uv run ruff format --check .
+        run: mise run format-check
 
   typecheck:
     name: Type Check
@@ -38,19 +36,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
+      - name: Set up mise
+        uses: jdx/mise-action@v2
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: mise run install
 
-      - name: Run mypy
-        run: uv run mypy packages/morphir/src packages/morphir-tools/src
-
-      - name: Run pyright
-        run: uv run pyright packages/morphir/src packages/morphir-tools/src
+      - name: Run type checkers
+        run: mise run typecheck
 
   test:
     name: Test
@@ -59,21 +52,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
+      - name: Set up mise
+        uses: jdx/mise-action@v2
 
       - name: Install dependencies
-        run: |
-          uv sync --all-groups
-          uv pip install -e packages/morphir -e packages/morphir-tools
+        run: mise run install
 
       - name: Run pytest
-        run: uv run pytest tests/ --cov=packages/morphir/src --cov=packages/morphir-tools/src --cov-report=xml
+        run: mise run coverage
 
       - name: Run behave
-        run: uv run behave features/
+        run: mise run test-bdd
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -91,16 +80,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
+      - name: Set up mise
+        uses: jdx/mise-action@v2
 
-      - name: Build morphir package
-        run: uv build packages/morphir
-
-      - name: Build morphir-tools package
-        run: uv build packages/morphir-tools
+      - name: Build packages
+        run: mise run build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
