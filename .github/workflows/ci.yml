@@ -23,7 +23,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --all-groups
 
       - name: Run ruff linter
         run: uv run ruff check .
@@ -44,7 +44,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --all-groups
 
       - name: Run mypy
         run: uv run mypy packages/morphir/src packages/morphir-tools/src
@@ -65,7 +65,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --group test
+        run: uv sync --all-groups
 
       - name: Run pytest
         run: uv run pytest tests/ --cov=packages/morphir/src --cov=packages/morphir-tools/src --cov-report=xml
