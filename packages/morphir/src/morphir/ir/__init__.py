@@ -5,8 +5,10 @@ from .fqname import FQName
 from .access_controlled import AccessControlled
 from .type_constraints import TypeConstraints
 from .type import Type, TypeAttributes, Field
-from .type_spec import Specification
-from .type_def import Definition
+from .type_spec import Specification as TypeSpecification
+from .type_def import Definition as TypeDefinition
+from .documented import Documented
+from . import module, package
 
 __all__ = [
     "Name",
@@ -18,6 +20,9 @@ __all__ = [
     "Type",
     "TypeAttributes",
     "Field",
-    "Specification",
-    "Definition",
+    "TypeSpecification",
+    "TypeDefinition",
+    "Documented",
+    "module",
+    "package",
 ]
