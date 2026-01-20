@@ -13,10 +13,14 @@ class TestName:
         assert to_list(from_string("foo bar")) == ["foo", "bar"]
 
     def test_from_string_complex(self):
-        # Gleam implementation splits on every uppercase letter
-        assert to_list(from_string("JSONResponse")) == ["j", "s", "o", "n", "response"]
+        # Improved regex handles acronyms: JSONResponse -> json, response
+        assert to_list(from_string("JSONResponse")) == ["json", "response"]
         assert to_list(from_string("UserId")) == ["user", "id"]
         assert to_list(from_string("elm-stuff")) == ["elm", "stuff"]
+        
+        # Test new delimiters (colon, hash) for FQName safety
+        assert to_list(from_string("Morphir:SDK:Int")) == ["morphir", "sdk", "int"]
+        assert to_list(from_string("Morphir#Int")) == ["morphir", "int"]
         
     def test_to_camel_case(self):
         name = from_string("foo_bar")

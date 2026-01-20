@@ -12,12 +12,16 @@ def to_list(path: Path) -> List[Name]:
 def from_string(s: str) -> Path:
     if not s:
         return Path(tuple())
-    parts = s.split(".")
-    return Path(tuple(name_from_string(p) for p in parts))
+    # Support both "/" (v4) and "." (legacy) as separators
+    # Use regex split to handle both
+    import re
+    parts = re.split(r"[/\.]", s)
+    return Path(tuple(name_from_string(p) for p in parts if p))
 
-def to_string(path: Path, separator: str = ".") -> str:
-    from .name import to_title_case
-    return separator.join(to_title_case(name) for name in path)
+def to_string(path: Path, separator: str = "/") -> str:
+    # Default separator per IR v4 is "/"
+    from .name import to_kebab_case
+    return separator.join(to_kebab_case(name) for name in path)
     
 def empty() -> Path:
     return Path(tuple())

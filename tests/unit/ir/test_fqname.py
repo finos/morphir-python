@@ -5,15 +5,23 @@ from morphir.ir.fqname import FQName
 
 class TestFQName:
     def test_creation(self):
-        fqn = FQName.from_string("Morphir.SDK:Basics:Int")
+        # Canonical input
+        fqn = FQName.from_string("Morphir.SDK:Start#Do-Something")
         assert fqn.package_path == path_from_string("Morphir.SDK")
-        assert fqn.module_path == path_from_string("Basics")
-        assert fqn.local_name == name_from_string("Int")
+        assert fqn.module_path == path_from_string("Start")
+        assert fqn.local_name == name_from_string("Do-Something")
 
     def test_to_string(self):
-        fqn = FQName.from_string("Morphir.SDK:Basics:Int")
-        assert fqn.to_string() == "Morphir.SDK:Basics:int"
+        # Canonical: Package:Module#Name
+        fqn = FQName.from_string("Morphir/SDK:Basics#Int")
+        assert fqn.to_string() == "morphir/sdk:basics#int"
+        
+        # Test camelCase input becoming kebab in canonical string
+        fqn2 = FQName.from_string("Morphir:SDK#makeTuple")
+        assert fqn2.to_string() == "morphir:sdk#make-tuple"
 
     def test_fqn_constructor(self):
         fqn = FQName.fqn("Morphir.SDK", "Basics", "Int")
         assert fqn.package_path == path_from_string("Morphir.SDK")
+        # Canonical string output check
+        assert fqn.to_string() == "morphir/sdk:basics#int"

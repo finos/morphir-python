@@ -11,7 +11,7 @@ class TestQName:
 
     def test_to_string(self):
         qn = QName.from_string("Morphir.SDK:Int")
-        assert qn.to_string() == "Morphir.SDK:int" # camelCase for local name
+        assert qn.to_string() == "morphir.sdk:int" # canonical output is lowercase path
 
     def test_from_name(self):
         n = name_from_string("foo")

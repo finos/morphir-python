@@ -30,19 +30,38 @@ class FQName:
             name.from_string(local_str)
         )
 
-    def to_string(self) -> str:
-        package_str = path.to_string(self.package_path, ".")
-        module_str = path.to_string(self.module_path, ".")
-        local_str = name.to_camel_case(self.local_name)
-        return f"{package_str}:{module_str}:{local_str}"
-
     @staticmethod
-    def from_string(s: str, separator: str = ":") -> Optional["FQName"]:
-        parts = s.split(separator)
-        if len(parts) == 3:
-             return FQName(
-                path.from_string(parts[0]),
-                path.from_string(parts[1]),
-                name.from_string(parts[2])
+    def from_string(s: str) -> "FQName":
+        # Parse canonical format: PackagePath:ModulePath#LocalName
+        import re
+        match = re.search(r"^([^:]+):([^#]+)#(.+)$", s)
+        if match:
+            pkg_str, mod_str, local_str = match.groups()
+            return FQName(
+                path.from_string(pkg_str),
+                path.from_string(mod_str),
+                name.from_string(local_str)
             )
-        return None
+        
+        # Legacy/Fallback: Package.Module.Local or Package:Module:Local
+        # Attempt minimal parsing if canonical fails
+        # Assuming last part after separator is local name
+        if "#" not in s: 
+            # if no hash, maybe using colon?
+            parts = s.split(":")
+            if len(parts) == 3:
+                return FQName(
+                    path.from_string(parts[0]),
+                    path.from_string(parts[1]),
+                    name.from_string(parts[2])
+                )
+        
+        # Return empty/default if totally unparseable
+        return FQName(path.from_string(""), path.from_string(""), name.from_string(s))
+
+    def to_string(self) -> str:
+        # Canonical: PackagePath:ModulePath#LocalName
+        package_str = path.to_string(self.package_path) # defaults to /
+        module_str = path.to_string(self.module_path)
+        local_str = name.to_kebab_case(self.local_name)
+        return f"{package_str}:{module_str}#{local_str}"
