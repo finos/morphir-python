@@ -29,13 +29,13 @@ jobs:
         run: uv build packages/morphir-tools
 
       - name: Upload morphir dist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: morphir-dist
           path: packages/morphir/dist/
 
       - name: Upload morphir-tools dist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: morphir-tools-dist
           path: packages/morphir-tools/dist/
@@ -49,7 +49,7 @@ jobs:
       url: https://pypi.org/project/morphir/
     steps:
       - name: Download morphir dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: morphir-dist
           path: dist/
@@ -66,7 +66,7 @@ jobs:
       url: https://pypi.org/project/morphir-tools/
     steps:
       - name: Download morphir-tools dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: morphir-tools-dist
           path: dist/
@@ -83,7 +83,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: dist/
           merge-multiple: true
