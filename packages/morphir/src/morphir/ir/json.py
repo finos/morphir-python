@@ -10,6 +10,7 @@ from .type import Type, Variable, Reference as TypeRef
 from .value import Value, LiteralValue, Variable as ValueVar
 from .distribution import Distribution, PackageInfo
 from .document import Document, DocNull, DocBool, DocInt, DocFloat, DocString, DocArray, DocObject
+from .decorations import DecorationFormat, LayerManifest, DecorationValuesFile, SchemaRef
 
 # Placeholder for full implementation.
 # This will eventually contain robust encoders/decoders for all IR types.
@@ -27,6 +28,12 @@ class MorphirJSONEncoder:
                 "name": path_to_string(obj.name),
                 "version": obj.version
             }
+            
+        # Decorations Encoding (Basic Dataclass Support handles these mostly, but explicit checks help)
+        if is_dataclass(obj) and isinstance(obj, (DecorationFormat, LayerManifest, DecorationValuesFile, SchemaRef)):
+             # Use standard dataclass conversion but recursively encode values
+             return {f.name: self.encode(getattr(obj, f.name)) for f in fields(obj)}
+
         
         # Document Encoding
         if isinstance(obj, DocNull):

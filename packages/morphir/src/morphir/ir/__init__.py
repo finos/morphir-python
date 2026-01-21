@@ -14,6 +14,7 @@ from .distribution import Distribution, LibraryDistribution, SpecsDistribution, 
 from .meta import FileMeta, SourceRange
 from .ref import Ref, DefRef, PointerRef, FileWithDefs
 from .document import Document, DocNull, DocBool, DocInt, DocFloat, DocString, DocArray, DocObject
+from .decorations import DecorationFormat, LayerManifest, DecorationValuesFile, SchemaRef
 from . import module, package
 
 __all__ = [
@@ -62,6 +63,10 @@ __all__ = [
     "DocString",
     "DocArray",
     "DocObject",
+    "DecorationFormat",
+    "LayerManifest",
+    "DecorationValuesFile",
+    "SchemaRef",
     "module",
     "package",
 ]
