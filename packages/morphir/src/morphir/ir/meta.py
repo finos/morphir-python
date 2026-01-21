@@ -1,25 +1,27 @@
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Any
+
 
 @dataclass(frozen=True)
 class SourceRange:
-    start: Tuple[int, int]
-    end: Tuple[int, int]
+    start: tuple[int, int]
+    end: tuple[int, int]
+
 
 @dataclass(frozen=True)
 class FileMeta:
     # Provenance
-    source: Optional[str] = None
-    source_range: Optional[SourceRange] = None
-    compiler: Optional[str] = None
-    generated: Optional[str] = None # ISO 8601
-    checksum: Optional[str] = None
+    source: str | None = None
+    source_range: SourceRange | None = None
+    compiler: str | None = None
+    generated: str | None = None  # ISO 8601
+    checksum: str | None = None
 
     # Tooling
-    edited_by: Optional[str] = None
-    edited_at: Optional[str] = None # ISO 8601
-    locked: Optional[bool] = None
-    is_generated: Optional[bool] = None
+    edited_by: str | None = None
+    edited_at: str | None = None  # ISO 8601
+    locked: bool | None = None
+    is_generated: bool | None = None
 
     # Extensions
-    extensions: Dict[str, Any] = field(default_factory=dict)
+    extensions: dict[str, Any] = field(default_factory=dict)

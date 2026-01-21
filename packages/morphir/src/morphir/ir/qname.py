@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Tuple
+
+from . import name, path
 from .name import Name
 from .path import Path
-from . import name, path
+
 
 @dataclass(frozen=True)
 class QName:
@@ -10,14 +11,14 @@ class QName:
     local_name: Name
 
     @staticmethod
-    def from_tuple(t: Tuple[Path, Name]) -> "QName":
+    def from_tuple(t: tuple[Path, Name]) -> QName:
         return QName(t[0], t[1])
 
-    def to_tuple(self) -> Tuple[Path, Name]:
+    def to_tuple(self) -> tuple[Path, Name]:
         return (self.module_path, self.local_name)
 
     @staticmethod
-    def from_name(n: Name) -> "QName":
+    def from_name(n: Name) -> QName:
         return QName(path.empty(), n)
 
     def to_string(self) -> str:
@@ -26,7 +27,7 @@ class QName:
         return f"{module_str}:{local_str}"
 
     @staticmethod
-    def from_string(s: str) -> "QName":
+    def from_string(s: str) -> QName:
         parts = s.split(":")
         if len(parts) == 2:
             return QName(path.from_string(parts[0]), name.from_string(parts[1]))

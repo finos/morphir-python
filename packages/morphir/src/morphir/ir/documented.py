@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Optional
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
+
 @dataclass(frozen=True)
 class Documented(Generic[T]):
-    doc: Optional[str]
+    doc: str | None
     value: T

@@ -1,14 +1,17 @@
-from typing import NewType, List, Tuple
 import re
 
-class Name(Tuple[str, ...]):
+
+class Name(tuple[str, ...]):
     pass
 
-def from_list(words: List[str]) -> Name:
+
+def from_list(words: list[str]) -> Name:
     return Name(tuple(word.lower() for word in words))
 
-def to_list(name: Name) -> List[str]:
+
+def to_list(name: Name) -> list[str]:
     return list(name)
+
 
 def from_string(s: str) -> Name:
     # Split by common delimiters including those used in FQName (colon, hash)
@@ -17,7 +20,7 @@ def from_string(s: str) -> Name:
     words = re.split(r"[_\-\s\.:#]", s)
     # Filter empty strings
     words = [w for w in words if w]
-    
+
     result = []
     for word in words:
         # Split camelCase / PascalCase / Acronyms
@@ -27,32 +30,40 @@ def from_string(s: str) -> Name:
         # 3. [A-Z]+               : Acronym at end or isolated (e.g. SDK, ID in MakeID)
         # 4. [a-z][a-z0-9]*       : Lowercase word
         # 5. [0-9]+               : Numbers
-        parts = re.findall(r'[A-Z]+(?=[A-Z][a-z])|[A-Z][a-z0-9]+|[A-Z]+|[a-z][a-z0-9]*|[0-9]+', word)
-        
+        parts = re.findall(
+            r"[A-Z]+(?=[A-Z][a-z])|[A-Z][a-z0-9]+|[A-Z]+|[a-z][a-z0-9]*|[0-9]+", word
+        )
+
         if not parts:
-            parts = [word] # fallback
-        
+            parts = [word]  # fallback
+
         for part in parts:
             result.append(part.lower())
-            
+
     return Name(tuple(result))
+
 
 def to_title_case(name: Name) -> str:
     return "".join(word.capitalize() for word in name)
+
 
 def to_camel_case(name: Name) -> str:
     if not name:
         return ""
     return name[0] + "".join(word.capitalize() for word in name[1:])
 
+
 def to_snake_case(name: Name) -> str:
     return "_".join(name)
+
 
 def to_kebab_case(name: Name) -> str:
     return "-".join(name)
 
+
 def to_string(name: Name) -> str:
     return to_kebab_case(name)
 
-def to_human_words(name: Name) -> List[str]:
+
+def to_human_words(name: Name) -> list[str]:
     return list(name)

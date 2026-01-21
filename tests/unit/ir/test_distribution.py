@@ -1,15 +1,11 @@
-import pytest
-from morphir.ir.path import from_string as path
 from morphir.ir.distribution import (
-    PackageInfo,
+    ApplicationDistribution,
     LibraryDistribution,
-    SpecsDistribution,
-    ApplicationDistribution
+    PackageInfo,
 )
-from morphir.ir.package import (
-    Specification as PackageSpec,
-    Definition as PackageDef
-)
+from morphir.ir.package import Definition as PackageDef
+from morphir.ir.path import from_string as path
+
 
 class TestDistribution:
     def test_package_info(self):
@@ -19,20 +15,13 @@ class TestDistribution:
 
     def test_library_distribution(self):
         pi = PackageInfo(path("lib/pkg"), "1.0.0")
-        lib = LibraryDistribution(
-            package=pi,
-            definition=PackageDef(),
-            dependencies={}
-        )
+        lib = LibraryDistribution(package=pi, definition=PackageDef(), dependencies={})
         assert isinstance(lib, LibraryDistribution)
         assert lib.package == pi
 
     def test_app_distribution(self):
         pi = PackageInfo(path("app/pkg"), "1.0.0")
         app = ApplicationDistribution(
-            package=pi,
-            definition=PackageDef(),
-            dependencies={},
-            entry_points={}
+            package=pi, definition=PackageDef(), dependencies={}, entry_points={}
         )
         assert isinstance(app, ApplicationDistribution)

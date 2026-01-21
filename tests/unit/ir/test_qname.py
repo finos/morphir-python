@@ -1,7 +1,7 @@
-import pytest
 from morphir.ir.name import from_string as name_from_string
 from morphir.ir.path import from_string as path_from_string
 from morphir.ir.qname import QName
+
 
 class TestQName:
     def test_creation(self):
@@ -11,7 +11,7 @@ class TestQName:
 
     def test_to_string(self):
         qn = QName.from_string("Morphir.SDK:Int")
-        assert qn.to_string() == "morphir.sdk:int" # canonical output is lowercase path
+        assert qn.to_string() == "morphir.sdk:int"  # canonical output is lowercase path
 
     def test_from_name(self):
         n = name_from_string("foo")

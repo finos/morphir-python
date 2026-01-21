@@ -1,20 +1,18 @@
-import pytest
-from morphir.ir.name import from_string as name
-from morphir.ir.path import from_string as path
 from morphir.ir.fqname import FQName
 from morphir.ir.literal import IntegerLiteral
+from morphir.ir.name import from_string as name
 from morphir.ir.value import (
-    ValueAttributes,
-    LiteralValue,
-    Variable,
     Apply,
-    Tuple,
-    List,
+    Constructor,
     Lambda,
+    List,
+    LiteralValue,
+    Tuple,
+    ValueAttributes,
+    Variable,
     WildcardPattern,
-    AsPattern,
-    Constructor
 )
+
 
 class TestValue:
     def test_literal_value(self):
@@ -44,13 +42,16 @@ class TestValue:
         fqn = FQName.from_string("Morphir.SDK:Maybe#Just")
         c = Constructor(ValueAttributes(), fqn)
         assert c.fqname == fqn
-        
+
     def test_recursive_structures(self):
         # List of Tuples
-        tup = Tuple(ValueAttributes(), [
-            LiteralValue(ValueAttributes(), IntegerLiteral(1)),
-            Variable(ValueAttributes(), name("a"))
-        ])
+        tup = Tuple(
+            ValueAttributes(),
+            [
+                LiteralValue(ValueAttributes(), IntegerLiteral(1)),
+                Variable(ValueAttributes(), name("a")),
+            ],
+        )
         lst = List(ValueAttributes(), [tup])
         assert len(lst.elements) == 1
         assert isinstance(lst.elements[0], Tuple)

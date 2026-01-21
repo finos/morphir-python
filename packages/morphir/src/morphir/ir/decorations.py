@@ -1,22 +1,24 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
-from .fqname import FQName
+from typing import Any
+
 
 @dataclass(frozen=True)
 class SchemaRef:
     display_name: str
     local_path: str
-    entry_point: str # FQName as string for simplicity in meta structures
-    description: Optional[str] = None
-    remote_ref: Optional[str] = None
-    cached_at: Optional[str] = None
+    entry_point: str  # FQName as string for simplicity in meta structures
+    description: str | None = None
+    remote_ref: str | None = None
+    cached_at: str | None = None
+
 
 @dataclass(frozen=True)
 class DecorationFormat:
     format_version: str
-    schema_registry: Dict[str, SchemaRef] = field(default_factory=dict)
-    layers: List[str] = field(default_factory=list)
-    layer_priority: Dict[str, int] = field(default_factory=dict)
+    schema_registry: dict[str, SchemaRef] = field(default_factory=dict)
+    layers: list[str] = field(default_factory=list)
+    layer_priority: dict[str, int] = field(default_factory=dict)
+
 
 @dataclass(frozen=True)
 class LayerManifest:
@@ -26,18 +28,21 @@ class LayerManifest:
     priority: int
     created_at: str
     updated_at: str
-    description: Optional[str] = None
-    decoration_types: List[str] = field(default_factory=list)
+    description: str | None = None
+    decoration_types: list[str] = field(default_factory=list)
+
 
 @dataclass(frozen=True)
 class DecorationValuesFile:
     format_version: str
     decoration_type: str
     layer: str
-    values: Dict[str, Any] = field(default_factory=dict) # Key is FQName string
+    values: dict[str, Any] = field(default_factory=dict)  # Key is FQName string
+
 
 def deep_merge(base: Any, override: Any) -> Any:
     """Deep merge two values.
+
     - If both are dicts, merge recursively.
     - If both are lists, concatenate (override extends base).
     - Otherwise, override wins.
@@ -55,12 +60,13 @@ def deep_merge(base: Any, override: Any) -> Any:
     else:
         return override
 
-def merge_decoration_values(layers: List[Tuple[int, Dict[str, Any]]]) -> Dict[str, Any]:
+
+def merge_decoration_values(layers: list[tuple[int, dict[str, Any]]]) -> dict[str, Any]:
     """Merge decoration values from multiple layers based on priority.
-    
+
     Args:
         layers: List of (priority, values_dict) tuples.
-    
+
     Returns:
         Merged dictionary of decoration values.
     """
@@ -69,14 +75,14 @@ def merge_decoration_values(layers: List[Tuple[int, Dict[str, Any]]]) -> Dict[st
     # If priority 0 is base, and 100 is override, then 0 should be processed first, then 100 merged on top.
     # So ascending sort is correct for standard "last write wins" merge logic.
     sorted_layers = sorted(layers, key=lambda x: x[0])
-    
-    merged: Dict[str, Any] = {}
-    
+
+    merged: dict[str, Any] = {}
+
     for _, values in sorted_layers:
         for key, value in values.items():
             if key in merged:
                 merged[key] = deep_merge(merged[key], value)
             else:
                 merged[key] = value
-                
+
     return merged

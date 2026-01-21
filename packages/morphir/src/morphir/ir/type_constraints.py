@@ -1,35 +1,43 @@
 from dataclasses import dataclass, field
-from typing import Optional, Literal, List, Union
 from enum import Enum, auto
+from typing import Literal, Union
+
 from .fqname import FQName
 
 # Numeric Constraints
 IntWidth = Literal[8, 16, 32, 64]
 FloatWidth = Literal[32, 64]
 
+
 @dataclass(frozen=True)
 class Signed:
     bits: IntWidth
+
 
 @dataclass(frozen=True)
 class Unsigned:
     bits: IntWidth
 
+
 @dataclass(frozen=True)
 class FloatingPoint:
     bits: FloatWidth
 
+
 @dataclass(frozen=True)
 class Bounded:
-    min: Optional[int] = None
-    max: Optional[int] = None
+    min: int | None = None
+    max: int | None = None
+
 
 @dataclass(frozen=True)
 class Decimal:
     precision: int
     scale: int
 
+
 NumericConstraint = Union[Signed, Unsigned, FloatingPoint, Bounded, Decimal]
+
 
 # String Constraints
 class StringEncoding(Enum):
@@ -38,32 +46,38 @@ class StringEncoding(Enum):
     ASCII = auto()
     LATIN1 = auto()
 
+
 @dataclass(frozen=True)
 class StringConstraint:
-    encoding: Optional[StringEncoding] = None
-    min_length: Optional[int] = None
-    max_length: Optional[int] = None
-    pattern: Optional[str] = None
+    encoding: StringEncoding | None = None
+    min_length: int | None = None
+    max_length: int | None = None
+    pattern: str | None = None
+
 
 # Collection Constraints
 @dataclass(frozen=True)
 class CollectionConstraint:
-    min_length: Optional[int] = None
-    max_length: Optional[int] = None
+    min_length: int | None = None
+    max_length: int | None = None
     unique_items: bool = False
+
 
 # Custom Constraints
 # We use 'Any' for arguments to avoid circular dependency with Value for now
 # Ideally this should be Value, but Value depends on Type (sometimes)
 from typing import Any
+
+
 @dataclass(frozen=True)
 class CustomConstraint:
     predicate: FQName
-    arguments: List[Any]
+    arguments: list[Any]
+
 
 @dataclass(frozen=True)
 class TypeConstraints:
-    numeric: Optional[NumericConstraint] = None
-    string: Optional[StringConstraint] = None
-    collection: Optional[CollectionConstraint] = None
-    custom: List[CustomConstraint] = field(default_factory=list)
+    numeric: NumericConstraint | None = None
+    string: StringConstraint | None = None
+    collection: CollectionConstraint | None = None
+    custom: list[CustomConstraint] = field(default_factory=list)

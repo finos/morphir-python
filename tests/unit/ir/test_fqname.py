@@ -1,7 +1,7 @@
-import pytest
+from morphir.ir.fqname import FQName
 from morphir.ir.name import from_string as name_from_string
 from morphir.ir.path import from_string as path_from_string
-from morphir.ir.fqname import FQName
+
 
 class TestFQName:
     def test_creation(self):
@@ -15,7 +15,7 @@ class TestFQName:
         # Canonical: Package:Module#Name
         fqn = FQName.from_string("Morphir/SDK:Basics#Int")
         assert fqn.to_string() == "morphir/sdk:basics#int"
-        
+
         # Test camelCase input becoming kebab in canonical string
         fqn2 = FQName.from_string("Morphir:SDK#makeTuple")
         assert fqn2.to_string() == "morphir:sdk#make-tuple"

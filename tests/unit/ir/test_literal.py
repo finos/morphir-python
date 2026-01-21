@@ -1,38 +1,36 @@
-import pytest
 from decimal import Decimal
+
 from morphir.ir.literal import (
     BoolLiteral,
-    CharLiteral,
-    StringLiteral,
+    DecimalLiteral,
     IntegerLiteral,
-    FloatLiteral,
-    DecimalLiteral
+    StringLiteral,
 )
+
 
 class TestLiteral:
     def test_bool_literal(self):
-        l = BoolLiteral(True)
-        assert l.value is True
+        lit = BoolLiteral(True)
+        assert lit.value is True
 
     def test_string_literal(self):
-        l = StringLiteral("hello")
-        assert l.value == "hello"
+        lit = StringLiteral("hello")
+        assert lit.value == "hello"
 
     def test_integer_literal(self):
-        l = IntegerLiteral(42)
-        assert l.value == 42
-        
+        lit = IntegerLiteral(42)
+        assert lit.value == 42
+
     def test_decimal_literal(self):
         d = Decimal("123.456")
-        l = DecimalLiteral(d)
-        assert l.value == d
+        lit = DecimalLiteral(d)
+        assert lit.value == d
 
     def test_document_literal(self):
         from morphir.ir.document import DocString
         from morphir.ir.literal import DocumentLiteral
-        
+
         doc = DocString("json")
         lit = DocumentLiteral(doc)
         assert lit.value == doc
         assert isinstance(lit.value, DocString)
-
