@@ -40,3 +40,29 @@ class TestJsonEncoding:
             "version": "1.0.0"
         }
         assert encode(pi) == expected
+
+    def test_document_encoding(self):
+        from morphir.ir.document import DocString, DocInt, DocObject
+        from morphir.ir.literal import DocumentLiteral
+        
+        # Test basic DocString
+        doc_s = DocString("foo")
+        assert encode(doc_s) == {"DocString": "foo"}
+        
+        # Test DocInt
+        doc_i = DocInt(99)
+        assert encode(doc_i) == {"DocInt": 99}
+        
+        # Test nested DocObject
+        doc_obj = DocObject({"k": doc_i})
+        assert encode(doc_obj) == {"DocObject": {"k": {"DocInt": 99}}}
+        
+        # Test DocumentLiteral
+        lit = DocumentLiteral(doc_obj)
+        expected = {
+            "DocumentLiteral": {
+                "value": {"DocObject": {"k": {"DocInt": 99}}}
+            }
+        }
+        assert encode(lit) == expected
+

@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Union
 
+from .document import Document
+
 @dataclass(frozen=True)
 class BoolLiteral:
     value: bool
@@ -26,11 +28,16 @@ class FloatLiteral:
 class DecimalLiteral:
     value: Decimal
 
+@dataclass(frozen=True)
+class DocumentLiteral:
+    value: Document
+
 Literal = Union[
     BoolLiteral,
     CharLiteral,
     StringLiteral,
     IntegerLiteral,
     FloatLiteral,
-    DecimalLiteral
+    DecimalLiteral,
+    DocumentLiteral
 ]

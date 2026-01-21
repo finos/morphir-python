@@ -26,3 +26,13 @@ class TestLiteral:
         d = Decimal("123.456")
         l = DecimalLiteral(d)
         assert l.value == d
+
+    def test_document_literal(self):
+        from morphir.ir.document import DocString
+        from morphir.ir.literal import DocumentLiteral
+        
+        doc = DocString("json")
+        lit = DocumentLiteral(doc)
+        assert lit.value == doc
+        assert isinstance(lit.value, DocString)
+

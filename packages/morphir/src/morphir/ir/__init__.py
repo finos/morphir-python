@@ -13,6 +13,7 @@ from .value import Value, Pattern, ValueAttributes, Specification as ValueSpecif
 from .distribution import Distribution, LibraryDistribution, SpecsDistribution, ApplicationDistribution, PackageInfo, EntryPoint, EntryPointKind
 from .meta import FileMeta, SourceRange
 from .ref import Ref, DefRef, PointerRef, FileWithDefs
+from .document import Document, DocNull, DocBool, DocInt, DocFloat, DocString, DocArray, DocObject
 from . import module, package
 
 __all__ = [
@@ -53,6 +54,14 @@ __all__ = [
     "DefRef",
     "PointerRef",
     "FileWithDefs",
+    "Document",
+    "DocNull",
+    "DocBool",
+    "DocInt",
+    "DocFloat",
+    "DocString",
+    "DocArray",
+    "DocObject",
     "module",
     "package",
 ]

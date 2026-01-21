@@ -5,10 +5,11 @@ from dataclasses import asdict, is_dataclass, fields
 from .name import Name, from_string as name_from_string, to_string as name_to_string
 from .path import Path, from_string as path_from_string, to_string as path_to_string
 from .fqname import FQName
-from .literal import Literal, BoolLiteral, CharLiteral, StringLiteral, IntegerLiteral, FloatLiteral, DecimalLiteral
+from .literal import Literal, BoolLiteral, CharLiteral, StringLiteral, IntegerLiteral, FloatLiteral, DecimalLiteral, DocumentLiteral
 from .type import Type, Variable, Reference as TypeRef
 from .value import Value, LiteralValue, Variable as ValueVar
 from .distribution import Distribution, PackageInfo
+from .document import Document, DocNull, DocBool, DocInt, DocFloat, DocString, DocArray, DocObject
 
 # Placeholder for full implementation.
 # This will eventually contain robust encoders/decoders for all IR types.
@@ -26,6 +27,24 @@ class MorphirJSONEncoder:
                 "name": path_to_string(obj.name),
                 "version": obj.version
             }
+        
+        # Document Encoding
+        if isinstance(obj, DocNull):
+            return {"DocNull": {}}
+        if isinstance(obj, DocBool):
+            return {"DocBool": obj.value}
+        if isinstance(obj, DocInt):
+            return {"DocInt": obj.value}
+        if isinstance(obj, DocFloat):
+            return {"DocFloat": obj.value}
+        if isinstance(obj, DocString):
+            return {"DocString": obj.value}
+        if isinstance(obj, DocArray):
+            return {"DocArray": [self.encode(elem) for elem in obj.elements]}
+        if isinstance(obj, DocObject):
+            return {"DocObject": {k: self.encode(v) for k, v in obj.fields.items()}}
+
+        # Literal Encoding
         if isinstance(obj, (BoolLiteral, CharLiteral, StringLiteral, IntegerLiteral, FloatLiteral, DecimalLiteral)):
              # { "IntegerLiteral": { "value": 42 } }
             type_name = type(obj).__name__
@@ -34,6 +53,9 @@ class MorphirJSONEncoder:
                     "value": obj.value if not isinstance(obj, DecimalLiteral) else str(obj.value)
                 }
             }
+        if isinstance(obj, DocumentLiteral):
+             # DocumentLiteral wraps a Document
+             return {"DocumentLiteral": {"value": self.encode(obj.value)}}
         if is_dataclass(obj):
             # Generic fallback for simple dataclasses
             # Real implementation needs to handle tagged unions (Value, Type, Pattern) specifically
