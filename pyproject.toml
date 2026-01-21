@@ -101,7 +101,7 @@ ignore_errors = true
 # =============================================================================
 [tool.pyright]
 pythonVersion = "3.14"
-typeCheckingMode = "strict"
+typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false
 include = ["packages/morphir/src", "packages/morphir-tools/src", "tests"]

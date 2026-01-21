@@ -114,5 +114,5 @@ def map_attributes(tpe: Type, f: Any) -> Type:
             map_attributes(tpe.argument_type, f),
             map_attributes(tpe.return_type, f),
         )
-    elif isinstance(tpe, Unit):
+    else:
         return Unit(new_ta)
