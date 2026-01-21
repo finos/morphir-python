@@ -10,6 +10,7 @@ from .type_def import Definition as TypeDefinition
 from .documented import Documented
 from .literal import Literal, BoolLiteral, CharLiteral, StringLiteral, IntegerLiteral, FloatLiteral, DecimalLiteral
 from .value import Value, Pattern, ValueAttributes, Specification as ValueSpecification, Definition as ValueDefinition
+from .distribution import Distribution, LibraryDistribution, SpecsDistribution, ApplicationDistribution, PackageInfo, EntryPoint, EntryPointKind
 from . import module, package
 
 __all__ = [
@@ -37,6 +38,13 @@ __all__ = [
     "ValueAttributes",
     "ValueSpecification",
     "ValueDefinition",
+    "Distribution",
+    "LibraryDistribution",
+    "SpecsDistribution",
+    "ApplicationDistribution",
+    "PackageInfo",
+    "EntryPoint",
+    "EntryPointKind",
     "module",
     "package",
 ]

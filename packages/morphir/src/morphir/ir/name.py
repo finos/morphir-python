@@ -1,7 +1,8 @@
 from typing import NewType, List, Tuple
 import re
 
-Name = NewType("Name", Tuple[str, ...])
+class Name(Tuple[str, ...]):
+    pass
 
 def from_list(words: List[str]) -> Name:
     return Name(tuple(word.lower() for word in words))
@@ -49,6 +50,9 @@ def to_snake_case(name: Name) -> str:
 
 def to_kebab_case(name: Name) -> str:
     return "-".join(name)
+
+def to_string(name: Name) -> str:
+    return to_kebab_case(name)
 
 def to_human_words(name: Name) -> List[str]:
     return list(name)

@@ -1,7 +1,8 @@
 from typing import NewType, List, Tuple
 from .name import Name, from_string as name_from_string
 
-Path = NewType("Path", Tuple[Name, ...])
+class Path(Tuple[Name, ...]):
+    pass
 
 def from_list(names: List[Name]) -> Path:
     return Path(tuple(names))
