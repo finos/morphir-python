@@ -14,6 +14,7 @@ from .type import Type
 @dataclass(frozen=True)
 class SourceLocation:
     """Represents a source location (line, column)."""
+
     start_line: int
     start_column: int
     end_line: int
@@ -23,6 +24,7 @@ class SourceLocation:
 @dataclass(frozen=True)
 class ValueAttributes:
     """Attributes associated with a value."""
+
     source: SourceLocation | None = None
     inferred_type: Type | None = None
     extensions: dict[FQName, Any] = field(default_factory=dict)
@@ -32,12 +34,14 @@ class ValueAttributes:
 @dataclass(frozen=True)
 class WildcardPattern:
     """Represents a wildcard pattern (_)."""
+
     attributes: ValueAttributes
 
 
 @dataclass(frozen=True)
 class AsPattern:
     """Represents an as-pattern (alias)."""
+
     attributes: ValueAttributes
     pattern: Pattern
     name: Name
@@ -46,6 +50,7 @@ class AsPattern:
 @dataclass(frozen=True)
 class TuplePattern:
     """Represents a tuple pattern."""
+
     attributes: ValueAttributes
     elements: TList[Pattern]
 
@@ -53,6 +58,7 @@ class TuplePattern:
 @dataclass(frozen=True)
 class ConstructorPattern:
     """Represents a constructor pattern."""
+
     attributes: ValueAttributes
     constructor: FQName
     args: TList[Pattern]
@@ -61,12 +67,14 @@ class ConstructorPattern:
 @dataclass(frozen=True)
 class EmptyListPattern:
     """Represents an empty list pattern."""
+
     attributes: ValueAttributes
 
 
 @dataclass(frozen=True)
 class HeadTailPattern:
     """Represents a head-tail list pattern."""
+
     attributes: ValueAttributes
     head: Pattern
     tail: Pattern
@@ -75,6 +83,7 @@ class HeadTailPattern:
 @dataclass(frozen=True)
 class LiteralPattern:
     """Represents a literal pattern."""
+
     attributes: ValueAttributes
     literal: Literal
 
@@ -82,6 +91,7 @@ class LiteralPattern:
 @dataclass(frozen=True)
 class UnitPattern:
     """Represents a unit pattern."""
+
     attributes: ValueAttributes
 
 
@@ -102,6 +112,7 @@ Pattern = Union[
 @dataclass(frozen=True)
 class LiteralValue:
     """Represents a literal value."""
+
     attributes: ValueAttributes
     literal: Literal
 
@@ -109,6 +120,7 @@ class LiteralValue:
 @dataclass(frozen=True)
 class Constructor:
     """Represents a constructor value."""
+
     attributes: ValueAttributes
     fqname: FQName
 
@@ -116,6 +128,7 @@ class Constructor:
 @dataclass(frozen=True)
 class Tuple:
     """Represents a Tuple value."""
+
     attributes: ValueAttributes
     elements: TList["Value"]
 
@@ -123,6 +136,7 @@ class Tuple:
 @dataclass(frozen=True)
 class List:
     """Represents a List value."""
+
     attributes: ValueAttributes
     elements: TList["Value"]
 
@@ -130,6 +144,7 @@ class List:
 @dataclass(frozen=True)
 class Record:
     """Represents a Record value."""
+
     attributes: ValueAttributes
     fields: TList[TTuple[Name, "Value"]]
 
@@ -137,6 +152,7 @@ class Record:
 @dataclass(frozen=True)
 class Variable:
     """Represents a variable reference."""
+
     attributes: ValueAttributes
     name: Name
 
@@ -144,6 +160,7 @@ class Variable:
 @dataclass(frozen=True)
 class Reference:
     """Represents a reference to a fully qualified name."""
+
     attributes: ValueAttributes
     fqname: FQName
 
@@ -151,6 +168,7 @@ class Reference:
 @dataclass(frozen=True)
 class Field:
     """Represents a field access."""
+
     attributes: ValueAttributes
     subject: Value
     field_name: Name
@@ -159,6 +177,7 @@ class Field:
 @dataclass(frozen=True)
 class FieldFunction:
     """Represents a field accessor function."""
+
     attributes: ValueAttributes
     name: Name
 
@@ -166,6 +185,7 @@ class FieldFunction:
 @dataclass(frozen=True)
 class Apply:
     """Represents function application."""
+
     attributes: ValueAttributes
     function: Value
     argument: Value
@@ -174,6 +194,7 @@ class Apply:
 @dataclass(frozen=True)
 class Lambda:
     """Represents a lambda abstraction."""
+
     attributes: ValueAttributes
     pattern: Pattern
     body: Value
@@ -182,6 +203,7 @@ class Lambda:
 @dataclass(frozen=True)
 class LetDefinition:
     """Represents a let definition."""
+
     attributes: ValueAttributes
     name: Name
     definition: Definition
@@ -191,6 +213,7 @@ class LetDefinition:
 @dataclass(frozen=True)
 class LetRecursion:
     """Represents a recursive let binding."""
+
     attributes: ValueAttributes
     definitions: dict[Name, Definition]
     in_value: Value
@@ -199,6 +222,7 @@ class LetRecursion:
 @dataclass(frozen=True)
 class Destructure:
     """Represents a destructuring let binding."""
+
     attributes: ValueAttributes
     pattern: Pattern
     value_to_destructure: Value
@@ -208,6 +232,7 @@ class Destructure:
 @dataclass(frozen=True)
 class IfThenElse:
     """Represents an if-then-else expression."""
+
     attributes: ValueAttributes
     condition: Value
     then_branch: Value
@@ -217,6 +242,7 @@ class IfThenElse:
 @dataclass(frozen=True)
 class PatternMatch:
     """Represents a pattern match expression."""
+
     attributes: ValueAttributes
     branch_on: Value
     cases: TList[TTuple[Pattern, Value]]
@@ -225,6 +251,7 @@ class PatternMatch:
 @dataclass(frozen=True)
 class UpdateRecord:
     """Represents a record update."""
+
     attributes: ValueAttributes
     value_to_update: Value
     fields: TList[TTuple[Name, Value]]
@@ -233,12 +260,14 @@ class UpdateRecord:
 @dataclass(frozen=True)
 class Unit:
     """Represents the Unit value."""
+
     attributes: ValueAttributes
 
 
 @dataclass(frozen=True)
 class Hole:
     """Represents a hole in the AST."""
+
     attributes: ValueAttributes
     reason: Any
     expected_type: Type | None
@@ -247,6 +276,7 @@ class Hole:
 @dataclass(frozen=True)
 class Native:
     """Represents a native reference."""
+
     attributes: ValueAttributes
     fqname: FQName
     native_info: Any
@@ -255,6 +285,7 @@ class Native:
 @dataclass(frozen=True)
 class External:
     """Represents an external reference."""
+
     attributes: ValueAttributes
     external_name: str
     target_platform: str
@@ -290,6 +321,7 @@ Value = (
 @dataclass(frozen=True)
 class Specification:
     """Value specification."""
+
     inputs: TList[TTuple[Name, Type]]
     output: Type
 
@@ -297,6 +329,7 @@ class Specification:
 @dataclass(frozen=True)
 class Definition:
     """Value definition."""
+
     input_types: TList[TTuple[Name, ValueAttributes, Type]]
     output_type: Type
     body: Value

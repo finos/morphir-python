@@ -14,6 +14,7 @@ Constructors = dict[Name, ConstructorArgs]
 @dataclass(frozen=True)
 class TypeAliasSpecification:
     """Specification for a type alias."""
+
     type_params: list[Name]
     tpe: Type
 
@@ -21,12 +22,14 @@ class TypeAliasSpecification:
 @dataclass(frozen=True)
 class OpaqueTypeSpecification:
     """Specification for an opaque type."""
+
     type_params: list[Name]
 
 
 @dataclass(frozen=True)
 class CustomTypeSpecification:
     """Specification for a custom type (ADT)."""
+
     type_params: list[Name]
     constructors: Constructors
 
@@ -34,6 +37,7 @@ class CustomTypeSpecification:
 @dataclass(frozen=True)
 class DerivedTypeSpecificationDetails:
     """Details for a derived type."""
+
     base_type: Type
     from_base_type: FQName
     to_base_type: FQName
@@ -42,6 +46,7 @@ class DerivedTypeSpecificationDetails:
 @dataclass(frozen=True)
 class DerivedTypeSpecification:
     """Specification for a derived type."""
+
     type_params: list[Name]
     details: DerivedTypeSpecificationDetails
 
