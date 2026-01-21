@@ -19,9 +19,14 @@ def test_module_definition():
     
     # Test adding a private value
     # value spec/def are placeholders for now
-    from morphir.ir.value import Definition as ValueDef
+    from morphir.ir.value import Definition as ValueDef, Unit, ValueAttributes
+    from morphir.ir.type import Unit as UnitType, TypeAttributes
     
-    val_def = ValueDef()
+    val_def = ValueDef(
+        input_types=[],
+        output_type=UnitType(TypeAttributes()),
+        body=Unit(ValueAttributes())
+    )
     doc_val = Documented(doc="A Value", value=val_def)
     access_val = Private(doc_val)
     

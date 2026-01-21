@@ -8,6 +8,8 @@ from .type import Type, TypeAttributes, Field
 from .type_spec import Specification as TypeSpecification
 from .type_def import Definition as TypeDefinition
 from .documented import Documented
+from .literal import Literal, BoolLiteral, CharLiteral, StringLiteral, IntegerLiteral, FloatLiteral, DecimalLiteral
+from .value import Value, Pattern, ValueAttributes, Specification as ValueSpecification, Definition as ValueDefinition
 from . import module, package
 
 __all__ = [
@@ -23,6 +25,18 @@ __all__ = [
     "TypeSpecification",
     "TypeDefinition",
     "Documented",
+    "Literal",
+    "BoolLiteral",
+    "CharLiteral", 
+    "StringLiteral", 
+    "IntegerLiteral", 
+    "FloatLiteral", 
+    "DecimalLiteral",
+    "Value", 
+    "Pattern",
+    "ValueAttributes",
+    "ValueSpecification",
+    "ValueDefinition",
     "module",
     "package",
 ]
