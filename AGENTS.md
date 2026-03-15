@@ -138,6 +138,7 @@ def map_list(func: Callable[[T], U], items: Sequence[T]) -> list[U]:
 
 Use structural pattern matching for handling sum types:
 
+{% raw %}
 ```python
 def type_to_string(t: Type) -> str:
     match t:
@@ -149,6 +150,7 @@ def type_to_string(t: Type) -> str:
         case UnitType():
             return "()"
 ```
+{% endraw %}
 
 ## Code Style
 
