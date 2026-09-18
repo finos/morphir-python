@@ -51,9 +51,35 @@ dependencies and does no IO.
 | `morphir.sdk.decimal` | `Morphir.SDK.Decimal` | `decimal.Decimal` |
 | `morphir.sdk.int` | `Morphir.SDK.Int` | `Int8`, `Int16`, `Int32`, `Int64` (`NewType` over `int`) |
 | `morphir.sdk.number` | `Morphir.SDK.Number` | `Number`, an exact rational |
+| `morphir.sdk.local_date` | `Morphir.SDK.LocalDate` | `datetime.date`, no time zone |
+| `morphir.sdk.local_time` | `Morphir.SDK.LocalTime` | `LocalTime`, milliseconds from the epoch |
+| `morphir.sdk.instant` | `Morphir.SDK.Instant` | `Instant`, milliseconds from the epoch |
+| `morphir.sdk.uuid` | `Morphir.SDK.UUID` | `uuid.UUID` |
+| `morphir.sdk.regex` | `Morphir.SDK.Regex` | `Regex` over the `re` module |
+| `morphir.sdk.aggregate` | `Morphir.SDK.Aggregate` | `Aggregation`, `Operator` |
+| `morphir.sdk.rule` | `Morphir.SDK.Rule` | `Callable[[A], Maybe[B]]` |
+| `morphir.sdk.key` | `Morphir.SDK.Key` | `int` and flat tuples |
+| `morphir.sdk.stateful_app` | `Morphir.SDK.StatefulApp` | `StatefulApp` |
+| `morphir.sdk.result_list` | `Morphir.SDK.ResultList` | `tuple[Result[E, A], ...]` |
 
-Not included yet: `LocalDate`, `LocalTime`, `Instant`, `UUID`, `Regex`,
-`Aggregate`, `Rule`, `Key`, `StatefulApp`, `ResultList` and `Json`.
+This is every module of the `Morphir.SDK` package specification. The `Json`
+modules of morphir-elm are not part of that specification and are not included.
+
+Notes on the modules beyond elm/core:
+
+- `instant.Instant` is its own class over a number of milliseconds, not an alias
+  of `datetime.datetime`, so a naive `datetime` cannot pass as an instant. Use
+  `instant.from_datetime` and `instant.to_datetime` to convert.
+- `local_time.LocalTime` is a point in time, not a time of day. In Elm it is an
+  alias of `Time.Posix`, so it does not go around midnight.
+- `regex` patterns use Python `re` syntax, which differs from JavaScript in
+  places (named groups are `(?P<name>...)`, `\d` and `\w` follow Unicode). The
+  module docstring lists the differences.
+- `aggregate` leaves out the part of the Elm module that inspects Morphir IR
+  values (`constructAggregationCall`); the specification does not list it.
+  `aggregate.aggregate` yields its rows in ascending key order.
+- `key.Key4` and larger are flat tuples. Elm nests them only because an Elm tuple
+  holds three elements at most; the order of two keys is the same.
 
 ### Conventions
 
