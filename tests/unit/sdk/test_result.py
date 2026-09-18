@@ -66,3 +66,17 @@ class TestResultFunctions:
     def test_from_maybe(self) -> None:
         assert result.from_maybe("missing", Just(1)) == Ok(1)
         assert result.from_maybe("missing", Nothing()) == Err("missing")
+
+
+class TestFirstError:
+    def test_every_position_can_hold_the_first_error(self) -> None:
+        functions = {
+            2: result.map2,
+            3: result.map3,
+            4: result.map4,
+            5: result.map5,
+        }
+        for arity, function in functions.items():
+            for position in range(arity):
+                args = [Err(f"e{i}") if i >= position else Ok(i) for i in range(arity)]
+                assert function(_add, *args) == Err(f"e{position}")
