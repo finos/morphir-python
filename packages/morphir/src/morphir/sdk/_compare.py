@@ -6,6 +6,7 @@ anything else. Python has no such check, so `compare` raises `TypeError` at run
 time instead.
 """
 
+import dataclasses
 from enum import Enum
 from functools import cmp_to_key
 from typing import TYPE_CHECKING, Any
@@ -118,9 +119,47 @@ def search[K: Comparable, T](
     return (False, low)
 
 
+def freeze(value: Any) -> Any:
+    """Turn every list inside a comparable value into a tuple.
+
+    `Dict` and `Set` keep their keys in sorted order. A list key that changed
+    after it was stored would break that order, and a list cannot be hashed. A
+    stored key is therefore always the tuple form. A value with no list in it is
+    returned as it is.
+    """
+    if isinstance(value, list):
+        return tuple(freeze(item) for item in value)
+    if isinstance(value, tuple):
+        frozen = tuple(freeze(item) for item in value)
+        if all(new is old for new, old in zip(frozen, value, strict=True)):
+            return value
+        return frozen
+    return value
+
+
+def check_strictly_ascending(keys: Sequence[Any], owner: str) -> None:
+    """Check that keys are sorted in ascending order and that none repeats.
+
+    Raises:
+        ValueError: If a key is not greater than the key before it.
+        TypeError: If two keys are not comparable with each other.
+    """
+    for index in range(1, len(keys)):
+        if compare(keys[index - 1], keys[index]) is not Order.LT:
+            raise ValueError(
+                f"{owner}: entries must be sorted by key with no key twice; "
+                f"use from_list to build one from entries in any order"
+            )
+
+
 def _contains_function(value: object) -> bool:
     if isinstance(value, (tuple, list)):
         return any(_contains_function(item) for item in value)
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return any(
+            _contains_function(getattr(value, field.name))
+            for field in dataclasses.fields(value)
+        )
     return callable(value) and not isinstance(value, type)
 
 
@@ -139,8 +178,9 @@ def equal(a: object, b: object) -> bool:
         True when the two values are structurally equal.
 
     Raises:
-        TypeError: If a value is a function, or a tuple or list that contains a
-            function. Elm's runtime also fails on these values.
+        TypeError: If a value is a function, or holds a function anywhere
+            inside a tuple, a list or an SDK data type such as `Just`, `Ok` or
+            `Dict`. Elm's runtime also fails on these values.
     """
     if _contains_function(a) or _contains_function(b):
         raise TypeError("equal: cannot compare functions")

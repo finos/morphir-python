@@ -64,9 +64,23 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class Dict[K: Comparable, V]:
-    """An immutable dictionary with its entries sorted by key."""
+    """An immutable dictionary with its entries sorted by key.
+
+    Use `from_list`, `singleton` or `insert` to build one. The constructor
+    accepts only entries that are already sorted by key with no key twice, and
+    stores every list inside a key as a tuple.
+
+    Raises:
+        ValueError: If the entries are not sorted by key, or a key repeats.
+        TypeError: If two keys are not comparable with each other.
+    """
 
     entries: tuple[tuple[K, V], ...] = ()
+
+    def __post_init__(self) -> None:
+        entries = tuple((_compare.freeze(key), value) for key, value in self.entries)
+        _compare.check_strictly_ascending([key for key, _ in entries], "Dict")
+        object.__setattr__(self, "entries", entries)
 
 
 def _key_of[K: Comparable, V](entry: tuple[K, V]) -> K:

@@ -46,7 +46,8 @@ class TestBuild:
 
     def test_list_keys(self) -> None:
         d = dict_.from_list((([2, 1], "x"), ([1, 9], "y")))
-        assert dict_.keys(d) == ([1, 9], [2, 1])
+        # A list key is stored as a tuple, so a later change cannot reorder it.
+        assert dict_.keys(d) == ((1, 9), (2, 1))
         assert dict_.get([2, 1], d) == Just("x")
 
     def test_float_and_int_keys_mix(self) -> None:

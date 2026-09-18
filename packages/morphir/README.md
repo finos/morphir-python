@@ -85,9 +85,18 @@ Not included yet: `LocalDate`, `LocalTime`, `Instant`, `UUID`, `Regex`,
   `basics.compare`, `list.sort` and so on must be numbers, strings, or tuples or
   lists of these. Other values (also `bool`, and a mix of `int` and `str`) raise
   `TypeError`, because Python has no compile-time check for Elm's `comparable`.
+  A list inside a key or member is stored as a tuple, so a later change to the
+  list cannot break the sorted order, and the value stays hashable. Build a
+  `Dict` or `Set` with `from_list`, `singleton` or `insert`; the class constructor
+  accepts only entries that are already sorted, and raises `ValueError` otherwise.
 - **Failures.** Where Elm's runtime fails, the Python function raises:
-  `basics.mod_by(0, x)` raises `ZeroDivisionError`, and `basics.equal` on
-  functions raises `TypeError`.
+  `basics.mod_by(0, x)` raises `ZeroDivisionError`, and `basics.equal` raises
+  `TypeError` on a function, also one held inside a tuple, a list, a `Maybe`, a
+  `Result`, a `Dict` or a `Set`.
+- **Powers stay real.** `basics.power` follows JavaScript `Math.pow`, as the Elm
+  runtime does: `power(-1.0, 0.5)` is `NaN` and `power(0.0, -1.0)` is infinity,
+  where Python `**` gives a complex number and raises. Two integers with an
+  exponent of zero or more give an exact integer.
 
 ### Departures from Elm
 

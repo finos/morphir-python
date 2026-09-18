@@ -53,9 +53,23 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class Set[A: Comparable]:
-    """An immutable set with its members sorted."""
+    """An immutable set with its members sorted.
+
+    Use `from_list`, `singleton` or `insert` to build one. The constructor
+    accepts only members that are already sorted with no member twice, and
+    stores every list inside a member as a tuple.
+
+    Raises:
+        ValueError: If the members are not sorted, or a member repeats.
+        TypeError: If two members are not comparable with each other.
+    """
 
     entries: tuple[A, ...] = ()
+
+    def __post_init__(self) -> None:
+        entries = tuple(_compare.freeze(member) for member in self.entries)
+        _compare.check_strictly_ascending(entries, "Set")
+        object.__setattr__(self, "entries", entries)
 
 
 def _identity[A](value: A) -> A:

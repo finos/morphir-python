@@ -25,7 +25,7 @@ Departures from Elm:
 
 import builtins
 import math
-from typing import TYPE_CHECKING, Never, overload
+from typing import TYPE_CHECKING, Any, Never, overload
 
 from morphir.sdk import _compare
 from morphir.sdk._compare import Comparable, Order
@@ -133,10 +133,61 @@ def integer_divide(a: int, b: int) -> int:
     return quotient if (a < 0) == (b < 0) else -quotient
 
 
+def _is_odd_integer(value: float) -> bool:
+    return value.is_integer() and value % 2 == 1
+
+
+def _float_power(base: float, exponent: float) -> float:
+    if math.isnan(exponent):
+        return math.nan
+    if exponent == 0:
+        return 1.0
+    if math.isnan(base) or (math.isinf(exponent) and abs(base) == 1):
+        return math.nan
+    negative = math.copysign(1.0, base) < 0 and _is_odd_integer(exponent)
+    try:
+        return math.pow(base, exponent)
+    except ValueError:
+        # Zero to a negative power is an infinity. A negative base with an
+        # exponent that is not an integer has no real result.
+        if base == 0:
+            return -math.inf if negative else math.inf
+        return math.nan
+    except OverflowError:
+        return -math.inf if negative else math.inf
+
+
 def power[N: (int, float)](base: N, exponent: N) -> N:
-    """Raise a number to a power (Elm `^`)."""
-    result: N = base**exponent
-    return result
+    """Raise a number to a power (Elm `^`).
+
+    Two integers with an exponent of zero or more give an exact integer. Every
+    other case follows JavaScript `Math.pow`, as the Elm runtime does, so the
+    result is always a real number, `NaN` or an infinity: `power(-1.0, 0.5)` is
+    `NaN` and `power(0.0, -1.0)` is infinity. Python `**` gives a complex number
+    for the first and raises for the second.
+
+    An integer with a negative exponent gives a float (`power(2, -1)` is 0.5),
+    as it does in Elm at run time.
+    """
+    if (
+        isinstance(base, int)
+        and isinstance(exponent, int)
+        and not isinstance(base, bool)
+        and not isinstance(exponent, bool)
+        and exponent >= 0
+    ):
+        exact: N = base**exponent
+        return exact
+    try:
+        real = _float_power(float(base), float(exponent))
+    except OverflowError:
+        # An integer too large for a float.
+        negative = base < 0 and _is_odd_integer(float(exponent))
+        real = -math.inf if negative else math.inf
+    # The result is a float even when N is int: an integer with a negative
+    # exponent has no integer result, in Elm as here.
+    result: Any = real
+    return result  # type: ignore[no-any-return]
 
 
 def to_float(a: int) -> float:
