@@ -1,0 +1,144 @@
+"""Ordering and structural equality shared by the SDK modules.
+
+Elm's `compare` works on the comparable types only: `Int`, `Float`, `Char`,
+`String`, and tuples or lists of comparables. The Elm type checker rejects
+anything else. Python has no such check, so `compare` raises `TypeError` at run
+time instead.
+"""
+
+from enum import Enum
+from functools import cmp_to_key
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+
+class Order(Enum):
+    """The result of a comparison: less than, equal or greater than."""
+
+    LT = "LT"
+    EQ = "EQ"
+    GT = "GT"
+
+
+type Comparable = int | float | str | Sequence[Comparable]
+"""The Elm comparable types: numbers, strings, and sequences of comparables."""
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _order(a: Any, b: Any) -> Order:
+    if a < b:
+        return Order.LT
+    if a > b:
+        return Order.GT
+    return Order.EQ
+
+
+def compare(a: object, b: object) -> Order:
+    """Compare two comparable values.
+
+    Numbers compare by value and strings by code point. Tuples and lists compare
+    element by element; when one is a prefix of the other, the shorter one is
+    less.
+
+    Args:
+        a: The first value.
+        b: The second value.
+
+    Returns:
+        `Order.LT`, `Order.EQ` or `Order.GT`.
+
+    Raises:
+        TypeError: If the values are not comparable, or not of the same kind
+            (for example an `int` and a `str`, or two `bool` values).
+    """
+    if _is_number(a) and _is_number(b):
+        return _order(a, b)
+    if isinstance(a, str) and isinstance(b, str):
+        return _order(a, b)
+    if isinstance(a, (tuple, list)) and isinstance(b, (tuple, list)):
+        for x, y in zip(a, b, strict=False):
+            order = compare(x, y)
+            if order is not Order.EQ:
+                return order
+        return _order(len(a), len(b))
+    raise TypeError(
+        f"compare: values are not comparable "
+        f"({type(a).__name__} and {type(b).__name__})"
+    )
+
+
+def to_int(order: Order) -> int:
+    """Convert an `Order` to the -1, 0 or 1 that Python sort functions expect."""
+    if order is Order.LT:
+        return -1
+    if order is Order.GT:
+        return 1
+    return 0
+
+
+def sort_key[A](by: Callable[[A, A], Order]) -> Callable[[A], Any]:
+    """Build a `key` function for `sorted` from a function that yields an `Order`."""
+    return cmp_to_key(lambda a, b: to_int(by(a, b)))
+
+
+def search[K: Comparable](key: K, keys: Sequence[K]) -> tuple[bool, int]:
+    """Find a key in a sequence of keys sorted in ascending order.
+
+    Args:
+        key: The key to find.
+        keys: The sorted keys, with no duplicates.
+
+    Returns:
+        A pair `(found, index)`. When `found` is true, `index` is the position
+        of the key. Otherwise `index` is the position where the key must go to
+        keep the sequence sorted.
+
+    Raises:
+        TypeError: If the key is not comparable with the keys in the sequence.
+    """
+    low = 0
+    high = len(keys)
+    while low < high:
+        middle = (low + high) // 2
+        order = compare(keys[middle], key)
+        if order is Order.EQ:
+            return (True, middle)
+        if order is Order.LT:
+            low = middle + 1
+        else:
+            high = middle
+    return (False, low)
+
+
+def _contains_function(value: object) -> bool:
+    if isinstance(value, (tuple, list)):
+        return any(_contains_function(item) for item in value)
+    return callable(value) and not isinstance(value, type)
+
+
+def equal(a: object, b: object) -> bool:
+    """Check structural equality, like Elm's `==`.
+
+    Frozen dataclasses, tuples, strings, numbers, `Decimal`, `Dict` and `Set`
+    values all compare by value in Python, so this function uses `==`. `NaN` is
+    not equal to itself, as in Elm.
+
+    Args:
+        a: The first value.
+        b: The second value.
+
+    Returns:
+        True when the two values are structurally equal.
+
+    Raises:
+        TypeError: If a value is a function, or a tuple or list that contains a
+            function. Elm's runtime also fails on these values.
+    """
+    if _contains_function(a) or _contains_function(b):
+        raise TypeError("equal: cannot compare functions")
+    return bool(a == b)
