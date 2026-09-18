@@ -86,26 +86,29 @@ def sort_key[A](by: Callable[[A, A], Order]) -> Callable[[A], Any]:
     return cmp_to_key(lambda a, b: to_int(by(a, b)))
 
 
-def search[K: Comparable](key: K, keys: Sequence[K]) -> tuple[bool, int]:
-    """Find a key in a sequence of keys sorted in ascending order.
+def search[K: Comparable, T](
+    key: K, items: Sequence[T], key_of: Callable[[T], K]
+) -> tuple[bool, int]:
+    """Find a key in a sequence of items sorted by key in ascending order.
 
     Args:
         key: The key to find.
-        keys: The sorted keys, with no duplicates.
+        items: The sorted items, with no key twice.
+        key_of: A function that gives the key of an item.
 
     Returns:
         A pair `(found, index)`. When `found` is true, `index` is the position
-        of the key. Otherwise `index` is the position where the key must go to
-        keep the sequence sorted.
+        of the item with the key. Otherwise `index` is the position where the
+        key must go to keep the sequence sorted.
 
     Raises:
         TypeError: If the key is not comparable with the keys in the sequence.
     """
     low = 0
-    high = len(keys)
+    high = len(items)
     while low < high:
         middle = (low + high) // 2
-        order = compare(keys[middle], key)
+        order = compare(key_of(items[middle]), key)
         if order is Order.EQ:
             return (True, middle)
         if order is Order.LT:
