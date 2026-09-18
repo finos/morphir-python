@@ -13,7 +13,7 @@ This monorepo contains two packages:
 
 | Package | Description | PyPI |
 |---------|-------------|------|
-| `morphir` | Core library - IR models, types, and functional domain modeling primitives | [![PyPI](https://img.shields.io/pypi/v/morphir)](https://pypi.org/project/morphir/) |
+| `morphir` | Core library - IR models, the Morphir SDK runtime (`morphir.sdk`), types, and functional domain modeling primitives | [![PyPI](https://img.shields.io/pypi/v/morphir)](https://pypi.org/project/morphir/) |
 | `morphir-tools` | CLI tools and extensions for working with Morphir | [![PyPI](https://img.shields.io/pypi/v/morphir-tools)](https://pypi.org/project/morphir-tools/) |
 
 ## Installation
@@ -53,6 +53,41 @@ from morphir.ir import Type, Value
 
 # Example usage will be added as the library develops
 ```
+
+## Morphir SDK
+
+`morphir.sdk` is the Python runtime for the Morphir SDK, the standard library that
+Morphir models compile against. It covers the core modules of the
+`Morphir.IR.SDK` specification: `basics`, `char`, `string`, `list`, `dict`, `set`,
+`maybe`, `result`, `tuple`, `decimal`, `int` and `number`. The behaviour follows
+elm/core 1.0.5 and the `Morphir.SDK` Elm runtime.
+
+```python
+from morphir.sdk import basics
+from morphir.sdk import decimal as Decimal
+from morphir.sdk import dict as Dict
+from morphir.sdk import list as List
+from morphir.sdk import maybe as Maybe
+from morphir.sdk.maybe import Just, Nothing
+
+# Elm argument order, data last, not curried
+List.map(lambda n: n * 2, (1, 2, 3))            # (2, 4, 6)
+Maybe.with_default(0, List.head(()))            # 0
+
+# Immutable Dict, sorted by structural comparable keys
+prices = Dict.from_list(((("EUR", 2), 1.5), (("EUR", 1), 1.2)))
+Dict.keys(prices)                               # (("EUR", 1), ("EUR", 2))
+Dict.get(("EUR", 1), prices)                    # Just(value=1.2)
+
+# Elm number rules
+basics.round(2.5)                               # 3, not Python's 2
+basics.integer_divide(-7, 2)                    # -3
+Decimal.to_string(Decimal.add(Decimal.tenth(1), Decimal.tenth(2)))  # "0.3"
+```
+
+Names are the Elm names in snake_case (`withDefault` is `with_default`). See the
+[`morphir` package README](packages/morphir/README.md#morphir-sdk) for the
+conventions and the list of departures from Elm.
 
 ## Requirements
 
@@ -119,10 +154,11 @@ This project follows functional programming principles:
 ## Roadmap
 
 1. Core IR model implementation
-2. JSON serialization/deserialization
-3. Type checking and validation
-4. Code generation backends
-5. CLI tooling
+2. Morphir SDK runtime (`morphir.sdk`) - core modules done
+3. JSON serialization/deserialization
+4. Type checking and validation
+5. Code generation backends
+6. CLI tooling
 
 ## Contributing
 
