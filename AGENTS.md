@@ -25,6 +25,7 @@ morphir-python/
 - Morphir IR (Intermediate Representation) models
 - Type definitions and type algebra
 - Pure functional primitives
+- Morphir SDK runtime (`morphir.sdk`): Basics, Char, String, List, Dict, Set, Maybe, Result, Tuple, Decimal, Int, Number
 - Zero CLI or IO dependencies
 - Should be usable as a standalone library
 
