@@ -21,7 +21,7 @@ int           Morphir.SDK.Int          `Int8`, `Int16`, `Int32`, `Int64`
 number        Morphir.SDK.Number       `Number`, an exact rational
 local_date    Morphir.SDK.LocalDate    `datetime.date`
 local_time    Morphir.SDK.LocalTime    `LocalTime`, milliseconds from the epoch
-instant       Morphir.SDK.Instant      `datetime.datetime` with a time zone
+instant       Morphir.SDK.Instant      `Instant`, milliseconds from the epoch
 uuid          Morphir.SDK.UUID         `uuid.UUID`
 regex         Morphir.SDK.Regex        `Regex` over the `re` module
 aggregate     Morphir.SDK.Aggregate    `Aggregation`, `Operator`

@@ -53,7 +53,7 @@ dependencies and does no IO.
 | `morphir.sdk.number` | `Morphir.SDK.Number` | `Number`, an exact rational |
 | `morphir.sdk.local_date` | `Morphir.SDK.LocalDate` | `datetime.date`, no time zone |
 | `morphir.sdk.local_time` | `Morphir.SDK.LocalTime` | `LocalTime`, milliseconds from the epoch |
-| `morphir.sdk.instant` | `Morphir.SDK.Instant` | `datetime.datetime` with a time zone |
+| `morphir.sdk.instant` | `Morphir.SDK.Instant` | `Instant`, milliseconds from the epoch |
 | `morphir.sdk.uuid` | `Morphir.SDK.UUID` | `uuid.UUID` |
 | `morphir.sdk.regex` | `Morphir.SDK.Regex` | `Regex` over the `re` module |
 | `morphir.sdk.aggregate` | `Morphir.SDK.Aggregate` | `Aggregation`, `Operator` |
@@ -67,6 +67,9 @@ modules of morphir-elm are not part of that specification and are not included.
 
 Notes on the modules beyond elm/core:
 
+- `instant.Instant` is its own class over a number of milliseconds, not an alias
+  of `datetime.datetime`, so a naive `datetime` cannot pass as an instant. Use
+  `instant.from_datetime` and `instant.to_datetime` to convert.
 - `local_time.LocalTime` is a point in time, not a time of day. In Elm it is an
   alias of `Time.Posix`, so it does not go around midnight.
 - `regex` patterns use Python `re` syntax, which differs from JavaScript in
