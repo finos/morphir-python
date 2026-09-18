@@ -4,22 +4,32 @@ Each module mirrors one `Morphir.SDK` module. The set of functions is the
 `Morphir.IR.SDK.*` package specification of finos/morphir-elm. The reference
 behaviour is elm/core 1.0.5 plus the `Morphir.SDK.*` Elm runtime.
 
-========  ======================  =========================================
-Module    Elm module              Python data
-========  ======================  =========================================
-basics    Morphir.SDK.Basics      `int`, `float`, `bool`, `Order`
-char      Morphir.SDK.Char        `str` with one code point
-string    Morphir.SDK.String      `str`
-list      Morphir.SDK.List        `tuple[A, ...]`
-dict      Morphir.SDK.Dict        `Dict[K, V]`, sorted by key
-set       Morphir.SDK.Set         `Set[A]`, sorted
-maybe     Morphir.SDK.Maybe       `Just[A] | Nothing`
-result    Morphir.SDK.Result      `Ok[A] | Err[E]`
-tuple     Morphir.SDK.Tuple       `tuple[A, B]`
-decimal   Morphir.SDK.Decimal     `decimal.Decimal`
-int       Morphir.SDK.Int         `Int8`, `Int16`, `Int32`, `Int64`
-number    Morphir.SDK.Number      `Number`, an exact rational
-========  ======================  =========================================
+============  =======================  ========================================
+Module        Elm module               Python data
+============  =======================  ========================================
+basics        Morphir.SDK.Basics       `int`, `float`, `bool`, `Order`
+char          Morphir.SDK.Char         `str` with one code point
+string        Morphir.SDK.String       `str`
+list          Morphir.SDK.List         `tuple[A, ...]`
+dict          Morphir.SDK.Dict         `Dict[K, V]`, sorted by key
+set           Morphir.SDK.Set          `Set[A]`, sorted
+maybe         Morphir.SDK.Maybe        `Just[A] | Nothing`
+result        Morphir.SDK.Result       `Ok[A] | Err[E]`
+tuple         Morphir.SDK.Tuple        `tuple[A, B]`
+decimal       Morphir.SDK.Decimal      `decimal.Decimal`
+int           Morphir.SDK.Int          `Int8`, `Int16`, `Int32`, `Int64`
+number        Morphir.SDK.Number       `Number`, an exact rational
+local_date    Morphir.SDK.LocalDate    `datetime.date`
+local_time    Morphir.SDK.LocalTime    `LocalTime`, milliseconds from the epoch
+instant       Morphir.SDK.Instant      `datetime.datetime` with a time zone
+uuid          Morphir.SDK.UUID         `uuid.UUID`
+regex         Morphir.SDK.Regex        `Regex` over the `re` module
+aggregate     Morphir.SDK.Aggregate    `Aggregation`, `Operator`
+rule          Morphir.SDK.Rule         `Callable[[A], Maybe[B]]`
+key           Morphir.SDK.Key          `int` and flat tuples
+stateful_app  Morphir.SDK.StatefulApp  `StatefulApp`
+result_list   Morphir.SDK.ResultList   `tuple[Result[E, A], ...]`
+============  =======================  ========================================
 
 Conventions:
 
@@ -50,31 +60,51 @@ This package has no dependencies and does no IO.
 """
 
 from morphir.sdk import (
+    aggregate,
     basics,
     char,
     decimal,
     dict,
+    instant,
     int,
+    key,
     list,
+    local_date,
+    local_time,
     maybe,
     number,
+    regex,
     result,
+    result_list,
+    rule,
     set,
+    stateful_app,
     string,
     tuple,
+    uuid,
 )
 
 __all__ = [
+    "aggregate",
     "basics",
     "char",
     "decimal",
     "dict",
+    "instant",
     "int",
+    "key",
     "list",
+    "local_date",
+    "local_time",
     "maybe",
     "number",
+    "regex",
     "result",
+    "result_list",
+    "rule",
     "set",
+    "stateful_app",
     "string",
     "tuple",
+    "uuid",
 ]

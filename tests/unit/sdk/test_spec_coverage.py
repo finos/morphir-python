@@ -3,8 +3,9 @@
 The Elm names below come from the `vSpec` entries of the matching
 `Morphir.IR.SDK.<Module>` file in finos/morphir-elm. Each one maps to the Python
 name that `morphir.sdk` must expose. The rule is snake_case, with a trailing
-underscore where the result is a Python keyword (`not_`, `and_`, `or_`). The one
-exception is `isNaN`, which maps to `is_nan`.
+underscore where the result is a Python keyword (`not_`, `and_`, `or_`, `is_`).
+The exceptions are names with an initialism: `isNaN` maps to `is_nan`,
+`toISOString` to `to_iso_string` and `fromISO` to `from_iso`.
 """
 
 import importlib
@@ -316,6 +317,121 @@ SPEC: dict[str, dict[str, str]] = {
         "zero": "zero",
         "one": "one",
     },
+    "local_date": {
+        "fromCalendarDate": "from_calendar_date",
+        "toISOString": "to_iso_string",
+        "fromISO": "from_iso",
+        "fromOrdinalDate": "from_ordinal_date",
+        "fromParts": "from_parts",
+        "day": "day",
+        "dayOfWeek": "day_of_week",
+        "diffInDays": "diff_in_days",
+        "diffInWeeks": "diff_in_weeks",
+        "diffInMonths": "diff_in_months",
+        "diffInYears": "diff_in_years",
+        "addDays": "add_days",
+        "addWeeks": "add_weeks",
+        "addMonths": "add_months",
+        "addYears": "add_years",
+        "isWeekend": "is_weekend",
+        "isWeekday": "is_weekday",
+        "month": "month",
+        "monthNumber": "month_number",
+        "monthToInt": "month_to_int",
+        "year": "year",
+    },
+    "local_time": {
+        "fromISO": "from_iso",
+        "fromMilliseconds": "from_milliseconds",
+        "diffInSeconds": "diff_in_seconds",
+        "diffInMinutes": "diff_in_minutes",
+        "diffInHours": "diff_in_hours",
+        "addSeconds": "add_seconds",
+        "addMinutes": "add_minutes",
+        "addHours": "add_hours",
+    },
+    "instant": {},
+    "uuid": {
+        "parse": "parse",
+        "fromString": "from_string",
+        "forName": "for_name",
+        "toString": "to_string",
+        "version": "version",
+        "compare": "compare",
+        "nilString": "nil_string",
+        "isNilString": "is_nil_string",
+        "dnsNamespace": "dns_namespace",
+        "urlNamespace": "url_namespace",
+        "oidNamespace": "oid_namespace",
+        "x500Namespace": "x500_namespace",
+    },
+    "regex": {
+        "fromString": "from_string",
+        "fromStringWith": "from_string_with",
+        "never": "never",
+        "contains": "contains",
+        "split": "split",
+        "find": "find",
+        "replace": "replace",
+        "splitAtMost": "split_at_most",
+        "findAtMost": "find_at_most",
+        "replaceAtMost": "replace_at_most",
+    },
+    "aggregate": {
+        "count": "count",
+        "sumOf": "sum_of",
+        "averageOf": "average_of",
+        "minimumOf": "minimum_of",
+        "maximumOf": "maximum_of",
+        "weightedAverageOf": "weighted_average_of",
+        "byKey": "by_key",
+        "withFilter": "with_filter",
+        "aggregateMap": "aggregate_map",
+        "aggregateMap2": "aggregate_map2",
+        "aggregateMap3": "aggregate_map3",
+        "aggregateMap4": "aggregate_map4",
+        "groupBy": "group_by",
+        "aggregate": "aggregate",
+    },
+    "rule": {
+        "chain": "chain",
+        "any": "any",
+        "is": "is_",
+        "anyOf": "any_of",
+        "noneOf": "none_of",
+    },
+    "key": {
+        "noKey": "no_key",
+        "key0": "key0",
+        "key2": "key2",
+        "key3": "key3",
+        "key4": "key4",
+        "key5": "key5",
+        "key6": "key6",
+        "key7": "key7",
+        "key8": "key8",
+        "key9": "key9",
+        "key10": "key10",
+        "key11": "key11",
+        "key12": "key12",
+        "key13": "key13",
+        "key14": "key14",
+        "key15": "key15",
+        "key16": "key16",
+    },
+    "stateful_app": {},
+    "result_list": {
+        "fromList": "from_list",
+        "filter": "filter",
+        "filterOrFail": "filter_or_fail",
+        "map": "map",
+        "mapOrFail": "map_or_fail",
+        "errors": "errors",
+        "successes": "successes",
+        "partition": "partition",
+        "keepAllErrors": "keep_all_errors",
+        "keepFirstError": "keep_first_error",
+    },
 }
 
 # Values that Elm defines as constants, not functions.
@@ -323,10 +439,24 @@ CONSTANTS: dict[str, frozenset[str]] = {
     "basics": frozenset({"e", "pi"}),
     "decimal": frozenset({"zero", "one", "minus_one"}),
     "number": frozenset({"zero", "one"}),
+    "uuid": frozenset(
+        {
+            "nil_string",
+            "dns_namespace",
+            "url_namespace",
+            "oid_namespace",
+            "x500_namespace",
+        }
+    ),
+    "regex": frozenset({"never"}),
 }
 
 # Elm names that do not follow the snake_case rule.
-EXCEPTIONS: dict[str, str] = {"isNaN": "is_nan"}
+EXCEPTIONS: dict[str, str] = {
+    "isNaN": "is_nan",
+    "toISOString": "to_iso_string",
+    "fromISO": "from_iso",
+}
 
 _CASES = [
     (module, elm_name, python_name)
@@ -343,7 +473,7 @@ def _to_snake_case(elm_name: str) -> str:
 
 
 class TestSpecCoverage:
-    def test_all_core_modules_are_listed(self) -> None:
+    def test_all_modules_are_listed(self) -> None:
         assert sorted(SPEC) == sorted(morphir.sdk.__all__)
 
     def test_spec_size(self) -> None:
@@ -360,6 +490,16 @@ class TestSpecCoverage:
             "decimal": 34,
             "int": 8,
             "number": 21,
+            "local_date": 21,
+            "local_time": 8,
+            "instant": 0,
+            "uuid": 12,
+            "regex": 10,
+            "aggregate": 14,
+            "rule": 5,
+            "key": 17,
+            "stateful_app": 0,
+            "result_list": 10,
         }
 
     @pytest.mark.parametrize(("module", "elm_name", "python_name"), _CASES)
