@@ -28,7 +28,7 @@ morphir-python/
   `morphir.ir.format_version`, convert only through `morphir.ir.migrate`, and keep
   diagnostic codes in `morphir.ir.diagnostics`. See
   [packages/morphir/README.md](packages/morphir/README.md#morphir-ir-versions) and
-  `openspec/changes/add-ir-v3-support/`
+  the `ir/*` and `tools/ir-interchange` specs in `openspec/specs/`
 - Type definitions and type algebra
 - Pure functional primitives
 - Morphir SDK runtime (`morphir.sdk`): Basics, Char, String, List, Dict, Set, Maybe, Result, Tuple, Decimal, Int, Number

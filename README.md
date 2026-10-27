@@ -70,9 +70,10 @@ morphir-tools ir convert morphir-ir.json --to v4 -o morphir-ir.v4.json
 ```
 
 See the [morphir package README](packages/morphir/README.md#morphir-ir-versions)
-for format-version handling, the draft v4 status, and migrations, and the
-[`add-ir-v3-support` change](openspec/changes/add-ir-v3-support/proposal.md) for
-the design.
+for format-version handling, the draft v4 status, and migrations, the
+[IR specs](openspec/specs/) for the requirements, and the archived
+[`add-ir-v3-support` change](openspec/changes/archive/2026-10-27-add-ir-v3-support/proposal.md)
+for the design.
 
 ## Morphir SDK
 
