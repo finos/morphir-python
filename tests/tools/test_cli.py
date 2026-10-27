@@ -163,7 +163,24 @@ class TestConvert:
         result = run("ir", "convert", REFERENCE, "--to", "v4", "-o", out)
         assert result.exit_code == 1
         assert d.NO_V4_SPELLING in result.stderr
+        assert "--drop-input-attributes" in result.stderr
         assert not out.exists()
+
+    def test_drop_input_attributes_on_upgrade(self, tmp_path: Path) -> None:
+        out = tmp_path / "out.json"
+        result = run(
+            "ir",
+            "convert",
+            REFERENCE,
+            "--to",
+            "v4",
+            "-o",
+            out,
+            "--drop-input-attributes",
+        )
+        assert result.exit_code == 0, result.output
+        assert result.stderr.count(d.INPUT_ATTRIBUTES_DROPPED) == 10
+        assert json.loads(out.read_text())["formatVersion"] == 4
 
     def test_downgrade_warnings_exit_zero(self, tmp_path: Path) -> None:
         unit = {"Unit": {}}

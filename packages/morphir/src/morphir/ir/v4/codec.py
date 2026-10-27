@@ -14,21 +14,28 @@ Every node is written in the schema's expanded form, ``{"Kind": {members}}``, wi
 in `TYPE_NODES`, `VALUE_NODES`, `PATTERN_NODES`, and the other tables below, and
 fails with a located diagnostic on anything else; it does not guess.
 
+The codec covers the value-definition bodies (``ExpressionBody``, ``NativeBody``,
+``ExternalBody``, ``IncompleteBody``), ``IncompleteTypeDefinition`` with typed hole
+reasons, annotations on specifications, and the draft ``Union`` type (from
+``docs/spec/draft/types.md``, not yet in the pinned schema).
+
 Known gaps between the Python v4 model and upstream v4, each handled explicitly:
 
-- ``Native`` and ``External`` value nodes have no spelling (upstream makes them
-  definition bodies); encoding fails with ``no_v4_spelling``.
-- Structured ``TypeConstraints`` have no spelling; encoding fails with
-  ``no_v4_spelling``.
-- Upstream ``Union`` types, ``IncompleteTypeDefinition``, annotations, and the
-  ``NativeBody``, ``ExternalBody``, and ``IncompleteBody`` definition bodies are
-  not in the Python model; decoding fails with ``unknown_node`` or
-  ``unknown_member``.
+- The deprecated Python ``Native`` and ``External`` value nodes have no spelling
+  (upstream makes them definition bodies); encoding fails with ``no_v4_spelling``.
+- Structured ``TypeConstraints`` (deprecated) have no spelling; encoding fails
+  with ``no_v4_spelling``.
+- Only the expanded spelling is read and written. Compact spellings, the legacy
+  spellings readers accept for one release, and the 4.1.0 linked annotations
+  wait for the re-sync when upstream v4 settles.
 - Records are objects keyed by field name (finos decision 0004); duplicate field
   names fail encoding with ``duplicate_member``.
-- ``ExpressionBody.inputTypes`` has no attribute slot. Encoding accepts per-input
+- ``ExpressionBody.inputTypes`` has no attribute slot: upstream spells an input as
+  a bare type (kit case ``definitions-0027``). Encoding accepts per-input
   attributes that are empty or whose only member is ``inferred_type`` equal to the
-  declared input type; decoding sets ``inferred_type`` to the declared type.
+  declared input type, and fails with ``no_v4_spelling`` otherwise; decoding sets
+  ``inferred_type`` to the declared type. `morphir.ir.migrate.drop_input_attributes`
+  resets the attributes on request and reports each input that lost information.
 - The package release version has no member (finos decision 0017); it is not
   written and decodes as absent.
 - Python names are word lists without an initialism marker. A run of two or more
@@ -50,7 +57,9 @@ from typing import Any
 from .. import diagnostics as d
 from ..diagnostics import DiagnosticError, Location, fail
 from ..format_version import V4, V4_TABLE, read_document, write_format_version
+from . import annotation as ann
 from . import document as doc
+from . import incompleteness as inc
 from . import literal as lit
 from . import module, package
 from . import type as t
@@ -99,6 +108,7 @@ TYPE_NODES: dict[str, Members] = {
     "ExtensibleRecord": _m("variable fields"),
     "Function": _m("parameterType returnType"),
     "Unit": _m(),
+    "Union": _m("alternatives"),
 }
 
 VALUE_NODES: dict[str, Members] = {
@@ -135,19 +145,44 @@ PATTERN_NODES: dict[str, Members] = {
 }
 
 TYPE_SPECIFICATION_NODES: dict[str, Members] = {
-    "TypeAliasSpecification": _m("typeParams typeExp", ""),
-    "OpaqueTypeSpecification": _m("", "typeParams"),
-    "CustomTypeSpecification": _m("typeParams constructors", ""),
-    "DerivedTypeSpecification": _m("typeParams baseType fromBaseType toBaseType", ""),
+    "TypeAliasSpecification": _m("typeParams typeExp", "annotations"),
+    "OpaqueTypeSpecification": _m("", "annotations typeParams"),
+    "CustomTypeSpecification": _m("typeParams constructors", "annotations"),
+    "DerivedTypeSpecification": _m(
+        "typeParams baseType fromBaseType toBaseType", "annotations"
+    ),
 }
 
 TYPE_DEFINITION_NODES: dict[str, Members] = {
     "TypeAliasDefinition": _m("typeParams typeExp", ""),
     "CustomTypeDefinition": _m("typeParams constructors", "access"),
+    "IncompleteTypeDefinition": _m("typeParams incompleteness", "partialTypeExp"),
+}
+
+HOLE_REASON_NODES: dict[str, Members] = {
+    "UnresolvedReference": _m("target", ""),
+    "DeletedDuringRefactor": _m("tx-id", ""),
+    "TypeMismatch": _m("expected found", ""),
+}
+
+INCOMPLETENESS_NODES: dict[str, Members] = {
+    "Hole": _m("reason", "partialBody"),
+    "Draft": _m("", ""),
 }
 
 VALUE_DEFINITION_NODES: dict[str, Members] = {
     "ExpressionBody": _m("inputTypes outputType body", ""),
+    "NativeBody": _m("inputTypes outputType nativeInfo", ""),
+    "ExternalBody": _m("inputTypes outputType externals", "body"),
+    "IncompleteBody": _m("inputTypes incompleteness", "outputType partialBody"),
+}
+
+NATIVE_HINT_NODES: dict[str, Members] = {
+    "Arithmetic": _m("", ""),
+    "Comparison": _m("", ""),
+    "StringOp": _m("", ""),
+    "CollectionOp": _m("", ""),
+    "PlatformSpecific": _m("platform", ""),
 }
 
 DISTRIBUTION_NODES: dict[str, Members] = {
@@ -583,6 +618,27 @@ def encode_type(tpe: t.Type, loc: Location = ()) -> Json:
             )
         case t.Unit(_):
             return node("Unit", {})
+        case t.Union(_, alternatives):
+            _check_alternatives(len(alternatives), (*here, "alternatives"))
+            return node(
+                "Union",
+                {
+                    "alternatives": [
+                        encode_type(x, (*here, "alternatives", i))
+                        for i, x in enumerate(alternatives)
+                    ]
+                },
+            )
+
+
+def _check_alternatives(count: int, loc: Location) -> None:
+    if count < 2:
+        raise fail(
+            d.INVALID_JSON,
+            "Union",
+            loc,
+            f"a union needs two or more alternatives, found {count}",
+        )
 
 
 def _encode_type_fields(fields: list[t.Field], loc: Location) -> dict[str, Json]:
@@ -637,6 +693,12 @@ def decode_type(j: object, loc: Location = ()) -> t.Type:
                 decode_type(body["parameterType"], (*here, "parameterType")),
                 decode_type(body["returnType"], (*here, "returnType")),
             )
+        case "Union":
+            alternatives = _decode_list(
+                decode_type, body["alternatives"], (*here, "alternatives"), "Union"
+            )
+            _check_alternatives(len(alternatives), (*here, "alternatives"))
+            return t.Union(attrs, alternatives)
         case _:
             return t.Unit(attrs)
 
@@ -979,7 +1041,9 @@ def encode_value(val: v.Value, loc: Location = ()) -> Json:
         case v.Unit(_):
             return node("Unit", {})
         case v.Hole(_, reason, expected_type):
-            members: dict[str, Json] = {"reason": reason}
+            members: dict[str, Json] = {
+                "reason": encode_hole_reason(reason, (*here, "reason"))
+            }
             if expected_type is not None:
                 members["expectedType"] = encode_type(
                     expected_type, (*here, "expectedType")
@@ -1082,11 +1146,75 @@ def decode_value(j: object, loc: Location = ()) -> v.Value:
         case _:
             return v.Hole(
                 attrs,
-                body["reason"],
+                decode_hole_reason(body["reason"], (*here, "reason")),
                 decode_type(body["expectedType"], (*here, "expectedType"))
                 if "expectedType" in body
                 else None,
             )
+
+
+# --- Hole reasons and incompleteness ---
+
+
+def encode_hole_reason(reason: inc.HoleReason, loc: Location = ()) -> Json:
+    """Encode a hole reason as ``{"Kind": {members}}``."""
+    match reason:
+        case inc.UnresolvedReference(target):
+            return _wrap(
+                "UnresolvedReference",
+                {"target": encode_fqname(target, (*loc, "UnresolvedReference"))},
+            )
+        case inc.DeletedDuringRefactor(tx_id):
+            return _wrap("DeletedDuringRefactor", {"tx-id": tx_id})
+        case inc.TypeMismatch(expected, found):
+            return _wrap("TypeMismatch", {"expected": expected, "found": found})
+
+
+def decode_hole_reason(j: object, loc: Location = ()) -> inc.HoleReason:
+    """Decode a hole reason; ``Draft`` is an incompleteness, not a reason."""
+    tag, body, here = _node(j, loc, "HoleReason", HOLE_REASON_NODES)
+    match tag:
+        case "UnresolvedReference":
+            return inc.UnresolvedReference(
+                decode_fqname(body["target"], (*here, "target"))
+            )
+        case "DeletedDuringRefactor":
+            return inc.DeletedDuringRefactor(
+                _expect_str(body["tx-id"], (*here, "tx-id"), tag)
+            )
+        case _:
+            return inc.TypeMismatch(
+                _expect_str(body["expected"], (*here, "expected"), tag),
+                _expect_str(body["found"], (*here, "found"), tag),
+            )
+
+
+def encode_incompleteness(item: inc.Incompleteness, loc: Location = ()) -> Json:
+    """Encode an incompleteness as ``{"Hole": {...}}`` or ``{"Draft": {}}``."""
+    match item:
+        case inc.HoleIncompleteness(reason, partial):
+            here = (*loc, "Hole")
+            members: dict[str, Json] = {
+                "reason": encode_hole_reason(reason, (*here, "reason"))
+            }
+            if partial is not None:
+                members["partialBody"] = encode_type(partial, (*here, "partialBody"))
+            return _wrap("Hole", members)
+        case inc.DraftIncompleteness():
+            return _wrap("Draft", {})
+
+
+def decode_incompleteness(j: object, loc: Location = ()) -> inc.Incompleteness:
+    """Decode ``{"Hole": {...}}`` or ``{"Draft": {}}``."""
+    tag, body, here = _node(j, loc, "Incompleteness", INCOMPLETENESS_NODES)
+    if tag == "Draft":
+        return inc.DraftIncompleteness()
+    return inc.HoleIncompleteness(
+        decode_hole_reason(body["reason"], (*here, "reason")),
+        decode_type(body["partialBody"], (*here, "partialBody"))
+        if "partialBody" in body
+        else None,
+    )
 
 
 def _encode_inputs(
@@ -1095,8 +1223,7 @@ def _encode_inputs(
     return _keyed(inputs, _name_key, encode_type, loc, construct)
 
 
-def encode_value_definition(defn: v.Definition, loc: Location = ()) -> Json:
-    """Encode a value definition as ``{"ExpressionBody": {...}}``."""
+def _encode_expression_body(defn: v.Definition, loc: Location) -> Json:
     here = (*loc, "ExpressionBody")
     for i, (name, attrs, tpe) in enumerate(defn.input_types):
         derived = v.ValueAttributes(inferred_type=tpe)
@@ -1106,7 +1233,9 @@ def encode_value_definition(defn: v.Definition, loc: Location = ()) -> Json:
                 "ValueDefinition",
                 (*here, "inputTypes", i),
                 f"input {encode_name(name, here)!r} carries attributes other than its "
-                "declared type; ExpressionBody.inputTypes has no attribute slot",
+                "declared type; ExpressionBody.inputTypes has no attribute slot. "
+                "Drop them with morphir.ir.migrate.drop_input_attributes or "
+                "`morphir-tools ir convert --drop-input-attributes`",
             )
     return {
         "ExpressionBody": {
@@ -1121,9 +1250,144 @@ def encode_value_definition(defn: v.Definition, loc: Location = ()) -> Json:
     }
 
 
-def decode_value_definition(j: object, loc: Location = ()) -> v.Definition:
-    """Decode ``{"ExpressionBody": {...}}``; other bodies are not supported."""
-    _, body, here = _node(j, loc, "ValueDefinition", VALUE_DEFINITION_NODES)
+def _encode_native_hint(hint: v.NativeHint) -> Json:
+    if isinstance(hint, v.PlatformSpecific):
+        return _wrap("PlatformSpecific", {"platform": hint.platform})
+    return _wrap(type(hint).__name__, {})
+
+
+def _decode_native_hint(j: object, loc: Location) -> v.NativeHint:
+    tag, body, here = _node(j, loc, "NativeHint", NATIVE_HINT_NODES)
+    match tag:
+        case "Arithmetic":
+            return v.Arithmetic()
+        case "Comparison":
+            return v.Comparison()
+        case "StringOp":
+            return v.StringOp()
+        case "CollectionOp":
+            return v.CollectionOp()
+        case _:
+            return v.PlatformSpecific(
+                _expect_str(body["platform"], (*here, "platform"), tag)
+            )
+
+
+def _encode_externals(bindings: list[v.ExternalBinding], loc: Location) -> list[Json]:
+    if not bindings:
+        raise fail(
+            d.INVALID_JSON,
+            "ExternalBody",
+            loc,
+            "an external body needs at least one platform binding",
+        )
+    seen: set[str] = set()
+    result: list[Json] = []
+    for i, binding in enumerate(bindings):
+        if binding.target_platform in seen:
+            raise fail(
+                d.DUPLICATE_MEMBER,
+                "ExternalBinding",
+                (*loc, i, "targetPlatform"),
+                f"target platform {binding.target_platform!r} is bound more than once",
+            )
+        seen.add(binding.target_platform)
+        result.append(
+            {
+                "targetPlatform": binding.target_platform,
+                "externalName": binding.external_name,
+            }
+        )
+    return result
+
+
+def _decode_externals(j: object, loc: Location) -> list[v.ExternalBinding]:
+    items = _expect_list(j, loc, "ExternalBody")
+    if not items:
+        raise fail(
+            d.INVALID_JSON,
+            "ExternalBody",
+            loc,
+            "an external body needs at least one platform binding",
+        )
+    bindings: list[v.ExternalBinding] = []
+    for i, item in enumerate(items):
+        here = (*loc, i)
+        obj = _expect_object(item, here, "ExternalBinding")
+        _check_members(
+            obj, _m("targetPlatform externalName", ""), here, "ExternalBinding"
+        )
+        bindings.append(
+            v.ExternalBinding(
+                _expect_str(
+                    obj["targetPlatform"], (*here, "targetPlatform"), "ExternalBinding"
+                ),
+                _expect_str(
+                    obj["externalName"], (*here, "externalName"), "ExternalBinding"
+                ),
+            )
+        )
+    # Re-encode to apply the same uniqueness rule as the writer.
+    _encode_externals(bindings, loc)
+    return bindings
+
+
+def encode_value_definition(defn: v.ValueDefinitionBody, loc: Location = ()) -> Json:
+    """Encode a value definition as ``{"<Kind>Body": {...}}``.
+
+    Raises:
+        DiagnosticError: With ``no_v4_spelling`` when an expression-body input
+            carries attributes other than its declared type, ``duplicate_member``
+            when an external body binds a platform twice, and ``invalid_json``
+            when it binds none.
+    """
+    match defn:
+        case v.Definition():
+            return _encode_expression_body(defn, loc)
+        case v.NativeBody(inputs, output, info):
+            here = (*loc, "NativeBody")
+            return _wrap(
+                "NativeBody",
+                {
+                    "inputTypes": _encode_inputs(
+                        inputs, (*here, "inputTypes"), "NativeBody"
+                    ),
+                    "outputType": encode_type(output, (*here, "outputType")),
+                    "nativeInfo": {"hint": _encode_native_hint(info.hint)},
+                },
+            )
+        case v.ExternalBody(inputs, output, externals, fallback):
+            here = (*loc, "ExternalBody")
+            members: dict[str, Json] = {
+                "inputTypes": _encode_inputs(
+                    inputs, (*here, "inputTypes"), "ExternalBody"
+                ),
+                "outputType": encode_type(output, (*here, "outputType")),
+                "externals": _encode_externals(externals, (*here, "externals")),
+            }
+            if fallback is not None:
+                members["body"] = encode_value(fallback, (*here, "body"))
+            return _wrap("ExternalBody", members)
+        case v.IncompleteBody(inputs, incompleteness, output, partial):
+            here = (*loc, "IncompleteBody")
+            members = {
+                "inputTypes": _encode_inputs(
+                    inputs, (*here, "inputTypes"), "IncompleteBody"
+                )
+            }
+            if output is not None:
+                members["outputType"] = encode_type(output, (*here, "outputType"))
+            members["incompleteness"] = encode_incompleteness(
+                incompleteness, (*here, "incompleteness")
+            )
+            if partial is not None:
+                members["partialBody"] = encode_value(partial, (*here, "partialBody"))
+            return _wrap("IncompleteBody", members)
+
+
+def decode_value_definition(j: object, loc: Location = ()) -> v.ValueDefinitionBody:
+    """Decode an expression, native, external or incomplete body."""
+    tag, body, here = _node(j, loc, "ValueDefinition", VALUE_DEFINITION_NODES)
     inputs = _unkeyed(
         body["inputTypes"],
         decode_name,
@@ -1131,26 +1395,155 @@ def decode_value_definition(j: object, loc: Location = ()) -> v.Definition:
         (*here, "inputTypes"),
         "inputTypes",
     )
-    return v.Definition(
-        [(n, v.ValueAttributes(inferred_type=tp), tp) for n, tp in inputs],
-        decode_type(body["outputType"], (*here, "outputType")),
-        decode_value(body["body"], (*here, "body")),
-    )
+
+    def optional_type(key: str) -> t.Type | None:
+        return decode_type(body[key], (*here, key)) if key in body else None
+
+    def optional_value(key: str) -> v.Value | None:
+        return decode_value(body[key], (*here, key)) if key in body else None
+
+    match tag:
+        case "ExpressionBody":
+            return v.Definition(
+                [(n, v.ValueAttributes(inferred_type=tp), tp) for n, tp in inputs],
+                decode_type(body["outputType"], (*here, "outputType")),
+                decode_value(body["body"], (*here, "body")),
+            )
+        case "NativeBody":
+            info_loc = (*here, "nativeInfo")
+            info = _expect_object(body["nativeInfo"], info_loc, "NativeInfo")
+            _check_members(info, _m("hint", ""), info_loc, "NativeInfo")
+            return v.NativeBody(
+                inputs,
+                decode_type(body["outputType"], (*here, "outputType")),
+                v.NativeInfo(_decode_native_hint(info["hint"], (*info_loc, "hint"))),
+            )
+        case "ExternalBody":
+            return v.ExternalBody(
+                inputs,
+                decode_type(body["outputType"], (*here, "outputType")),
+                _decode_externals(body["externals"], (*here, "externals")),
+                optional_value("body"),
+            )
+        case _:
+            return v.IncompleteBody(
+                inputs,
+                decode_incompleteness(
+                    body["incompleteness"], (*here, "incompleteness")
+                ),
+                optional_type("outputType"),
+                optional_value("partialBody"),
+            )
 
 
 def encode_value_specification(spec: v.Specification, loc: Location = ()) -> Json:
-    return {
-        "inputs": _encode_inputs(spec.inputs, (*loc, "inputs"), "ValueSpecification"),
-        "output": encode_type(spec.output, (*loc, "output")),
-    }
+    return _with_annotations(
+        spec.annotations,
+        loc,
+        {
+            "inputs": _encode_inputs(
+                spec.inputs, (*loc, "inputs"), "ValueSpecification"
+            ),
+            "output": encode_type(spec.output, (*loc, "output")),
+        },
+    )
 
 
 def decode_value_specification(j: object, loc: Location = ()) -> v.Specification:
     obj = _expect_object(j, loc, "ValueSpecification")
-    _check_members(obj, _m("inputs output", ""), loc, "ValueSpecification")
+    _check_members(obj, _m("inputs output", "annotations"), loc, "ValueSpecification")
     return v.Specification(
         _unkeyed(obj["inputs"], decode_name, decode_type, (*loc, "inputs"), "inputs"),
         decode_type(obj["output"], (*loc, "output")),
+        _decode_annotations(obj, loc),
+    )
+
+
+# --- Annotations ---
+
+
+def encode_annotation(item: ann.Annotation, loc: Location = ()) -> Json:
+    """Encode an annotation in the form it was written in."""
+    match item:
+        case ann.CompactAnnotation(name, text):
+            fqn = encode_fqname(name, loc)
+            return fqn if text is None else f"{fqn}:{text}"
+        case ann.StructuredAnnotation(name, arguments):
+            members: dict[str, Json] = {"name": encode_fqname(name, loc)}
+            if arguments:
+                members["arguments"] = [
+                    _encode_annotation_argument(x, (*loc, "arguments", i))
+                    for i, x in enumerate(arguments)
+                ]
+            return members
+
+
+def _encode_annotation_argument(arg: ann.AnnotationArgument, loc: Location) -> Json:
+    match arg:
+        case ann.PositionalArgument(value):
+            return encode_value(value, loc)
+        case ann.NamedArgument(name, value):
+            return {
+                "name": encode_name(name, loc),
+                "value": encode_value(value, (*loc, "value")),
+            }
+
+
+def decode_annotation(j: object, loc: Location = ()) -> ann.Annotation:
+    """Decode a compact string or a structured annotation object.
+
+    In the compact form the free text starts after the first colon after ``#``.
+    """
+    if isinstance(j, str):
+        hash_at = j.find("#")
+        colon_at = j.find(":", hash_at) if hash_at >= 0 else -1
+        if colon_at < 0:
+            return ann.CompactAnnotation(decode_fqname(j, loc))
+        return ann.CompactAnnotation(
+            decode_fqname(j[:colon_at], loc), j[colon_at + 1 :]
+        )
+    obj = _expect_object(j, loc, "Annotation")
+    _check_members(obj, _m("name", "arguments"), loc, "Annotation")
+    arguments = (
+        _decode_list(
+            _decode_annotation_argument,
+            obj["arguments"],
+            (*loc, "arguments"),
+            "Annotation",
+        )
+        if "arguments" in obj
+        else []
+    )
+    return ann.StructuredAnnotation(decode_fqname(obj["name"], loc), arguments)
+
+
+def _decode_annotation_argument(j: object, loc: Location) -> ann.AnnotationArgument:
+    if isinstance(j, dict) and set(j) == {"name", "value"}:
+        return ann.NamedArgument(
+            decode_name(j["name"], (*loc, "name")),
+            decode_value(j["value"], (*loc, "value")),
+        )
+    return ann.PositionalArgument(decode_value(j, loc))
+
+
+def _with_annotations(
+    annotations: list[ann.Annotation], loc: Location, members: dict[str, Json]
+) -> dict[str, Json]:
+    """Put a non-empty ``annotations`` member first, as the kit writes it."""
+    if not annotations:
+        return members
+    encoded = [
+        encode_annotation(x, (*loc, "annotations", i))
+        for i, x in enumerate(annotations)
+    ]
+    return {"annotations": encoded, **members}
+
+
+def _decode_annotations(obj: dict[str, object], loc: Location) -> list[ann.Annotation]:
+    if "annotations" not in obj:
+        return []
+    return _decode_list(
+        decode_annotation, obj["annotations"], (*loc, "annotations"), "annotations"
     )
 
 
@@ -1196,6 +1589,12 @@ def _decode_constructors(j: object, loc: Location) -> ts.Constructors:
 
 
 def encode_type_specification(spec: ts.Specification, loc: Location = ()) -> Json:
+    tag = type(spec).__name__
+    encoded = _encode_type_specification(spec, loc)
+    return _wrap(tag, _with_annotations(spec.annotations, (*loc, tag), encoded[tag]))
+
+
+def _encode_type_specification(spec: ts.Specification, loc: Location) -> Json:
     params = _encode_params(spec.type_params, loc)
     match spec:
         case ts.TypeAliasSpecification(_, tpe):
@@ -1235,17 +1634,19 @@ def decode_type_specification(j: object, loc: Location = ()) -> ts.Specification
         if "typeParams" in body
         else []
     )
+    annotations = _decode_annotations(body, here)
     match tag:
         case "TypeAliasSpecification":
             return ts.TypeAliasSpecification(
-                params, decode_type(body["typeExp"], (*here, "typeExp"))
+                params, decode_type(body["typeExp"], (*here, "typeExp")), annotations
             )
         case "OpaqueTypeSpecification":
-            return ts.OpaqueTypeSpecification(params)
+            return ts.OpaqueTypeSpecification(params, annotations)
         case "CustomTypeSpecification":
             return ts.CustomTypeSpecification(
                 params,
                 _decode_constructors(body["constructors"], (*here, "constructors")),
+                annotations,
             )
         case _:
             return ts.DerivedTypeSpecification(
@@ -1255,6 +1656,7 @@ def decode_type_specification(j: object, loc: Location = ()) -> ts.Specification
                     decode_fqname(body["fromBaseType"], here),
                     decode_fqname(body["toBaseType"], here),
                 ),
+                annotations,
             )
 
 
@@ -1277,6 +1679,19 @@ def encode_type_definition(defn: td.Definition, loc: Location = ()) -> Json:
                     "constructors": _encode_constructors(ctors.value, here),
                 },
             )
+        case td.IncompleteTypeDefinition(_, incompleteness, partial):
+            here = (*loc, "IncompleteTypeDefinition")
+            members: dict[str, Json] = {
+                "typeParams": params,
+                "incompleteness": encode_incompleteness(
+                    incompleteness, (*here, "incompleteness")
+                ),
+            }
+            if partial is not None:
+                members["partialTypeExp"] = encode_type(
+                    partial, (*here, "partialTypeExp")
+                )
+            return _wrap("IncompleteTypeDefinition", members)
 
 
 def decode_type_definition(j: object, loc: Location = ()) -> td.Definition:
@@ -1285,6 +1700,14 @@ def decode_type_definition(j: object, loc: Location = ()) -> td.Definition:
     if tag == "TypeAliasDefinition":
         return td.TypeAliasDefinition(
             params, decode_type(body["typeExp"], (*here, "typeExp"))
+        )
+    if tag == "IncompleteTypeDefinition":
+        return td.IncompleteTypeDefinition(
+            params,
+            decode_incompleteness(body["incompleteness"], (*here, "incompleteness")),
+            decode_type(body["partialTypeExp"], (*here, "partialTypeExp"))
+            if "partialTypeExp" in body
+            else None,
         )
     access = body.get("access", "Public")
     if access not in ACCESS_TAGS:
@@ -1383,22 +1806,28 @@ def _decode_doc(obj: dict[str, object], loc: Location) -> str | None:
 
 
 def encode_module_specification(spec: module.Specification, loc: Location = ()) -> Json:
-    return _with_doc(
-        {
-            "types": _keyed(
-                spec.types, _name_key, _enc_type_spec, (*loc, "types"), "types"
-            ),
-            "values": _keyed(
-                spec.values, _name_key, _enc_value_spec, (*loc, "values"), "values"
-            ),
-        },
-        spec.doc,
+    return _with_annotations(
+        spec.annotations,
+        loc,
+        _with_doc(
+            {
+                "types": _keyed(
+                    spec.types, _name_key, _enc_type_spec, (*loc, "types"), "types"
+                ),
+                "values": _keyed(
+                    spec.values, _name_key, _enc_value_spec, (*loc, "values"), "values"
+                ),
+            },
+            spec.doc,
+        ),
     )
 
 
 def decode_module_specification(j: object, loc: Location = ()) -> module.Specification:
     obj = _expect_object(j, loc, "ModuleSpecification")
-    _check_members(obj, _m("", "types values doc"), loc, "ModuleSpecification")
+    _check_members(
+        obj, _m("", "annotations types values doc"), loc, "ModuleSpecification"
+    )
     return module.Specification(
         types=dict(
             _unkeyed(
@@ -1419,6 +1848,7 @@ def decode_module_specification(j: object, loc: Location = ()) -> module.Specifi
             )
         ),
         doc=_decode_doc(obj, loc),
+        annotations=_decode_annotations(obj, loc),
     )
 
 
@@ -1708,6 +2138,8 @@ __all__ = [
     "FINOS_MORPHIR_PIN",
     "decode_distribution",
     "decode_fqname",
+    "decode_hole_reason",
+    "decode_incompleteness",
     "decode_literal",
     "decode_name",
     "decode_path",
@@ -1717,6 +2149,8 @@ __all__ = [
     "decode_versioned_distribution",
     "encode_distribution",
     "encode_fqname",
+    "encode_hole_reason",
+    "encode_incompleteness",
     "encode_literal",
     "encode_name",
     "encode_path",

@@ -12,6 +12,7 @@ from morphir.ir import v4
 from morphir.ir.diagnostics import DiagnosticError
 from morphir.ir.v4 import codec, module, package
 from morphir.ir.v4 import document as doc
+from morphir.ir.v4 import incompleteness as inc
 from morphir.ir.v4 import literal as lit
 from morphir.ir.v4 import type as t
 from morphir.ir.v4 import type_def as td
@@ -303,9 +304,9 @@ class TestRoundTrip:
         tpe = t.Unit(t.TypeAttributes(source=src_t, extensions=ext))
         assert codec.decode_type(codec.encode_type(tpe)) == tpe
         attrs = v.ValueAttributes(source=src_v, inferred_type=tpe, extensions=ext)
-        hole = v.Hole(attrs, {"TypeMismatch": {"expected": "a", "found": "b"}}, INT)
+        hole = v.Hole(attrs, inc.TypeMismatch("a", "b"), INT)
         assert codec.decode_value(codec.encode_value(hole)) == hole
-        bare = v.Hole(v.ValueAttributes(), {"Draft": {}}, None)
+        bare = v.Hole(v.ValueAttributes(), inc.DeletedDuringRefactor("tx"), None)
         assert codec.decode_value(codec.encode_value(bare)) == bare
 
     def test_document_literal(self) -> None:
@@ -357,9 +358,10 @@ class TestRoundTrip:
 
 class TestDecodeFailures:
     def test_unknown_node(self) -> None:
-        err = pytest.raises(DiagnosticError, codec.decode_type, {"Union": {}}).value
+        bad = {"Intersection": {}}
+        err = pytest.raises(DiagnosticError, codec.decode_type, bad).value
         assert err.codes == (d.UNKNOWN_NODE,)
-        assert err.diagnostics[0].location == ("Union",)
+        assert err.diagnostics[0].location == ("Intersection",)
 
     def test_compact_spelling_is_not_guessed(self) -> None:
         assert fail_codes(codec.decode_type, "morphir/SDK:basics#int") == (
@@ -402,9 +404,11 @@ class TestDecodeFailures:
             codec.decode_versioned_distribution, {"formatVersion": 3}
         ) == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
 
-    def test_other_definition_bodies_are_unknown(self) -> None:
+    def test_unknown_definition_body(self) -> None:
+        other = {"MacroBody": {"inputTypes": {}, "outputType": {"Unit": {}}}}
+        assert fail_codes(codec.decode_value_definition, other) == (d.UNKNOWN_NODE,)
         native = {"NativeBody": {"inputTypes": {}, "outputType": {"Unit": {}}}}
-        assert fail_codes(codec.decode_value_definition, native) == (d.UNKNOWN_NODE,)
+        assert fail_codes(codec.decode_value_definition, native) == (d.MISSING_MEMBER,)
 
     @pytest.mark.parametrize(
         "bad",

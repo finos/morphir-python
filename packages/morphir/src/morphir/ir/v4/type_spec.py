@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Union
 
+from .annotation import Annotation
 from .fqname import FQName
 from .name import Name
 from .type import Type
@@ -17,6 +18,7 @@ class TypeAliasSpecification:
 
     type_params: list[Name]
     tpe: Type
+    annotations: list[Annotation] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,7 @@ class OpaqueTypeSpecification:
     """Specification for an opaque type."""
 
     type_params: list[Name]
+    annotations: list[Annotation] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,7 @@ class CustomTypeSpecification:
 
     type_params: list[Name]
     constructors: Constructors
+    annotations: list[Annotation] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -49,6 +53,7 @@ class DerivedTypeSpecification:
 
     type_params: list[Name]
     details: DerivedTypeSpecificationDetails
+    annotations: list[Annotation] = field(default_factory=list)
 
 
 Specification = Union[

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 from typing import List as TList
 from typing import Tuple as TTuple
 
 from .fqname import FQName
+from .incompleteness import HoleReason, Incompleteness
 from .literal import Literal
 from .name import Name
 from .type import Type
+
+if TYPE_CHECKING:
+    from .annotation import Annotation
 
 
 @dataclass(frozen=True)
@@ -206,7 +210,7 @@ class LetDefinition:
 
     attributes: ValueAttributes
     name: Name
-    definition: Definition
+    definition: ValueDefinitionBody
     in_value: Value
 
 
@@ -215,7 +219,7 @@ class LetRecursion:
     """Represents a recursive let binding."""
 
     attributes: ValueAttributes
-    definitions: dict[Name, Definition]
+    definitions: dict[Name, ValueDefinitionBody]
     in_value: Value
 
 
@@ -266,16 +270,27 @@ class Unit:
 
 @dataclass(frozen=True)
 class Hole:
-    """Represents a hole in the AST."""
+    """A hole in an expression: a part that is missing, with the reason why.
+
+    Attributes:
+        attributes: The value attributes.
+        reason: Why the hole exists.
+        expected_type: The type the missing part should have, if known.
+    """
 
     attributes: ValueAttributes
-    reason: Any
+    reason: HoleReason
     expected_type: Type | None
 
 
 @dataclass(frozen=True)
 class Native:
-    """Represents a native reference."""
+    """A native reference as a value node.
+
+    Deprecated: upstream v4 makes native operations definition bodies, not
+    expressions (finos/morphir decision 0008), so this node has no v4 spelling and
+    encoding fails with ``no_v4_spelling``. Use `NativeBody` instead.
+    """
 
     attributes: ValueAttributes
     fqname: FQName
@@ -284,7 +299,12 @@ class Native:
 
 @dataclass(frozen=True)
 class External:
-    """Represents an external reference."""
+    """An external reference as a value node.
+
+    Deprecated: upstream v4 makes external operations definition bodies, not
+    expressions (finos/morphir decision 0008), so this node has no v4 spelling and
+    encoding fails with ``no_v4_spelling``. Use `ExternalBody` instead.
+    """
 
     attributes: ValueAttributes
     external_name: str
@@ -320,16 +340,141 @@ Value = (
 
 @dataclass(frozen=True)
 class Specification:
-    """Value specification."""
+    """Value specification: the signature of a value, and its annotations."""
 
     inputs: TList[TTuple[Name, Type]]
     output: Type
+    annotations: TList[Annotation] = field(default_factory=lambda: [])
 
 
 @dataclass(frozen=True)
 class Definition:
-    """Value definition."""
+    """A value definition with an expression body (``ExpressionBody``).
+
+    Attributes:
+        input_types: Each input's name, value attributes and declared type. v4
+            JSON spells an input as a bare type, so attributes other than the
+            declared type cannot be encoded; see
+            `morphir.ir.migrate.drop_input_attributes`.
+        output_type: The declared output type.
+        body: The expression.
+    """
 
     input_types: TList[TTuple[Name, ValueAttributes, Type]]
     output_type: Type
     body: Value
+
+
+# --- Native and external definition bodies ---
+
+
+@dataclass(frozen=True)
+class Arithmetic:
+    """Native hint: a basic arithmetic or logic operation."""
+
+
+@dataclass(frozen=True)
+class Comparison:
+    """Native hint: a comparison operation."""
+
+
+@dataclass(frozen=True)
+class StringOp:
+    """Native hint: a string operation."""
+
+
+@dataclass(frozen=True)
+class CollectionOp:
+    """Native hint: a collection operation such as map, filter or fold."""
+
+
+@dataclass(frozen=True)
+class PlatformSpecific:
+    """Native hint: an operation specific to one platform.
+
+    Attributes:
+        platform: The platform, such as ``"wasm"`` or ``"javascript"``.
+    """
+
+    platform: str
+
+
+NativeHint = Union[Arithmetic, Comparison, StringOp, CollectionOp, PlatformSpecific]
+"""What kind of operation a native definition performs."""
+
+
+@dataclass(frozen=True)
+class NativeInfo:
+    """Information about a native definition.
+
+    Attributes:
+        hint: The kind of operation.
+    """
+
+    hint: NativeHint
+
+
+@dataclass(frozen=True)
+class ExternalBinding:
+    """One target platform's binding for an external definition.
+
+    Attributes:
+        target_platform: The platform. Unique within an external body.
+        external_name: The name of the operation on that platform.
+    """
+
+    target_platform: str
+    external_name: str
+
+
+@dataclass(frozen=True)
+class NativeBody:
+    """A value definition implemented natively by each runtime (``NativeBody``).
+
+    Attributes:
+        input_types: Each input's name and declared type.
+        output_type: The declared output type.
+        native_info: What kind of operation it is.
+    """
+
+    input_types: TList[TTuple[Name, Type]]
+    output_type: Type
+    native_info: NativeInfo
+
+
+@dataclass(frozen=True)
+class ExternalBody:
+    """A value definition bound to external operations (``ExternalBody``).
+
+    Attributes:
+        input_types: Each input's name and declared type.
+        output_type: The declared output type.
+        externals: One or more platform bindings, unique by platform.
+        body: An optional fallback expression for other platforms.
+    """
+
+    input_types: TList[TTuple[Name, Type]]
+    output_type: Type
+    externals: TList[ExternalBinding]
+    body: Value | None = None
+
+
+@dataclass(frozen=True)
+class IncompleteBody:
+    """A value definition that is not complete yet (``IncompleteBody``).
+
+    Attributes:
+        input_types: Each input's name and declared type.
+        incompleteness: Why the definition is incomplete.
+        output_type: The declared output type, if known yet.
+        partial_body: The expression written so far, if any.
+    """
+
+    input_types: TList[TTuple[Name, Type]]
+    incompleteness: Incompleteness
+    output_type: Type | None = None
+    partial_body: Value | None = None
+
+
+ValueDefinitionBody = Union[Definition, NativeBody, ExternalBody, IncompleteBody]
+"""A v4 value definition: an expression, native, external or incomplete body."""

@@ -97,6 +97,37 @@ the distribution wrapped by its kind, never a format-3 shape. The module
 docstring lists the gaps between the Python v4 model and upstream v4, each of
 which fails with a diagnostic instead of guessing or dropping data.
 
+The v4 model follows the upstream reference model at that commit:
+
+- A value definition is one of four bodies (`ValueDefinitionBody`): the
+  expression body `ValueDefinition`, `NativeBody`, `ExternalBody` and
+  `IncompleteBody`. Module values and let bindings hold any of them.
+- `IncompleteTypeDefinition` and `IncompleteBody` carry an `Incompleteness`: a
+  hole with a typed `HoleReason` (`UnresolvedReference`, `DeletedDuringRefactor`,
+  `TypeMismatch`) or a draft. A `Hole` value's `reason` is a `HoleReason` too.
+- Module, type and value specifications carry `annotations`, compact
+  (`CompactAnnotation`) or structured (`StructuredAnnotation`).
+- `morphir.ir.v4.type.Union` is the draft untagged union, with two or more
+  alternatives.
+- The `Native` and `External` value nodes and `TypeConstraints` are deprecated:
+  upstream v4 cannot spell them.
+
+```python
+from morphir.ir.v4 import Name, codec
+from morphir.ir.v4 import type as t
+from morphir.ir.v4 import value as v
+
+int_type = t.Reference(
+    t.TypeAttributes(), codec.decode_fqname("morphir/SDK:basics#int")
+)
+add = v.NativeBody(
+    [(Name(("a",)), int_type), (Name(("b",)), int_type)],
+    int_type,
+    v.NativeInfo(v.Arithmetic()),
+)
+assert codec.decode_value_definition(codec.encode_value_definition(add)) == add
+```
+
 `PackageInfo.version` is optional (`str | None`). Neither format 3 nor v4 JSON has
 a package release version, so the draft codec does not write it and decodes it as
 absent. `v3_to_v4` sets it only from `package_version`, and `v4_to_v3` drops it
@@ -107,9 +138,35 @@ with the warning `package_version_dropped`.
 `morphir.ir.migrate.v3_to_v4` always succeeds for a v3 Library.
 `v4_to_v3` returns `Ok(value, warnings)` or `Err(diagnostics)` and reports every
 construct format 3.0.0 cannot hold in one pass: Specs and Application
-distributions, `Hole`, `Native`, `External`, `DocumentLiteral`, a missing
-`inferred_type`, semantic attributes, and missing member documentation. Value
+distributions, `Hole`, `Native`, `External`, `DocumentLiteral`, native, external
+and incomplete bodies, incomplete type definitions, `Union`, annotations, a
+missing `inferred_type`, semantic attributes, and missing member documentation. Value
 source locations fail unless you pass `drop_source_locations=True`.
+
+v4 JSON spells a value-definition input as a bare type, so it has no place for
+the per-input attributes of a typed v3 model. morphir-elm writes the resolved
+type there, which can differ from the declared type (an alias expanded, a type
+variable instantiated), and the draft codec then fails with `no_v4_spelling`.
+Opt in to dropping them with `v3_to_v4(..., drop_input_attributes=True)`,
+`drop_input_attributes(dist)` for any v4 distribution, or
+`morphir-tools ir convert --to v4 --drop-input-attributes`. Each input that loses
+information reports `input_attributes_dropped`; without the opt-in the in-memory
+migration stays lossless.
+
+```python
+from pathlib import Path
+
+from morphir.ir.migrate import v3_to_v4
+from morphir.ir.v3 import codec as v3_codec
+from morphir.ir.v4 import codec as v4_codec
+
+text = Path("tests/fixtures/ir/v3/elm-reference-model.json").read_text()
+upgraded = v3_to_v4(
+    v3_codec.decode_versioned_distribution(text), drop_input_attributes=True
+)
+assert {w.code for w in upgraded.warnings} == {"input_attributes_dropped"}
+assert v4_codec.encode_versioned_distribution(upgraded.value)["formatVersion"] == 4
+```
 
 ## Morphir SDK
 

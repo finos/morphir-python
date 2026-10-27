@@ -4,8 +4,16 @@ IR v4 is not frozen in finos/morphir. The JSON codec in `morphir.ir.v4.codec` is
 draft pinned to finos/morphir commit efa36060.
 """
 
-from . import module, package
+from . import annotation, incompleteness, module, package
 from .access_controlled import AccessControlled
+from .annotation import (
+    Annotation,
+    AnnotationArgument,
+    CompactAnnotation,
+    NamedArgument,
+    PositionalArgument,
+    StructuredAnnotation,
+)
 from .decorations import (
     DecorationFormat,
     DecorationValuesFile,
@@ -33,6 +41,15 @@ from .document import (
 )
 from .documented import Documented
 from .fqname import FQName
+from .incompleteness import (
+    DeletedDuringRefactor,
+    DraftIncompleteness,
+    HoleIncompleteness,
+    HoleReason,
+    Incompleteness,
+    TypeMismatch,
+    UnresolvedReference,
+)
 from .literal import (
     BoolLiteral,
     CharLiteral,
@@ -52,18 +69,33 @@ from .type_constraints import TypeConstraints
 from .type_def import Definition as TypeDefinition
 from .type_spec import Specification as TypeSpecification
 from .value import Definition as ValueDefinition
-from .value import Pattern, Value, ValueAttributes
+from .value import (
+    ExternalBinding,
+    ExternalBody,
+    IncompleteBody,
+    NativeBody,
+    NativeHint,
+    NativeInfo,
+    Pattern,
+    Value,
+    ValueAttributes,
+    ValueDefinitionBody,
+)
 from .value import Specification as ValueSpecification
 
 __all__ = [
     "AccessControlled",
+    "Annotation",
+    "AnnotationArgument",
     "ApplicationDistribution",
     "BoolLiteral",
     "CharLiteral",
+    "CompactAnnotation",
     "DecimalLiteral",
     "DecorationFormat",
     "DecorationValuesFile",
     "DefRef",
+    "DeletedDuringRefactor",
     "Distribution",
     "DocArray",
     "DocBool",
@@ -74,37 +106,55 @@ __all__ = [
     "DocString",
     "Document",
     "Documented",
+    "DraftIncompleteness",
     "EntryPoint",
     "EntryPointKind",
+    "ExternalBinding",
+    "ExternalBody",
     "FQName",
     "Field",
     "FileMeta",
     "FileWithDefs",
     "FloatLiteral",
+    "HoleIncompleteness",
+    "HoleReason",
+    "IncompleteBody",
+    "Incompleteness",
     "IntegerLiteral",
     "LayerManifest",
     "LibraryDistribution",
     "Literal",
     "Name",
+    "NamedArgument",
+    "NativeBody",
+    "NativeHint",
+    "NativeInfo",
     "PackageInfo",
     "Path",
     "Pattern",
     "PointerRef",
+    "PositionalArgument",
     "QName",
     "Ref",
     "SchemaRef",
     "SourceRange",
     "SpecsDistribution",
     "StringLiteral",
+    "StructuredAnnotation",
     "Type",
     "TypeAttributes",
     "TypeConstraints",
     "TypeDefinition",
+    "TypeMismatch",
     "TypeSpecification",
+    "UnresolvedReference",
     "Value",
     "ValueAttributes",
     "ValueDefinition",
+    "ValueDefinitionBody",
     "ValueSpecification",
+    "annotation",
+    "incompleteness",
     "module",
     "package",
 ]
