@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>add-ir-3-1-0: design</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>.
+  Styles and scripts are files in docs/templates/assets/, referenced and not embedded. In a copy, change the
+  "assets/" prefix of each href and src to the relative path from the copy to that directory, for example
+  "../../docs/templates/assets/" from .dev/beads-specs/. See AGENTS.md, "Specs and plans are HTML documents".
+  Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
+  list them in nav.toc.
+-->
+<link rel="stylesheet" href="../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../docs/templates/assets/agent-document.js"></script>
+</head>
+<body>
+<main>
+<h1>add-ir-3-1-0: design</h1>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.8.13</code> · 2026-10-27 · proposed</p>
+
+<nav class="toc" aria-label="Contents">
+<ul>
+<li><a href="#context">Context</a></li>
+<li><a href="#sources">Sources</a></li>
+<li><a href="#goals">Goals and non-goals</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration plan</a></li>
+<li><a href="#open-questions">Open questions</a></li>
+</ul>
+</nav>
+
+<h2 id="context">Context</h2>
+<p>See <code>proposal.md</code> for the motivation. PR #32 landed format 3.0.0 beside draft IR v4. The parts this change
+touches are:</p>
+<table>
+<thead><tr><th>Module</th><th>State before this change</th></tr></thead>
+<tbody>
+<tr><td><code>morphir.ir.format_version</code></td><td><code>V3_INTERVAL</code> is <code>[3.0.0,3.1.0)</code>; a <code>3.1.0</code> document fails with <code>unsupported_format_version_minor</code> and a pointer to issue #28.</td></tr>
+<tr><td><code>morphir.ir.v3.distribution</code></td><td><code>Distribution = Library</code>.</td></tr>
+<tr><td><code>morphir.ir.v3.codec</code></td><td><code>decode_distribution</code> refuses every tag but <code>Library</code>; <code>encode_versioned_distribution</code> always writes <code>3</code>.</td></tr>
+<tr><td><code>morphir.ir.migrate</code></td><td><code>v3_to_v4</code> takes a <code>Library</code>; <code>v4_to_v3</code> refuses <code>Specs</code> and <code>Application</code> with <code>unsupported_v4_downgrade</code>.</td></tr>
+<tr><td><code>morphir_tools.cli</code></td><td><code>ir inspect</code> and <code>ir convert</code> assume a v3 file holds a <code>Library</code>.</td></tr>
+</tbody>
+</table>
+<p>The v4 model and codec (<code>morphir.ir.v4</code>) are being realigned in parallel under
+<code>morphir-ukvn.8.14</code>. This change reads them but does not edit them, and keeps its edits to
+<code>migrate.py</code> on the <code>Specs</code> path.</p>
+
+<h2 id="sources">Sources</h2>
+<table>
+<thead><tr><th>Source</th><th>Commit</th><th>What it settles</th></tr></thead>
+<tbody>
+<tr><td>finos/morphir decision record 0018, <code>kb/bundles/morphir/morphir-ir/decisions/0018-ir-3-1-adds-specs-and-v3-document-trees.md</code></td><td><code>efa36060</code></td><td>Lowest-version writers, <code>specs_before_3_1</code>, the reference table <code>[3.0.0,3.2.0),[4.0.0,4.1.0)</code>.</td></tr>
+<tr><td>finos/morphir <code>docs/spec/ir/schemas/v3/whats-new.md</code> (section "Version 3.1.0")</td><td><code>efa36060</code></td><td>The <code>Specs</code> shape; a module definition in a <code>Specs</code> MUST be refused; <code>Specs</code> migrates to a v4 <code>Specs</code> at <code>formatVersion</code> 4.</td></tr>
+<tr><td>finos/morphir <code>website/static/schemas/morphir-ir-v3.json</code></td><td><code>efa36060</code></td><td>The JSON Schema refuses a <code>Specs</code> at integer <code>3</code> or <code>"3.0.x"</code>.</td></tr>
+<tr><td>finos/morphir <code>spec/ir/mck/distributions.feature</code> (distributions-0011), <code>versions.feature</code> (versions-0009, versions-0010)</td><td><code>efa36060</code></td><td>Canonical JSON of a v3 <code>Specs</code>; <code>"3.1.0"</code> supported; <code>"3.2.0"</code> refused as a minor.</td></tr>
+<tr><td>finos/morphir-rust "feat(ir)!: IR 3.1.0 — a v3 Specs distribution (#256)": <code>crates/morphir-core/src/ir/classic/distribution.rs</code>, <code>package.rs</code>, <code>migration/classic_to_v4.rs</code>, <code>tests/classic_specs_distribution.rs</code>, <code>morphir-common/tests/classic_specs_transport.rs</code></td><td><code>cd9f7fb</code></td><td>Reference behaviour: strict <code>Specs</code> modules, the version check, the writer rule, the v3 to v4 migration.</td></tr>
+</tbody>
+</table>
+
+<h2 id="goals">Goals and non-goals</h2>
+<p><strong>Goals:</strong> read every <code>3.0.x</code> and <code>3.1.x</code> single-file JSON document; read and write a v3
+<code>Specs</code>; migrate <code>Specs</code> both ways; keep every <code>3.0.0</code> output byte-identical to
+before.</p>
+<p><strong>Non-goals:</strong></p>
+<ul>
+<li>v3 JSON and YAML document trees (see <a href="#scope-1">SCOPE-1</a>; follow-up <code>morphir-ukvn.8.17</code>).</li>
+<li>Any change to the v4 model or codec.</li>
+<li>Formats 1 and 2 (<code>morphir-ukvn.8.12</code>).</li>
+</ul>
+
+<h2 id="decisions">Decisions</h2>
+
+<h3 id="fv-1">FV-1. Raise the table; keep one reader</h3>
+<p><code>V3_INTERVAL</code> becomes <code>[3.0.0,3.2.0)</code>, so <code>SUPPORT_TABLE</code> and <code>V3_TABLE</code>
+follow. A new constant <code>V3_1 = FormatVersion(3, 1, 0)</code> names the release that introduced <code>Specs</code>,
+so no module compares raw tuples. The human description of a table lists each minor family it covers
+(<code>3.0.x, 3.1.x and draft 4.0.x</code>), because the old "<code>3.0.x</code>" label would now be wrong. The issue
+#28 pointer in the minor diagnostic goes away; a <code>3.2.0</code> refusal names the table instead.</p>
+<p>Alternative: a separate reader for 3.1. Rejected: the format-version contract has one reader per table, and the
+patch promise (decision 0016) says a ceiling on a minor boundary is all that changes.</p>
+
+<h3 id="v3-1">V3-1. <code>Specs</code> is a second frozen dataclass</h3>
+<pre><code class="language-python">@dataclass(frozen=True)
+class Specs:
+    package_name: Path
+    specification: package.Specification[None]
+    dependencies: dict[Path, package.Specification[None]] = field(default_factory=dict)
+
+type Distribution = Library | Specs</code></pre>
+<p>Field names follow <code>Library</code> and the v4 <code>SpecsDistribution</code>, so migration code reads the same in
+both directions. There is no version field: the model holds content, and the writer derives the version from it
+(<a href="#v3-4">V3-4</a>). This mirrors Rust <code>DistributionBody::Specs</code>, minus Rust's stored major.</p>
+
+<h3 id="v3-2">V3-2. The version check runs before the body decodes</h3>
+<p><code>decode_versioned_distribution</code> reads the root with <code>V3_TABLE</code>, then reads the distribution
+tag. If the tag is <code>Specs</code> and the declared release is below <code>V3_1</code>, it raises
+<code>specs_before_3_1</code> at <code>formatVersion</code>, before it decodes the body. Rust decodes first and checks
+after; the kit pins only the code, not the order. Checking first means a <code>Specs</code> mislabelled as
+<code>3</code> reports the root cause, not a body error. The check uses the normalized release, so the permissive
+spellings <code>3</code>, <code>"3"</code> and <code>"3.0.1"</code> are all refused.</p>
+<p>The code lives in <code>morphir.ir.diagnostics</code> as <code>SPECS_BEFORE_3_1 = "specs_before_3_1"</code>, the
+upstream spelling.</p>
+
+<h3 id="v3-3">V3-3. A <code>Specs</code> distribution's own modules are read strictly</h3>
+<p>The elm-faithful module-specification decoder ignores unknown members. Under it, a module definition
+(<code>{"access": ..., "value": ...}</code>) would fail only on a missing <code>types</code>, and a module carrying extra
+members would read silently. For a <code>Specs</code> distribution's own modules, the decoder first refuses any member
+other than <code>types</code>, <code>values</code> and <code>doc</code> with <code>unknown_member</code> at that
+member. Dependencies keep the existing reading, as in Rust (<code>SpecsModuleEntry</code> versus
+<code>ModuleSpecEntry</code>).</p>
+<p>Difference from Rust: Rust's strict reader defaults a missing <code>types</code> or <code>values</code> to empty.
+This package keeps them required (<code>missing_member</code>), as its 3.0.0 decoder does for every module
+specification. Every known writer emits both, so no real document is affected.</p>
+
+<h3 id="v3-4">V3-4. Writers emit the lowest version that fits</h3>
+<p><code>encode_versioned_distribution</code> picks the version from the content: <code>V3</code> (written
+<code>3</code>) for a <code>Library</code>, <code>V3_1</code> (written <code>"3.1.0"</code>) for a <code>Specs</code>. The
+spelling comes from the existing <code>write_format_version</code>. A <code>Library</code> read at
+<code>"3.1.0"</code> is therefore written as <code>3</code>. This is decision 0018's rule, and it keeps every
+<code>Library</code> readable by morphir-elm.</p>
+
+<h3 id="v3-5">V3-5. finos/morphir is normative for 3.1.0 additions</h3>
+<p>morphir-elm stays normative for 3.0.0 content, but it has no <code>Specs</code>. For what 3.1.0 adds, the finos/morphir
+v3 spec and kit win, and morphir-rust <code>cd9f7fb</code> is the reference implementation. The unknown-tag
+diagnostic now names both kinds.</p>
+
+<h3 id="mig-1">MIG-1. Typed overloads; specifications reuse the existing mappings</h3>
+<p><code>v3_to_v4</code> and <code>v4_to_v3</code> keep their names and gain <code>@overload</code> signatures, so a
+caller that passes a <code>Library</code> still gets a <code>Library</code> type back:</p>
+<pre><code class="language-python">@overload
+def v3_to_v4(dist: dist3.Library, *, package_version: str | None = None) -&gt; Ok[dist4.LibraryDistribution]: ...
+@overload
+def v3_to_v4(dist: dist3.Specs, *, package_version: str | None = None) -&gt; Ok[dist4.SpecsDistribution]: ...
+@overload
+def v3_to_v4(dist: dist3.Distribution, *, package_version: str | None = None) -&gt; Ok[dist4.LibraryDistribution | dist4.SpecsDistribution]: ...</code></pre>
+<p>A v3 <code>Specs</code> maps its package specification with <code>_package_spec_up</code>, the function that already
+maps dependencies. A v4 <code>Specs</code> maps with <code>_Downgrade.package_spec</code>, so it collects the same
+diagnostics (names, attributes, documentation) and warns <code>package_version_dropped</code> the same way. An
+<code>Application</code> is still refused with <code>unsupported_v4_downgrade</code>; decision 0018 says it has no v3
+form. The <code>Library</code> path is untouched.</p>
+<p>Alternative: new functions <code>specs_v3_to_v4</code> and <code>specs_v4_to_v3</code>. Rejected: the CLI would need
+its own dispatch on kind, and the existing Specs refusal in <code>v4_to_v3</code> would remain a trap.</p>
+
+<h3 id="cli-1">CLI-1. The CLI dispatches on the decoded kind</h3>
+<p><code>ir inspect</code> reports <code>kind: Specs</code> for a v3 <code>Specs</code> and the version as read
+(<code>format: 3.1.0</code>). <code>ir convert</code> passes the decoded v3 distribution to <code>v3_to_v4</code> or the
+decoded v4 distribution to <code>v4_to_v3</code>, and writes with the codec's writer, so the lowest-version rule
+applies to <code>--to v3</code> too. The help text names <code>3.0.x and 3.1.x</code>.</p>
+
+<h3 id="scope-1">SCOPE-1. v3 document trees are out of scope</h3>
+<p>Decision 0018 also adds v3 JSON and YAML document trees, which reuse the v4 tree layout (logical paths, stem
+escaping, path budget, <code>fileNames</code>, manifest version rules). morphir-python has no document tree reader or
+writer for v4 either, so a v3 tree would mean building the whole layout first. That is a separate capability with
+its own kit cases (document-tree-0010 to 0017). This change leaves it out, and the follow-up bead
+<code>morphir-ukvn.8.17</code> tracks it. Without trees, the single-file rules are complete: a <code>Specs</code> or a
+<code>Library</code> at any supported 3.x release reads, and every write is single-file.</p>
+
+<h3 id="tst-1">TST-1. Fixtures from the kit and the reference tests</h3>
+<p>Two small fixtures go into <code>tests/fixtures/ir/v3/</code>, recorded in <code>PROVENANCE.md</code>:</p>
+<ul>
+<li><code>mck-distributions-0011-specs.json</code>: the canonical JSON of kit case distributions-0011 (finos/morphir
+<code>efa36060</code>, <code>spec/ir/mck/distributions.feature</code>).</li>
+<li><code>rust-classic-specs-transport.json</code>: the <code>SPECS</code> document of morphir-rust
+<code>cd9f7fb</code>, <code>crates/morphir-common/tests/classic_specs_transport.rs</code>, which adds a dependency.</li>
+</ul>
+<p>Both are inline strings upstream, so they are copied verbatim as the file content rather than byte-for-byte from a
+file. Unit tests round-trip them, compare the output to the kit's canonical JSON, and run them through the
+migrations; BDD scenarios run them through the CLI.</p>
+
+<h2 id="risks">Risks and trade-offs</h2>
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>Callers that typed <code>decode_versioned_distribution</code> as returning <code>Library</code> now get a union.</td><td>Breaking change named in the proposal and README. The migration overloads keep <code>Library</code> callers precise.</td></tr>
+<tr><td>A <code>Specs</code> this package writes is refused by morphir-elm and other readers still on <code>[3.0.0,3.1.0)</code>.</td><td>Intended by decision 0018: only new content carries the new version, and a <code>Library</code> still writes <code>3</code>.</td></tr>
+<tr><td>Strictness differs from Rust when a <code>Specs</code> module omits <code>types</code> or <code>values</code> (<a href="#v3-3">V3-3</a>).</td><td>No known writer omits them; the difference is stated here and in the README.</td></tr>
+<tr><td>The v4 model changes in parallel (<code>morphir-ukvn.8.14</code>) and could conflict with <code>migrate.py</code>.</td><td>Edits stay on the <code>Specs</code> branch of the two public functions; no v4 file is edited.</td></tr>
+</tbody>
+</table>
+
+<h2 id="migration">Migration plan</h2>
+<p>No data migration. Every <code>3.0.0</code> file reads and writes as before. Callers that matched on the v3 decoder
+result add a <code>Specs</code> case. Rollback is a revert of the change; no stored state depends on it.</p>
+
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li>finos/morphir-rust#262 tracks whether a v3 tree reader should answer the minor diagnostic for a later 3.x
+manifest. It matters only when <a href="#scope-1">SCOPE-1</a>'s follow-up implements trees.</li>
+</ul>
+</main>
+</body>
+</html>
