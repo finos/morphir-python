@@ -111,6 +111,8 @@ jobs:
 
       - name: Audit the Linux baseline and bundled libraries
         run: |
+          # The build container writes dist/ as root.
+          sudo chown -R "$(id -u):$(id -g)" dist
           pipx run --spec 'auditwheel==6.8.2' auditwheel show dist/native/*.whl | tee dist/native/auditwheel.txt
           grep -q 'manylinux_2_28_x86_64' dist/native/auditwheel.txt
           sha256sum dist/native/*.whl dist/native/*.tar.gz | tee dist/native/SHA256SUMS

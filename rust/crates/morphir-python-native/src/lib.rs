@@ -15,7 +15,6 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use morphir_extension_sdk::prelude::*;
 use morphir_python_binding::PythonExtension;
-use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -135,9 +134,9 @@ fn diagnostics(items: Vec<Diagnostic>) -> Vec<DiagnosticOutput> {
         .collect()
 }
 
-/// Compile an owned request with the native frontend. Pure Rust; never touches Python.
-pub fn compile_input(input: CompileInput) -> BridgeOutput {
-    let request = CompileRequest {
+/// Build the SDK request the bridge sends to the compiler.
+pub fn compile_request(input: CompileInput) -> CompileRequest {
+    CompileRequest {
         language_id: "python".into(),
         sources: SourceSet {
             root: None,
@@ -163,8 +162,12 @@ pub fn compile_input(input: CompileInput) -> BridgeOutput {
             ..Default::default()
         },
         baseline: None,
-    };
-    match PythonExtension.compile(request) {
+    }
+}
+
+/// Compile an owned request with the native frontend. Pure Rust; never touches Python.
+pub fn compile_input(input: CompileInput) -> BridgeOutput {
+    match PythonExtension.compile(compile_request(input)) {
         Ok(result) => BridgeOutput {
             success: result.success && result.ir.is_some(),
             ir: if result.success {
@@ -234,7 +237,8 @@ where
     })
 }
 
-#[pymodule(name = "_native")]
+#[cfg(feature = "python")]
+#[pyo3::pymodule(name = "_native")]
 mod native {
     use pyo3::prelude::*;
 

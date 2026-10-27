@@ -3,8 +3,16 @@
 set -euo pipefail
 cd rust
 
+# mise points VIRTUAL_ENV at .venv, which a Rust-only job does not create.
+if [[ -n "${VIRTUAL_ENV:-}" && ! -x "$VIRTUAL_ENV/bin/python" ]]; then
+  unset VIRTUAL_ENV
+fi
+export PYO3_PYTHON="${PYO3_PYTHON:-$(command -v python3)}"
+
 cargo fmt --all --check
 cargo clippy --locked --all-targets -- -D warnings
+# The CPython module code builds only with the feature Maturin enables.
+cargo clippy --locked -p morphir-python-native --features python -- -D warnings
 cargo test --locked
 # The generated-code execution test runs Python; it is ignored by default.
 MORPHIR_TEST_PYTHON="${MORPHIR_TEST_PYTHON:-python3}" \

@@ -39,4 +39,5 @@ manifest-path = "../../rust/crates/morphir-python-native/Cargo.toml"
 python-source = "python"
 module-name = "morphir_python_native._native"
 bindings = "pyo3"
+features = ["python"]
 locked = true
