@@ -2,6 +2,8 @@
 
 from typing import Final
 
+__all__ = ["BRIDGE_API", "COMPILER_VERSION", "__version__", "compile", "generate"]
+
 BRIDGE_API: Final[int]
 """Revision of the JSON contract with ``morphir_tools.python``."""
 
