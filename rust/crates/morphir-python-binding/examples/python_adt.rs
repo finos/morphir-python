@@ -1,9 +1,29 @@
 //! Print a fixture's IR and generated Python using the same MEP endpoint as a host.
-use morphir_extension_sdk::{prelude::*, protocol::methods};
+use morphir_extension_sdk::{
+    prelude::*,
+    protocol::{InitializeParams, MEP_VERSION, PeerInfo, methods},
+};
 use morphir_python_binding::PythonExtension;
 
 fn main() -> Result<()> {
     let extension = NativeExtension::frontend_backend(PythonExtension)?;
+    // A host must complete the MEP handshake before compile or generate requests.
+    let initialized = extension.protocol().handle(ExtensionRequest::new(
+        methods::INITIALIZE,
+        InitializeParams {
+            model_transport: None,
+            protocol_versions: vec![MEP_VERSION.into()],
+            host: PeerInfo {
+                kind: Default::default(),
+                name: "python-binding-example".into(),
+                version: env!("CARGO_PKG_VERSION").into(),
+            },
+        },
+        0,
+    )?);
+    if let Some(error) = initialized.error {
+        return Err(ExtensionError::ExecutionFailed(format!("{error:?}")));
+    }
     let (uri, text) = match std::env::args().nth(1) {
         Some(path) => {
             let text = std::fs::read_to_string(&path)

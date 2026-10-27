@@ -1,9 +1,29 @@
 //! Compile and generate multiple modules with imported ADTs and tuple aliases through MEP.
-use morphir_extension_sdk::{prelude::*, protocol::methods};
+use morphir_extension_sdk::{
+    prelude::*,
+    protocol::{InitializeParams, MEP_VERSION, PeerInfo, methods},
+};
 use morphir_python_binding::PythonExtension;
 
 fn main() -> Result<()> {
     let extension = NativeExtension::frontend_backend(PythonExtension)?;
+    // A host must complete the MEP handshake before compile or generate requests.
+    let initialized = extension.protocol().handle(ExtensionRequest::new(
+        methods::INITIALIZE,
+        InitializeParams {
+            model_transport: None,
+            protocol_versions: vec![MEP_VERSION.into()],
+            host: PeerInfo {
+                kind: Default::default(),
+                name: "python-binding-example".into(),
+                version: env!("CARGO_PKG_VERSION").into(),
+            },
+        },
+        0,
+    )?);
+    if let Some(error) = initialized.error {
+        return Err(ExtensionError::ExecutionFailed(format!("{error:?}")));
+    }
     let request = CompileRequest {
         language_id: "python".into(),
         sources: SourceSet {
