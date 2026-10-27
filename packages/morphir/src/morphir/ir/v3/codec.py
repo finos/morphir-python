@@ -1111,7 +1111,7 @@ def decode_versioned_distribution(document: str | object) -> Library:
     """Decode a format-3 ``morphir-ir.json`` document.
 
     The format version is read with the shared permissive reader and must be in
-    ``[3.0.0,3.1.0)``; ``4`` fails with ``unsupported_format_version_major``.
+    ``[3.0.0,3.2.0)``; ``4`` fails with ``unsupported_format_version_major``.
 
     Args:
         document: JSON text or an already-decoded JSON value.

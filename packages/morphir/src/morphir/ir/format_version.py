@@ -12,9 +12,9 @@ tooling can read files written by older and newer tools. Writers stay canonical:
 integer ``N`` for ``N.0.0`` and the exact release string otherwise, so this package
 never produces a file that either source would reject.
 
-The support table is ``[3.0.0,3.1.0),[4.0.0,4.1.0)``. It is narrower than the finos
-reference table because IR 3.1.0 is not implemented yet
-(https://github.com/finos/morphir-python/issues/28), and v4 support is draft.
+The support table is ``[3.0.0,3.2.0),[4.0.0,4.1.0)``, the finos reference table
+(finos/morphir decision record 0018). IR 3.1.0 added the v3 ``Specs``
+distribution; `V3_1` names that release. v4 support is draft.
 
 Example:
     >>> read_format_version(3)
@@ -71,13 +71,15 @@ class Interval:
 
 SupportTable = tuple[Interval, ...]
 
-V3_INTERVAL = Interval(FormatVersion(3, 0, 0), FormatVersion(3, 1, 0))
+V3_INTERVAL = Interval(FormatVersion(3, 0, 0), FormatVersion(3, 2, 0))
 V4_INTERVAL = Interval(FormatVersion(4, 0, 0), FormatVersion(4, 1, 0))
 SUPPORT_TABLE: SupportTable = (V3_INTERVAL, V4_INTERVAL)
 V3_TABLE: SupportTable = (V3_INTERVAL,)
 V4_TABLE: SupportTable = (V4_INTERVAL,)
 
 V3 = FormatVersion(3, 0, 0)
+V3_1 = FormatVersion(3, 1, 0)
+"""The release that introduced the v3 ``Specs`` distribution."""
 V4 = FormatVersion(4, 0, 0)
 
 
@@ -203,26 +205,30 @@ def check_supported(
             f"format version {version} is not supported ({detail}); "
             f"this reader accepts only {_describe(table)} ({accepted})",
         )
-    detail = ""
-    if version.major == 3:
-        detail = (
-            "; IR 3.1 is tracked by https://github.com/finos/morphir-python/issues/28"
-        )
     raise fail(
         d.UNSUPPORTED_FORMAT_VERSION_MINOR,
         _CONSTRUCT,
         loc,
-        f"format version {version} is not supported{detail}; "
+        f"format version {version} is not supported; "
         f"this reader accepts only {_describe(table)} ({accepted})",
     )
 
 
+def _families(interval: Interval) -> list[str]:
+    lower, upper = interval.lower, interval.upper
+    if upper.major == lower.major and upper.patch == 0:
+        minors = range(lower.minor, max(upper.minor, lower.minor + 1))
+    else:
+        minors = range(lower.minor, lower.minor + 1)
+    draft = "draft " if lower.major == 4 else ""
+    return [f"{draft}{lower.major}.{minor}.x" for minor in minors]
+
+
 def _describe(table: SupportTable) -> str:
-    names = []
-    for interval in table:
-        family = f"{interval.lower.major}.{interval.lower.minor}.x"
-        names.append(f"draft {family}" if interval.lower.major == 4 else family)
-    return " and ".join(names)
+    names = [name for interval in table for name in _families(interval)]
+    if len(names) == 1:
+        return names[0]
+    return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def read_format_version(
@@ -349,6 +355,7 @@ def dump_json(value: object) -> str:
 __all__ = [
     "SUPPORT_TABLE",
     "V3",
+    "V3_1",
     "V3_TABLE",
     "V4",
     "V4_TABLE",

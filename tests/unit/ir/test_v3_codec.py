@@ -328,7 +328,7 @@ class TestVersionedDistribution:
         )
         assert err.codes == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
         assert "4.0.0" in str(err)
-        assert "only 3.0.x" in str(err)
+        assert "only 3.0.x and 3.1.x" in str(err)
 
     def test_unknown_distribution_tag(self) -> None:
         doc = {"formatVersion": 3, "distribution": ["Specs", [], [], {}]}

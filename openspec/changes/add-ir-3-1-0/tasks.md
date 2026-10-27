@@ -2,9 +2,9 @@
 
 ## 1. Format-version support table for IR 3.1 (morphir-ukvn.8.13.1)
 
-- [ ] 1.1 Write failing tests in `tests/unit/ir/test_format_version.py`: `"3.1.0"` and `"3.1.4"` are supported, `"3.2.0"` fails with `unsupported_format_version_minor` and names `[3.0.0,3.2.0),[4.0.0,4.1.0)`, and the description lists `3.0.x, 3.1.x and draft 4.0.x`; verify they fail
-- [ ] 1.2 Raise `V3_INTERVAL` to `[3.0.0,3.2.0)`, add `V3_1`, describe each minor family, and drop the issue #28 pointer (design FV-1); verify the format-version tests pass
-- [ ] 1.3 Update existing tests and docstrings that assumed `[3.0.0,3.1.0)` (`test_format_version.py`, `test_v3_codec.py`, `tests/tools/test_cli.py`); verify `uv run pytest tests/` passes
+- [x] 1.1 Write failing tests in `tests/unit/ir/test_format_version.py`: `"3.1.0"` and `"3.1.4"` are supported, `"3.2.0"` fails with `unsupported_format_version_minor` and names `[3.0.0,3.2.0),[4.0.0,4.1.0)`, and the description lists `3.0.x, 3.1.x and draft 4.0.x`; verify they fail
+- [x] 1.2 Raise `V3_INTERVAL` to `[3.0.0,3.2.0)`, add `V3_1`, describe each minor family, and drop the issue #28 pointer (design FV-1); verify the format-version tests pass
+- [x] 1.3 Update existing tests and docstrings that assumed `[3.0.0,3.1.0)` (`test_format_version.py`, `test_v3_codec.py`, `tests/tools/test_cli.py`); verify `uv run pytest tests/` passes
 
 ## 2. V3 Specs distribution model and codec (morphir-ukvn.8.13.2)
 

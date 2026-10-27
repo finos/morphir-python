@@ -6,6 +6,7 @@ from morphir.ir import diagnostics as d
 from morphir.ir.diagnostics import DiagnosticError
 from morphir.ir.format_version import (
     SUPPORT_TABLE,
+    V3_1,
     V3_TABLE,
     FormatVersion,
     dump_json,
@@ -76,11 +77,23 @@ class TestSupport:
         assert info.value.codes == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
         assert "formats 1 and 2 are follow-up work" in str(info.value)
 
-    def test_ir_3_1_is_refused(self) -> None:
+    @pytest.mark.parametrize("value", ["3.1.0", "3.1.4"])
+    def test_ir_3_1_is_supported(self, value: str) -> None:
+        version = read_format_version(value)
+        assert (version.major, version.minor) == (3, 1)
+
+    def test_v3_1_names_the_release_that_added_specs(self) -> None:
+        assert FormatVersion(3, 1, 0) == V3_1
+        assert write_format_version(V3_1) == "3.1.0"
+
+    def test_later_v3_minor_is_refused(self) -> None:
         with pytest.raises(DiagnosticError) as info:
-            read_format_version("3.1.0")
+            read_format_version("3.2.0")
         assert info.value.codes == (d.UNSUPPORTED_FORMAT_VERSION_MINOR,)
-        assert "issues/28" in str(info.value)
+        message = str(info.value)
+        assert "3.0.x, 3.1.x and draft 4.0.x" in message
+        assert "[3.0.0,3.2.0),[4.0.0,4.1.0)" in message
+        assert "issues/28" not in message
 
     def test_v4_minor_is_refused(self) -> None:
         assert codes("4.1.0") == (d.UNSUPPORTED_FORMAT_VERSION_MINOR,)
@@ -92,10 +105,10 @@ class TestSupport:
         with pytest.raises(DiagnosticError) as info:
             read_format_version(4, V3_TABLE)
         assert info.value.codes == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
-        assert "only 3.0.x" in str(info.value)
+        assert "only 3.0.x and 3.1.x ([3.0.0,3.2.0))" in str(info.value)
 
     def test_table_spelling(self) -> None:
-        assert table_to_string(SUPPORT_TABLE) == "[3.0.0,3.1.0),[4.0.0,4.1.0)"
+        assert table_to_string(SUPPORT_TABLE) == "[3.0.0,3.2.0),[4.0.0,4.1.0)"
 
 
 class TestWriting:

@@ -77,7 +77,7 @@ class TestInspect:
         [
             (1, d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
             (2, d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
-            ("3.1.0", d.UNSUPPORTED_FORMAT_VERSION_MINOR),
+            ("3.2.0", d.UNSUPPORTED_FORMAT_VERSION_MINOR),
         ],
     )
     def test_unsupported_versions(
@@ -87,7 +87,7 @@ class TestInspect:
         result = run("ir", "inspect", write(tmp_path, "x.json", doc))
         assert result.exit_code == 1
         assert code in result.stderr
-        assert "only 3.0.x and draft 4.0.x" in result.stderr
+        assert "only 3.0.x, 3.1.x and draft 4.0.x" in result.stderr
 
     def test_unreadable_file(self, tmp_path: Path) -> None:
         result = run("ir", "inspect", tmp_path / "missing.json")
