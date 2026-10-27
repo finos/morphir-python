@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from behave.runner import Context
 
 FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "ir" / "v3"
+LEGACY_FIXTURES = FIXTURES.parent / "legacy"
 
 
 def _workdir(context: Context) -> Path:
@@ -32,6 +33,13 @@ def _run(context: Context, *args: str) -> None:
 def step_fixture(context: Context, name: str) -> None:
     """Select a golden format-3 fixture as input."""
     context.input = FIXTURES / name
+    context.fixture = context.input
+
+
+@given('the legacy fixture "{name}"')
+def step_legacy_fixture(context: Context, name: str) -> None:
+    """Select a morphir-elm format-1 or format-2 fixture as input."""
+    context.input = LEGACY_FIXTURES / name
     context.fixture = context.input
 
 

@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: Format 1 is read into the format 3.0.0 model
-The library SHALL decode `"formatVersion": 1` documents with the spellings of the morphir-elm `*/CodecV1.elm` decoders at `bc99af69` into the v3 model: snake_case tags, `["public", x]` access control, `[doc, x]` or bare documentation, `[name, type]` record fields, `{"name", "spec"}` and `{"name", "def"}` package modules, and no module documentation. (bead: morphir-ukvn.8.12)
+The library SHALL decode `"formatVersion": 1` documents with the spellings of the morphir-elm `*/CodecV1.elm` decoders at `bc99af69` into a v3 `Library`, never a `Specs`: snake_case tags, `["public", x]` access control, `[doc, x]` or bare documentation, `[name, type]` record fields, `{"name", "spec"}` and `{"name", "def"}` package modules, and no module documentation. (bead: morphir-ukvn.8.12)
 
 #### Scenario: morphir-elm format-1 output decodes
 - **WHEN** the morphir-elm rentals example written as format 1 is decoded

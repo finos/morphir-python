@@ -40,8 +40,9 @@
 <p>See proposal.md for the motivation. Today <code>morphir.ir.format_version</code> normalizes the integers
 <code>1</code> and <code>2</code> to releases 1.0.0 and 2.0.0 only so that <code>check_supported</code> can refuse
 them with <code>unsupported_format_version_major</code> ("formats 1 and 2 are follow-up work"). The support table is
-<code>[3.0.0,3.1.0),[4.0.0,4.1.0)</code>. Bead <code>morphir-ukvn.8.13</code> (IR 3.1.0) changes that table to
-<code>[3.0.0,3.2.0),[4.0.0,4.1.0)</code> in parallel, so this change does not touch the table.</p>
+<code>[3.0.0,3.2.0),[4.0.0,4.1.0)</code> since bead <code>morphir-ukvn.8.13</code> (IR 3.1.0, PR #34) merged; this
+change does not touch the table. That change also made the v3 distribution <code>Library | Specs</code>; the legacy
+formats only ever produce a <code>Library</code>, because <code>Specs</code> needs format 3.1.0.</p>
 <p>The finos/morphir format-version contract (<code>kb/bundles/morphir/morphir-ir/format-version-support.md</code>)
 says the release grammar starts at major 3. A support table therefore cannot hold format 1 or 2.</p>
 <p>morphir-elm at <code>bc99af69</code> is the source. Its <code>FormatVersion/Codec.elm</code> reads format 3
@@ -194,7 +195,8 @@ type, value, pattern, literal and wrapper tag.</td></tr>
 JSON-shape checks. Moving them to a shared module would edit <code>codec.py</code>, which bead
 <code>morphir-ukvn.8.13</code> edits in parallel; that can be a later refactor.</td></tr>
 <tr><td>Rebase conflicts with IR 3.1.0 in <code>format_version.py</code>, the CLI, and the specs.</td><td>The
-support table and the 3.1 message are not touched; the legacy code is appended in its own section.</td></tr>
+support table and the 3.1 message are not touched; the legacy code is appended in its own section. This branch
+was rebased on PR #34 and its spec deltas rewritten against the merged specs.</td></tr>
 </tbody>
 </table>
 

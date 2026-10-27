@@ -22,12 +22,12 @@ morphir-elm wrote `"formatVersion": 1` until October 2021 and `"formatVersion": 
 
 - `ir/format-version`: formats 1 and 2 are recognized as legacy, read-only formats outside the support table, instead of being refused as follow-up work; legacy formats are never written.
 - `ir/v3`: legacy decoders read formats 1 and 2 into the format 3.0.0 model.
-- `tools/ir-interchange`: inspect and convert accept formats 1 and 2 and upgrade them; only IR 3.1.0 stays refused by this change.
+- `tools/ir-interchange`: inspect and convert accept formats 1 and 2 and upgrade them; later 3.x minors (3.2.0 on) stay refused.
 
 ## Beads
 
 - **Tracked by**: `morphir-ukvn.8.12`
-- **Related**: `morphir-ukvn.8` (parent epic, first-class IR v3), `morphir-ukvn.8.13` (IR 3.1.0, in progress in parallel; it changes the support table and the 3.1 refusal, which this change leaves alone)
+- **Related**: `morphir-ukvn.8` (parent epic, first-class IR v3), `morphir-ukvn.8.13` (IR 3.1.0, merged first; it set the support table to `[3.0.0,3.2.0),[4.0.0,4.1.0)` and added the v3 `Specs` distribution, which legacy formats never produce)
 
 ## Impact
 

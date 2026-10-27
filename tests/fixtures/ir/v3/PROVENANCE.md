@@ -20,7 +20,8 @@ Copyright 2020 Morgan Stanley and the FINOS Morphir contributors.
 | `finos-greeting-example.json` | [finos/morphir](https://github.com/finos/morphir) | `efa36060` | `website/static/ir/examples/v3/greeting-example.json` |
 | `finos-rule-set-example.json` | finos/morphir | `efa36060` | `website/static/ir/examples/v3/rule-set-example.json` |
 
-The rentals example is format 2 and is deliberately not included.
+The rentals example is format 2, so it is in [`../legacy/`](../legacy/PROVENANCE.md)
+with its format-1 twin, not here.
 
 ## Format 3.1.0 fixtures
 
