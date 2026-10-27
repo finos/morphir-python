@@ -243,16 +243,16 @@ jobs:
       - name: Build packages
         run: mise run build
 
-      - name: Check distributions, vulnerabilities and licenses
-        run: mise run release-check
-        env:
-          RELEASE_TAG: ${{ inputs.release-tag }}
-
       - name: Download the native distributions
         uses: actions/download-artifact@v7
         with:
           name: native-linux-x86_64
           path: dist/native/
+
+      - name: Check distributions, vulnerabilities and licenses
+        run: mise run release-check
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
 
       - name: Qualify the native archive and a clean install without Rust
         run: mise run native:qualify

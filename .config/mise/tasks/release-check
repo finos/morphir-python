@@ -11,6 +11,19 @@ uvx --from twine==7.0.0 twine check --strict \
 uv export --frozen --all-packages --no-default-groups --no-emit-workspace \
   --no-hashes --output-file "$release_dir/constraints.txt"
 
+# The CLI needs its exact native compiler. Use the wheel CI built, unless this is
+# a CLI release, which resolves the already published native release from PyPI.
+native_wheels=()
+if [[ ${RELEASE_TAG:-} != python-v* ]]; then
+  shopt -s nullglob
+  native_wheels=("${NATIVE_DIST:-$PWD/dist/native}"/morphir_python_native-*.whl)
+  shopt -u nullglob
+  if [[ ${#native_wheels[@]} -ne 1 ]]; then
+    echo "expected one native wheel in ${NATIVE_DIST:-dist/native}; run mise run native:build" >&2
+    exit 1
+  fi
+fi
+
 packages=(morphir morphir-python)
 if [[ ${RELEASE_TAG:-} == morphir-v* ]]; then
   packages=(morphir)
@@ -42,7 +55,7 @@ assert find_spec("typer") is None
 PY_CORE
   else
     uv pip install --python "$release_python" --constraint "$release_dir/constraints.txt" \
-      packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl
+      packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl "${native_wheels[@]}"
     "$release_python" -I - <<'PY_CLI'
 from importlib.metadata import distribution, version
 
@@ -60,6 +73,7 @@ PY_CLI
   fi
   uv pip check --python "$release_python"
   uv pip freeze --python "$release_python" --exclude morphir --exclude morphir-python \
+    --exclude morphir-python-native \
     > "$release_dir/$package-requirements.txt"
   if [[ -s "$release_dir/$package-requirements.txt" ]]; then
     uvx --from pip-audit==2.10.1 pip-audit --strict --no-deps --disable-pip \
@@ -86,7 +100,7 @@ uv pip install --python "$migration_python" --constraint "$release_dir/constrain
   'morphir-python==0.0.1'
 uv pip uninstall --python "$migration_python" morphir-python morphir
 uv pip install --python "$migration_python" --constraint "$release_dir/constraints.txt" \
-  packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl
+  packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl "${native_wheels[@]}"
 "$migration_python" -I - <<'PY_MIGRATION'
 from importlib.metadata import version
 
