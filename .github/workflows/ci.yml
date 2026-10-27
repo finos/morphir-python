@@ -117,3 +117,4 @@ jobs:
         with:
           name: release-scan-reports
           path: .dev/release-check/*.json
+          include-hidden-files: true
