@@ -1,0 +1,50 @@
+from .name import Name
+from .name import from_string as name_from_string
+
+
+class Path(tuple[Name, ...]):
+    pass
+
+
+def from_list(names: list[Name]) -> Path:
+    return Path(tuple(names))
+
+
+def to_list(path: Path) -> list[Name]:
+    return list(path)
+
+
+def from_string(s: str) -> Path:
+    if not s:
+        return Path(tuple())
+    # Support both "/" (v4) and "." (legacy) as separators
+    # Use regex split to handle both
+    import re
+
+    parts = re.split(r"[/\.]", s)
+    return Path(tuple(name_from_string(p) for p in parts if p))
+
+
+def to_string(path: Path, separator: str = "/") -> str:
+    # Default separator per IR v4 is "/"
+    from .name import to_kebab_case
+
+    return separator.join(to_kebab_case(name) for name in path)
+
+
+def empty() -> Path:
+    return Path(tuple())
+
+
+def append(path: Path, name: Name) -> Path:
+    return Path(path + (name,))
+
+
+def concat(path1: Path, path2: Path) -> Path:
+    return Path(path1 + path2)
+
+
+def is_prefix_of(prefix: Path, path: Path) -> bool:
+    if len(prefix) > len(path):
+        return False
+    return path[: len(prefix)] == prefix

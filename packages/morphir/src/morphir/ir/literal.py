@@ -1,51 +1,25 @@
-from dataclasses import dataclass
-from decimal import Decimal
-from typing import Union
+"""Compatibility shim: re-exports `morphir.ir.v4.literal`."""
 
-from .document import Document
-
-
-@dataclass(frozen=True)
-class BoolLiteral:
-    value: bool
-
-
-@dataclass(frozen=True)
-class CharLiteral:
-    value: str
-
-
-@dataclass(frozen=True)
-class StringLiteral:
-    value: str
-
-
-@dataclass(frozen=True)
-class IntegerLiteral:
-    value: int
-
-
-@dataclass(frozen=True)
-class FloatLiteral:
-    value: float
-
-
-@dataclass(frozen=True)
-class DecimalLiteral:
-    value: Decimal
-
-
-@dataclass(frozen=True)
-class DocumentLiteral:
-    value: Document
-
-
-Literal = Union[
+from morphir.ir.v4.literal import (
     BoolLiteral,
     CharLiteral,
-    StringLiteral,
-    IntegerLiteral,
-    FloatLiteral,
     DecimalLiteral,
+    Document,
     DocumentLiteral,
+    FloatLiteral,
+    IntegerLiteral,
+    Literal,
+    StringLiteral,
+)
+
+__all__ = [
+    "BoolLiteral",
+    "CharLiteral",
+    "DecimalLiteral",
+    "Document",
+    "DocumentLiteral",
+    "FloatLiteral",
+    "IntegerLiteral",
+    "Literal",
+    "StringLiteral",
 ]

@@ -1,19 +1,15 @@
-from dataclasses import dataclass, field
+"""Compatibility shim: re-exports `morphir.ir.v4.package`."""
 
-from . import module
-from .access_controlled import AccessControlled
-from .path import Path
+from morphir.ir.v4.package import (
+    AccessControlled,
+    Definition,
+    PackageName,
+    Specification,
+)
 
-PackageName = Path
-
-
-@dataclass(frozen=True)
-class Specification:
-    modules: dict[module.ModuleName, module.Specification] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class Definition:
-    modules: dict[module.ModuleName, AccessControlled[module.Definition]] = field(
-        default_factory=dict
-    )
+__all__ = [
+    "AccessControlled",
+    "Definition",
+    "PackageName",
+    "Specification",
+]
