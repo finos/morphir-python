@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>align-ir-v4-with-upstream: design</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>.
+  Styles and scripts are files in docs/templates/assets/, referenced and not embedded. In a copy, change the
+  "assets/" prefix of each href and src to the relative path from the copy to that directory, for example
+  "../../docs/templates/assets/" from .dev/beads-specs/. See AGENTS.md, "Specs and plans are HTML documents".
+  Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
+  list them in nav.toc.
+-->
+<link rel="stylesheet" href="../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../docs/templates/assets/agent-document.js"></script>
+</head>
+<body>
+<main>
+<h1>align-ir-v4-with-upstream: design</h1>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.8.14</code> (group 1: <code>morphir-ukvn.8.15</code>) · 2026-10-27 · proposed</p>
+
+<nav class="toc" aria-label="Contents">
+<ul>
+<li><a href="#context">Context</a></li>
+<li><a href="#goals">Goals and non-goals</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration plan</a></li>
+<li><a href="#open-questions">Open questions</a></li>
+</ul>
+</nav>
+
+<h2 id="context">Context</h2>
+<p>See proposal.md for the motivation. The draft codec (<code>morphir.ir.v4.codec</code>) follows the finos/morphir v4 schema
+at <code>FINOS_MORPHIR_PIN = "efa36060"</code>, which is still finos/morphir main on 2026-10-27. It writes and reads only the
+expanded spelling (<code>{"Kind": {members}}</code>); compact spellings are the later re-sync in <code>morphir-ukvn.8.16</code>.</p>
+<p>The sources for the new shapes, in order of authority:</p>
+<table>
+<thead><tr><th>Construct</th><th>Source at the pin</th></tr></thead>
+<tbody>
+<tr><td>Definition bodies, native hints, external bindings</td><td>schema <code>ValueDefinition</code>, <code>NativeBody</code>, <code>ExternalBody</code>, <code>IncompleteBody</code>; kit <code>definitions-0007</code> to <code>-0009</code>, <code>-0016</code>, <code>-0025</code>, <code>-0030</code></td></tr>
+<tr><td>Incompleteness and hole reasons</td><td>schema <code>Incompleteness</code>, <code>HoleReason</code>; kit <code>definitions-0014</code>, <code>-0015</code>, <code>-0024</code>, <code>-0026</code></td></tr>
+<tr><td>Annotations</td><td>schema <code>Annotation</code>; kit <code>definitions-0020</code> to <code>-0023</code>; morphir-rust <code>ir/v4/annotation.rs</code> (<code>Compact</code> and <code>Structured</code>)</td></tr>
+<tr><td>Union</td><td><code>docs/spec/draft/types.md</code> (not yet in the schema); reference implementation finos/morphir-moonbit #155 (<code>morphir-ukvn.7.9.1</code>)</td></tr>
+<tr><td>Per-input attributes</td><td>reference model <code>inputs: List(#(Name, Type))</code>; kit <code>definitions-0027</code> ("An input type is a bare type"); morphir-rust <code>migration/classic_to_v4.rs</code>, which drops v3 input attributes</td></tr>
+</tbody>
+</table>
+<p>The in-memory v3 to v4 to v3 round trip is a requirement (<code>ir/migrate</code>, "Shared subset round trips"), and the
+morphir-elm reference model has 8 inputs whose resolved type differs from the declared type (alias expansion and
+type-variable instances, for example <code>float-alias</code> resolved to <code>Float</code>).</p>
+
+<h2 id="goals">Goals and non-goals</h2>
+<p><strong>Goals:</strong> every construct in the pinned v4 schema and the Union draft has a Python model and an expanded
+spelling; every new construct has an explicit downgrade failure; the reference model can reach v4 JSON through an
+explicit choice; nothing that works today stops working, except the typed <code>Hole.reason</code>.</p>
+<p><strong>Non-goals:</strong> compact spellings, legacy one-release spellings and the <code>legacy_spelling</code> warning
+(<code>morphir-ukvn.8.16</code>); the 4.1.0 linked annotations; removing the deprecated constructs; type checking
+of unions.</p>
+
+<h2 id="decisions">Decisions</h2>
+
+<h3 id="inp-1">INP-1. Per-input attributes drop only on request</h3>
+<p>Upstream v4 has no slot for them, and adding one is not a spelling to "find": the reference model, the kit and the
+reference implementation all agree that an input is a bare type. So no upstream proposal is needed. The Python side
+gets an explicit drop: <code>drop_input_attributes(lib)</code> for any v4 Library, a <code>drop_input_attributes=True</code>
+keyword on <code>v3_to_v4</code>, and <code>ir convert --drop-input-attributes</code>. An input loses information when its
+attributes are neither empty nor exactly <code>ValueAttributes(inferred_type=declared)</code>; only those inputs report
+<code>input_attributes_dropped</code>. The drop walks let-bound definitions too.</p>
+<p>Alternatives: drop always, as morphir-rust does. Rejected: it breaks the lossless in-memory round trip and the
+package's rule that loss is reported. Drop in the codec. Rejected: the codec has no warning channel and stays strict.
+Write the attributes into <code>extensions</code>. Rejected: an invented convention no other reader knows.</p>
+
+<h3 id="body-1">BODY-1. Four body classes, with the expression body keeping its name</h3>
+<p><code>value.Definition</code> stays the expression body, with its <code>(name, attributes, type)</code> inputs, so existing
+code and the v3 migration keep working. New frozen classes <code>NativeBody</code>, <code>ExternalBody</code> and
+<code>IncompleteBody</code> hold <code>(name, type)</code> inputs as upstream does. <code>ValueDefinitionBody</code> is the union
+of the four; <code>module.Definition.values</code>, <code>LetDefinition.definition</code> and <code>LetRecursion.definitions</code>
+hold it, because the schema's let bindings reference <code>ValueDefinition</code>.</p>
+<p>Alternative: one <code>Definition</code> with a body sum type, as morphir-rust does. Rejected: it changes the constructor
+of every existing definition.</p>
+
+<h3 id="hole-1">HOLE-1. Typed hole reasons, shared by values and incompleteness</h3>
+<p><code>UnresolvedReference(target)</code>, <code>DeletedDuringRefactor(tx_id)</code> and <code>TypeMismatch(expected, found)</code>
+live in a new <code>incompleteness</code> module with <code>HoleIncompleteness(reason, partial_body)</code> and
+<code>DraftIncompleteness()</code>. <code>Hole.reason</code> becomes <code>HoleReason</code>. The schema gives the hole's
+<code>partialBody</code> the type <code>Type</code>, so <code>HoleIncompleteness.partial_body</code> is a type; an incomplete value
+keeps its partial expression on <code>IncompleteBody.partial_body</code>, as kit <code>definitions-0025</code> shows. The
+reference model's <code>Draft(notes)</code> has no member in the schema; the pinned schema wins.</p>
+
+<h3 id="ann-1">ANN-1. Annotations keep their spelling</h3>
+<p><code>CompactAnnotation(name, text)</code> and <code>StructuredAnnotation(name, arguments)</code> mirror morphir-rust, because
+the kit writes an argument-less structured annotation as an object and a compact one as a string, so the form is
+content. The free text is everything after the first colon after <code>#</code>. Arguments are
+<code>PositionalArgument(value)</code> or <code>NamedArgument(name, value)</code>; a named argument is an object with exactly
+<code>name</code> and <code>value</code>, anything else is a positional value. Specifications get an
+<code>annotations</code> field with an empty default, placed last so positional construction still works.</p>
+
+<h3 id="uni-1">UNI-1. Union is a type node with two or more alternatives</h3>
+<p><code>type.Union(attributes, alternatives)</code>, spelled <code>{"Union": {"attributes"?, "alternatives": [...]}}</code>.
+Encode and decode refuse fewer than two alternatives with <code>invalid_json</code> at <code>alternatives</code>. Order,
+duplicates and nesting are kept. <code>map_attributes</code> handles it.</p>
+
+<h3 id="dep-1">DEP-1. Deprecate, do not remove, the Python-only constructs</h3>
+<p>The <code>Native</code> and <code>External</code> value nodes and <code>TypeConstraints</code> stay, with docstrings that say
+they are deprecated and what replaces them. Removing them would break imports from <code>morphir.ir</code>; a follow-up
+bead removes them in a later minor release.</p>
+
+<h3 id="mig-1">MIG-1. Every new construct fails downgrade with <code>unsupported_v4_downgrade</code></h3>
+<p>Format 3.0.0 has no home for any of them. Constructs: <code>NativeBody</code>, <code>ExternalBody</code>,
+<code>IncompleteBody</code>, <code>IncompleteTypeDefinition</code>, <code>Union</code>, <code>Annotations</code> (on any
+specification). The pass still collects every failure.</p>
+
+<h2 id="risks">Risks and trade-offs</h2>
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>Typed <code>Hole.reason</code> breaks callers that pass raw JSON</td><td>Draft API; called out as breaking in the proposal and README</td></tr>
+<tr><td>Upstream renames members before v4 settles</td><td>All spellings stay in the codec's tables; <code>morphir-ukvn.8.16</code> re-syncs them</td></tr>
+<tr><td>Union is in the draft spec page but not the pinned schema</td><td>Follow the spec page and the morphir-moonbit implementation; the codec is draft</td></tr>
+<tr><td>Callers that match on module values miss the new bodies</td><td>Strict type checkers report the non-exhaustive match</td></tr>
+</tbody>
+</table>
+
+<h2 id="migration">Migration plan</h2>
+<p>One release of <code>morphir</code>. No data migration. Rollback is a revert of the PR.</p>
+
+</main>
+</body>
+</html>
