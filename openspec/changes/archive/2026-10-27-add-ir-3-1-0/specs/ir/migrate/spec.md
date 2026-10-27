@@ -17,6 +17,10 @@ The library SHALL migrate v4 to v3. When the input uses concepts v3 cannot repre
 - **WHEN** a v4 Library contains a `Hole`, `Native`, or `External` value, or a `DocumentLiteral`
 - **THEN** migration fails with `unsupported_v4_downgrade` naming the construct and its location
 
+#### Scenario: V4-only definitions and types are reported
+- **WHEN** a v4 Library or Specs contains a native, external or incomplete value-definition body, an incomplete type definition, a `Union` type, or a specification with annotations
+- **THEN** migration fails with `unsupported_v4_downgrade` naming the construct and its location
+
 #### Scenario: Missing types are reported
 - **WHEN** a v4 value, pattern, or value-definition input has no `inferred_type`
 - **THEN** migration fails with `missing_inferred_type` at that location
@@ -38,7 +42,7 @@ The library SHALL migrate a v3 `Specs` to a v4 `Specs` and a v4 `Specs` to a v3 
 
 #### Scenario: V3 Specs migrates forward
 - **WHEN** a v3 Specs is migrated to v4
-- **THEN** the result is a v4 Specs whose package name, dependencies and module specifications match the source
+- **THEN** the result is a v4 Specs whose package name, dependencies and module specifications match the source, with no annotations
 
 #### Scenario: Compatible v4 Specs downgrades
 - **WHEN** a v4 Specs uses only concepts v3 can represent

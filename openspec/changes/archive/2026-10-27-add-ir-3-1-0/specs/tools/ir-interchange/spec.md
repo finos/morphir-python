@@ -20,7 +20,7 @@ The `ir inspect` command SHALL read a file with the shared format-version reader
 - **THEN** the report states that v4 support is draft
 
 ### Requirement: Convert between v3 and v4
-The `ir convert` command SHALL convert format 3 (3.0.x and 3.1.x) to v4 and v4 to format 3 through the library migrations, for `Library` and `Specs` distributions. It SHALL accept an optional package version for upgrades and an opt-in flag to drop source locations on downgrade. Success writes the target file; failure exits non-zero, prints each diagnostic, and leaves no output file. (bead: morphir-ukvn.8.13)
+The `ir convert` command SHALL convert format 3 (3.0.x and 3.1.x) to v4 and v4 to format 3 through the library migrations, for `Library` and `Specs` distributions. It SHALL accept an optional package version and an opt-in flag to drop per-input attributes for upgrades, and an opt-in flag to drop source locations on downgrade. Success writes the target file; failure exits non-zero, prints each diagnostic, and leaves no output file. (bead: morphir-ukvn.8.13)
 
 #### Scenario: Upgrade v3 file to v4
 - **WHEN** the user converts a valid format-3 Library file to v4
@@ -37,6 +37,14 @@ The `ir convert` command SHALL convert format 3 (3.0.x and 3.1.x) to v4 and v4 t
 #### Scenario: Downgrade warnings are printed
 - **WHEN** a downgrade succeeds with dropped information
 - **THEN** the tool prints each warning code and still exits 0
+
+#### Scenario: Upgrade with input attributes needs opt-in
+- **WHEN** the user converts the morphir-elm reference model to v4 without `--drop-input-attributes`
+- **THEN** the tool exits non-zero with `no_v4_spelling`, names the flag, and does not create the output file
+
+#### Scenario: Upgrade drops input attributes on request
+- **WHEN** the user converts the same file with `--drop-input-attributes`
+- **THEN** the tool writes a `formatVersion` 4 file, prints each `input_attributes_dropped` warning, and exits 0
 
 ## REMOVED Requirements
 
