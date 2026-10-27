@@ -8,12 +8,13 @@ import pytest
 
 from morphir.ir import diagnostics as d
 from morphir.ir import v3
-from morphir.ir.migrate import Err, Ok, v3_to_v4, v4_to_v3
+from morphir.ir.migrate import Err, Ok, drop_input_attributes, v3_to_v4, v4_to_v3
 from morphir.ir.v3 import codec as v3_codec
 from morphir.ir.v3 import literal as lit3
 from morphir.ir.v3 import package as pkg3
 from morphir.ir.v3 import type as t3
 from morphir.ir.v3 import value as val3
+from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import document as doc4
 from morphir.ir.v4 import literal as lit4
 from morphir.ir.v4 import module as mod4
@@ -347,3 +348,71 @@ class TestReverse:
         again = v4_to_v3(up.value)
         assert isinstance(again, Ok)
         assert again.value == result.value
+
+
+STRING = t4.Reference(
+    t4.TypeAttributes(),
+    FQName(
+        IRPath((n("morphir"), n("s", "d", "k"))), IRPath((n("string"),)), n("string")
+    ),
+)
+REFERENCE_MODEL = FIXTURES / "elm-reference-model.json"
+INPUT_LOC = ("distribution", "modules", "app", "values", "main", "input_types")
+
+
+class TestDropInputAttributes:
+    def test_input_with_resolved_type_is_reset_and_reported(self) -> None:
+        lib = library(inputs=[(n("x"), v4.ValueAttributes(inferred_type=STRING), INT)])
+        result = drop_input_attributes(lib)
+        defn = result.value.definition.modules[IRPath((n("app"),))]
+        inputs = defn.value.values[n("main")].value.value.input_types  # type: ignore[union-attr]
+        assert inputs == [(n("x"), TYPED, INT)]
+        assert [(w.code, w.construct, w.location) for w in result.warnings] == [
+            (d.INPUT_ATTRIBUTES_DROPPED, "ValueDefinitionInput", (*INPUT_LOC, "x"))
+        ]
+
+    @pytest.mark.parametrize(
+        "attrs", [v4.ValueAttributes(), TYPED], ids=["empty", "declared"]
+    )
+    def test_input_that_loses_nothing_reports_nothing(
+        self, attrs: v4.ValueAttributes
+    ) -> None:
+        lib = library(inputs=[(n("x"), attrs, INT)])
+        result = drop_input_attributes(lib)
+        assert result.warnings == ()
+
+    def test_let_bound_input_is_reset(self) -> None:
+        inner = v4.Definition(
+            [(n("y"), v4.ValueAttributes(inferred_type=STRING), INT)],
+            INT,
+            v4.Unit(TYPED),
+        )
+        body = v4.LetDefinition(TYPED, n("f"), inner, v4.Unit(TYPED))
+        result = drop_input_attributes(library(body=body))
+        assert len(result.warnings) == 1
+        assert result.warnings[0].location[-1] == "y"
+        assert "LetDefinition" in result.warnings[0].location
+        mod = result.value.definition.modules[IRPath((n("app"),))]
+        let = mod.value.values[n("main")].value.value.body  # type: ignore[union-attr]
+        assert isinstance(let, v4.LetDefinition)
+        assert let.definition.input_types == [(n("y"), TYPED, INT)]  # type: ignore[union-attr]
+
+    def test_specs_have_no_inputs_to_drop(self) -> None:
+        specs = SpecsDistribution(PackageInfo(PKG), pkg4.Specification())
+        assert drop_input_attributes(specs) == Ok(specs)
+
+    def test_reference_model_upgrades_to_encodable_v4(self) -> None:
+        lib = load(REFERENCE_MODEL)
+        result = v3_to_v4(lib, drop_input_attributes=True)
+        assert len(result.warnings) == 10
+        assert {w.code for w in result.warnings} == {d.INPUT_ATTRIBUTES_DROPPED}
+        document = v4_codec.encode_versioned_distribution(result.value)
+        assert document["formatVersion"] == 4
+
+    def test_default_upgrade_keeps_input_attributes(self) -> None:
+        lib = load(REFERENCE_MODEL)
+        result = v3_to_v4(lib)
+        assert result.warnings == ()
+        back = v4_to_v3(result.value)
+        assert isinstance(back, Ok)
+        assert back.value == lib

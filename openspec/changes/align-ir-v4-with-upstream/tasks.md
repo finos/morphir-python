@@ -2,10 +2,10 @@
 
 ## 1. Per-input attribute drop (morphir-ukvn.8.15)
 
-- [ ] 1.1 Add `INPUT_ATTRIBUTES_DROPPED = "input_attributes_dropped"` to `morphir.ir.diagnostics` and `drop_input_attributes(lib)` to `morphir.ir.migrate`, which resets every module and let-bound expression-body input to its declared type and reports one warning per input that lost information; verify unit tests for a changed input, an unchanged input, a let-bound input, and the warning location
-- [ ] 1.2 Add `drop_input_attributes: bool = False` to `v3_to_v4` and verify that the morphir-elm reference model migrates with 8 warnings and encodes as v4 JSON with the flag, and that without it the v3 to v4 to v3 round trip is still semantically equal
-- [ ] 1.3 Add `ir convert --drop-input-attributes`, mention the flag in the `no_v4_spelling` input error, and verify CLI tests: without the flag the reference model fails with no output file; with it the tool writes v4 JSON, prints the warnings, and exits 0
-- [ ] 1.4 Document the drop in the `packages/morphir` README and the codec docstring's gap list, and verify the documented example runs
+- [x] 1.1 Add `INPUT_ATTRIBUTES_DROPPED = "input_attributes_dropped"` to `morphir.ir.diagnostics` and `drop_input_attributes(lib)` to `morphir.ir.migrate`, which resets every module and let-bound expression-body input to its declared type and reports one warning per input that lost information; verify unit tests for a changed input, an unchanged input, a let-bound input, and the warning location
+- [x] 1.2 Add `drop_input_attributes: bool = False` to `v3_to_v4` and verify that the morphir-elm reference model migrates with 10 warnings (8 module-level and 2 let-bound inputs) and encodes as v4 JSON with the flag, and that without it the v3 to v4 to v3 round trip is still semantically equal
+- [x] 1.3 Add `ir convert --drop-input-attributes`, mention the flag in the `no_v4_spelling` input error, and verify CLI tests: without the flag the reference model fails with no output file; with it the tool writes v4 JSON, prints the warnings, and exits 0
+- [x] 1.4 Document the drop in the `packages/morphir` README and the codec docstring's gap list, and verify the documented example runs
 
 ## 2. Typed hole reasons, incompleteness and incomplete type definitions (morphir-ukvn.8.14.2)
 

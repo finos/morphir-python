@@ -26,9 +26,12 @@ Known gaps between the Python v4 model and upstream v4, each handled explicitly:
   ``unknown_member``.
 - Records are objects keyed by field name (finos decision 0004); duplicate field
   names fail encoding with ``duplicate_member``.
-- ``ExpressionBody.inputTypes`` has no attribute slot. Encoding accepts per-input
+- ``ExpressionBody.inputTypes`` has no attribute slot: upstream spells an input as
+  a bare type (kit case ``definitions-0027``). Encoding accepts per-input
   attributes that are empty or whose only member is ``inferred_type`` equal to the
-  declared input type; decoding sets ``inferred_type`` to the declared type.
+  declared input type, and fails with ``no_v4_spelling`` otherwise; decoding sets
+  ``inferred_type`` to the declared type. `morphir.ir.migrate.drop_input_attributes`
+  resets the attributes on request and reports each input that lost information.
 - The package release version has no member (finos decision 0017); it is not
   written and decodes as absent.
 - Python names are word lists without an initialism marker. A run of two or more
@@ -1106,7 +1109,9 @@ def encode_value_definition(defn: v.Definition, loc: Location = ()) -> Json:
                 "ValueDefinition",
                 (*here, "inputTypes", i),
                 f"input {encode_name(name, here)!r} carries attributes other than its "
-                "declared type; ExpressionBody.inputTypes has no attribute slot",
+                "declared type; ExpressionBody.inputTypes has no attribute slot. "
+                "Drop them with morphir.ir.migrate.drop_input_attributes or "
+                "`morphir-tools ir convert --drop-input-attributes`",
             )
     return {
         "ExpressionBody": {

@@ -20,7 +20,8 @@ import typer
 
 from morphir.ir import format_version as fv
 from morphir.ir.diagnostics import Diagnostic, DiagnosticError
-from morphir.ir.migrate import Err, v3_to_v4, v4_to_v3
+from morphir.ir.migrate import Err, Ok, v3_to_v4, v4_to_v3
+from morphir.ir.migrate import drop_input_attributes as drop_inputs
 from morphir.ir.v3 import codec as v3_codec
 from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import distribution as v4_dist
@@ -128,6 +129,13 @@ def convert(
         bool,
         typer.Option(help="Drop value source locations when downgrading to v3."),
     ] = False,
+    drop_input_attributes: Annotated[
+        bool,
+        typer.Option(
+            help="Keep only the declared type of each value-definition input when "
+            "writing v4, which spells an input as a bare type."
+        ),
+    ] = False,
 ) -> None:
     """Convert between format 3.0.0 and draft IR v4.
 
@@ -138,16 +146,19 @@ def convert(
     try:
         version, _ = fv.read_document(text)
         if to is Target.V4:
+            upgraded: Ok[v4_dist.Distribution]
             if version.major == 4:
-                dist = v4_codec.decode_versioned_distribution(text)
+                upgraded = Ok(v4_codec.decode_versioned_distribution(text))
             else:
-                upgraded = v3_to_v4(
+                library_v4 = v3_to_v4(
                     v3_codec.decode_versioned_distribution(text),
                     package_version=package_version,
                 )
-                dist = upgraded.value
-            document = v4_codec.encode_versioned_distribution(dist)
-            warnings: tuple[Diagnostic, ...] = ()
+                upgraded = Ok(library_v4.value, library_v4.warnings)
+            if drop_input_attributes:
+                upgraded = drop_inputs(upgraded.value)
+            document = v4_codec.encode_versioned_distribution(upgraded.value)
+            warnings: tuple[Diagnostic, ...] = upgraded.warnings
         else:
             if version.major == 3:
                 library = v3_codec.decode_versioned_distribution(text)

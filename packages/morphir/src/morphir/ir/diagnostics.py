@@ -10,8 +10,9 @@ edit. Codes reuse upstream vocabulary where it exists:
 - downgrade codes come from the finos CLI and morphir-moonbit
   ``migration/v3/migration.mbt``, and may be renamed when finos bead
   ``morphir-diwy`` settles;
-- ``package_version_dropped``, ``source_location_dropped``, and
-  ``no_v4_spelling`` are local to morphir-python.
+- ``package_version_dropped``, ``source_location_dropped``,
+  ``input_attributes_dropped``, and ``no_v4_spelling`` are local to
+  morphir-python.
 """
 
 from __future__ import annotations
@@ -48,6 +49,7 @@ UNSUPPORTED_DOCUMENTATION_DOWNGRADE = "unsupported_documentation_downgrade"
 # Warnings (morphir-python).
 PACKAGE_VERSION_DROPPED = "package_version_dropped"
 SOURCE_LOCATION_DROPPED = "source_location_dropped"
+INPUT_ATTRIBUTES_DROPPED = "input_attributes_dropped"
 
 Location = tuple[str | int, ...]
 

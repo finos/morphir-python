@@ -51,7 +51,7 @@ expanded spelling (<code>{"Kind": {members}}</code>); compact spellings are the 
 </tbody>
 </table>
 <p>The in-memory v3 to v4 to v3 round trip is a requirement (<code>ir/migrate</code>, "Shared subset round trips"), and the
-morphir-elm reference model has 8 inputs whose resolved type differs from the declared type (alias expansion and
+morphir-elm reference model has 10 inputs (8 module-level, 2 let-bound) whose resolved type differs from the declared type (alias expansion and
 type-variable instances, for example <code>float-alias</code> resolved to <code>Float</code>).</p>
 
 <h2 id="goals">Goals and non-goals</h2>

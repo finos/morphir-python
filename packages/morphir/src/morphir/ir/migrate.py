@@ -6,7 +6,11 @@ users fix every problem at once. Nothing is invented or dropped, except:
 
 - the package release version, which v3 cannot hold (``package_version_dropped``);
 - value source locations, only when ``drop_source_locations=True``
-  (``source_location_dropped``).
+  (``source_location_dropped``);
+- value-definition input attributes, only when ``drop_input_attributes=True`` or
+  through `drop_input_attributes` (``input_attributes_dropped``). v4 JSON spells
+  an input as a bare type, so an input whose attributes hold more than its
+  declared type cannot be encoded without this drop.
 
 The mapping follows morphir-moonbit ``migration/v3/migration.mbt``, adjusted for
 the Python v4 model. Diagnostic codes are defined in `morphir.ir.diagnostics` and
@@ -24,6 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import cast
 
 from . import diagnostics as d
 from .diagnostics import Diagnostic, Location
@@ -334,7 +339,10 @@ def _package_def_up(defn: pkg3.Definition[None, t3.Type[None]]) -> pkg4.Definiti
 
 
 def v3_to_v4(
-    dist: dist3.Library, *, package_version: str | None = None
+    dist: dist3.Library,
+    *,
+    package_version: str | None = None,
+    drop_input_attributes: bool = False,
 ) -> Ok[dist4.LibraryDistribution]:
     """Migrate a format-3 Library to a v4 Library.
 
@@ -345,19 +353,196 @@ def v3_to_v4(
         dist: The v3 Library.
         package_version: Optional release version for the v4 package identity.
             Without it the version is absent; nothing is invented.
+        drop_input_attributes: Reset each value-definition input's attributes to
+            its declared type, as `drop_input_attributes` does, so the result can
+            be encoded as v4 JSON. Each input that loses information is reported.
 
     Returns:
-        ``Ok`` with the v4 Library. Forward migration has no failure paths.
+        ``Ok`` with the v4 Library and any ``input_attributes_dropped`` warnings.
+        Forward migration has no failure paths.
     """
-    return Ok(
-        dist4.LibraryDistribution(
-            package=dist4.PackageInfo(_path_up(dist.package_name), package_version),
-            definition=_package_def_up(dist.definition),
-            dependencies={
-                _path_up(p): _package_spec_up(s) for p, s in dist.dependencies.items()
-            },
-        )
+    library = dist4.LibraryDistribution(
+        package=dist4.PackageInfo(_path_up(dist.package_name), package_version),
+        definition=_package_def_up(dist.definition),
+        dependencies={
+            _path_up(p): _package_spec_up(s) for p, s in dist.dependencies.items()
+        },
     )
+    if drop_input_attributes:
+        return _drop_input_attributes(library)
+    return Ok(library)
+
+
+# --- Per-input attributes ---
+
+
+class _InputDrop:
+    """Resets value-definition input attributes, recording each loss."""
+
+    def __init__(self) -> None:
+        self.warnings: list[Diagnostic] = []
+
+    def definition(self, defn: v4.Definition, loc: Location) -> v4.Definition:
+        inputs: list[tuple[name4.Name, v4.ValueAttributes, t4.Type]] = []
+        for n, attrs, tpe in defn.input_types:
+            declared = v4.ValueAttributes(inferred_type=tpe)
+            if attrs not in (v4.ValueAttributes(), declared):
+                self.warnings.append(
+                    Diagnostic(
+                        d.INPUT_ATTRIBUTES_DROPPED,
+                        "ValueDefinitionInput",
+                        (*loc, "input_types", name4.to_string(n)),
+                        f"input {name4.to_string(n)!r} kept only its declared type; "
+                        "v4 JSON spells an input as a bare type",
+                    )
+                )
+            inputs.append((n, declared, tpe))
+        return v4.Definition(
+            inputs, defn.output_type, self.value(defn.body, (*loc, "body"))
+        )
+
+    def value(self, val: v4.Value, loc: Location) -> v4.Value:
+        here = (*loc, type(val).__name__)
+        a = val.attributes
+        match val:
+            case v4.Tuple(_, elements):
+                return v4.Tuple(
+                    a, [self.value(x, (*here, i)) for i, x in enumerate(elements)]
+                )
+            case v4.List(_, items):
+                return v4.List(
+                    a, [self.value(x, (*here, i)) for i, x in enumerate(items)]
+                )
+            case v4.Record(_, fields):
+                return v4.Record(a, self.fields(fields, here))
+            case v4.Field(_, subject, n):
+                return v4.Field(a, self.value(subject, (*here, "subject")), n)
+            case v4.Apply(_, function, argument):
+                return v4.Apply(
+                    a,
+                    self.value(function, (*here, "function")),
+                    self.value(argument, (*here, "argument")),
+                )
+            case v4.Lambda(_, pattern, body):
+                return v4.Lambda(a, pattern, self.value(body, (*here, "body")))
+            case v4.LetDefinition(_, n, defn, in_value):
+                return v4.LetDefinition(
+                    a,
+                    n,
+                    self.definition(defn, (*here, "definition")),
+                    self.value(in_value, (*here, "in_value")),
+                )
+            case v4.LetRecursion(_, defs, in_value):
+                return v4.LetRecursion(
+                    a,
+                    {
+                        k: self.definition(
+                            x, (*here, "definitions", name4.to_string(k))
+                        )
+                        for k, x in defs.items()
+                    },
+                    self.value(in_value, (*here, "in_value")),
+                )
+            case v4.Destructure(_, pattern, subject, in_value):
+                return v4.Destructure(
+                    a,
+                    pattern,
+                    self.value(subject, (*here, "value_to_destructure")),
+                    self.value(in_value, (*here, "in_value")),
+                )
+            case v4.IfThenElse(_, cond, then_branch, else_branch):
+                return v4.IfThenElse(
+                    a,
+                    self.value(cond, (*here, "condition")),
+                    self.value(then_branch, (*here, "then_branch")),
+                    self.value(else_branch, (*here, "else_branch")),
+                )
+            case v4.PatternMatch(_, subject, cases):
+                return v4.PatternMatch(
+                    a,
+                    self.value(subject, (*here, "branch_on")),
+                    [
+                        (p, self.value(b, (*here, "cases", i)))
+                        for i, (p, b) in enumerate(cases)
+                    ],
+                )
+            case v4.UpdateRecord(_, subject, fields):
+                return v4.UpdateRecord(
+                    a,
+                    self.value(subject, (*here, "value_to_update")),
+                    self.fields(fields, here),
+                )
+            case _:
+                return val
+
+    def fields(
+        self, items: list[tuple[name4.Name, v4.Value]], loc: Location
+    ) -> list[tuple[name4.Name, v4.Value]]:
+        return [(k, self.value(x, (*loc, name4.to_string(k)))) for k, x in items]
+
+    def package_def(self, defn: pkg4.Definition, loc: Location) -> pkg4.Definition:
+        modules: dict[path4.Path, ac4.AccessControlled[mod4.Definition]] = {}
+        for p, m in defn.modules.items():
+            here = (*loc, path4.to_string(p))
+            values = {
+                k: _with_access(
+                    x,
+                    doc4.Documented(
+                        x.value.doc,
+                        self.definition(
+                            x.value.value, (*here, "values", name4.to_string(k))
+                        ),
+                    ),
+                )
+                for k, x in m.value.values.items()
+            }
+            modules[p] = _with_access(
+                m, mod4.Definition(m.value.types, values, m.value.doc)
+            )
+        return pkg4.Definition(modules)
+
+
+def _with_access[A, B](
+    item: ac4.AccessControlled[A], value: B
+) -> ac4.AccessControlled[B]:
+    return ac4.Public(value) if isinstance(item, ac4.Public) else ac4.Private(value)
+
+
+def drop_input_attributes[D: dist4.Distribution](dist: D) -> Ok[D]:
+    """Reset every value-definition input's attributes to its declared type.
+
+    v4 JSON spells an input as a bare type (kit case ``definitions-0027``), so
+    the draft codec refuses an input whose attributes hold anything else, such as
+    the resolved types morphir-elm writes for typed inputs. This drop makes such
+    a distribution encodable. Module-level and let-bound definitions are covered.
+
+    Args:
+        dist: Any v4 distribution. A Specs distribution has no definitions and
+            is returned unchanged.
+
+    Returns:
+        ``Ok`` with the distribution and one ``input_attributes_dropped`` warning
+        per input whose attributes were neither empty nor its declared type.
+    """
+    return _drop_input_attributes(dist)
+
+
+def _drop_input_attributes[D: dist4.Distribution](dist: D) -> Ok[D]:
+    job = _InputDrop()
+    loc: Location = ("distribution", "modules")
+    result: dist4.Distribution
+    match dist:
+        case dist4.SpecsDistribution():
+            return Ok(dist)
+        case dist4.LibraryDistribution(package, definition, dependencies):
+            result = dist4.LibraryDistribution(
+                package, job.package_def(definition, loc), dependencies
+            )
+        case dist4.ApplicationDistribution(package, definition, deps, entry_points):
+            result = dist4.ApplicationDistribution(
+                package, job.package_def(definition, loc), deps, entry_points
+            )
+    return Ok(cast(D, result), tuple(job.warnings))
 
 
 # --- v4 -> v3 ---
@@ -896,4 +1081,11 @@ def v4_to_v3(
     return Ok(library, tuple(warnings))
 
 
-__all__ = ["Err", "MigrationResult", "Ok", "v3_to_v4", "v4_to_v3"]
+__all__ = [
+    "Err",
+    "MigrationResult",
+    "Ok",
+    "drop_input_attributes",
+    "v3_to_v4",
+    "v4_to_v3",
+]

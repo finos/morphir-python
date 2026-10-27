@@ -111,6 +111,31 @@ distributions, `Hole`, `Native`, `External`, `DocumentLiteral`, a missing
 `inferred_type`, semantic attributes, and missing member documentation. Value
 source locations fail unless you pass `drop_source_locations=True`.
 
+v4 JSON spells a value-definition input as a bare type, so it has no place for
+the per-input attributes of a typed v3 model. morphir-elm writes the resolved
+type there, which can differ from the declared type (an alias expanded, a type
+variable instantiated), and the draft codec then fails with `no_v4_spelling`.
+Opt in to dropping them with `v3_to_v4(..., drop_input_attributes=True)`,
+`drop_input_attributes(dist)` for any v4 distribution, or
+`morphir-tools ir convert --to v4 --drop-input-attributes`. Each input that loses
+information reports `input_attributes_dropped`; without the opt-in the in-memory
+migration stays lossless.
+
+```python
+from pathlib import Path
+
+from morphir.ir.migrate import v3_to_v4
+from morphir.ir.v3 import codec as v3_codec
+from morphir.ir.v4 import codec as v4_codec
+
+text = Path("tests/fixtures/ir/v3/elm-reference-model.json").read_text()
+upgraded = v3_to_v4(
+    v3_codec.decode_versioned_distribution(text), drop_input_attributes=True
+)
+assert {w.code for w in upgraded.warnings} == {"input_attributes_dropped"}
+assert v4_codec.encode_versioned_distribution(upgraded.value)["formatVersion"] == 4
+```
+
 ## Morphir SDK
 
 `morphir.sdk` is the standard library that Morphir models compile against. The
