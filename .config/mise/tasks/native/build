@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#MISE description="Build the morphir-python-native wheel and source archive into dist/native"
+set -euo pipefail
+
+out="${NATIVE_DIST:-$PWD/dist/native}"
+mkdir -p "$out"
+cd packages/morphir-python-native
+# Portable wheels: refuse host-specific CPU settings.
+if [[ "${RUSTFLAGS:-}" == *target-cpu* || "${CARGO_ENCODED_RUSTFLAGS:-}" == *target-cpu* ]]; then
+  echo "RUSTFLAGS must not select a target CPU for portable wheels" >&2
+  exit 1
+fi
+uvx --from maturin==1.15.0 maturin build --release --locked --out "$out" "$@"
+if [[ "${NATIVE_SDIST:-1}" == 1 ]]; then
+  uvx --from maturin==1.15.0 maturin sdist --out "$out"
+fi

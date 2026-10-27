@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#MISE description="Format, lint and test the Rust workspace; build the WASM guest without CPython"
+set -euo pipefail
+cd rust
+
+cargo fmt --all --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
+# The generated-code execution test runs Python; it is ignored by default.
+MORPHIR_TEST_PYTHON="${MORPHIR_TEST_PYTHON:-python3}" \
+  cargo test --locked -p morphir-python-binding --test functions -- --ignored
+cargo run --locked --quiet -p morphir-python-binding --example python_adt >/dev/null
+cargo run --locked --quiet -p morphir-python-binding --example python_modules -- 3 >/dev/null
+
+# The compiler crate, its native consumers and the WASM guest never link CPython.
+if cargo tree --locked -p morphir-python-binding -e normal,build | grep -q pyo3; then
+  echo "morphir-python-binding must not depend on PyO3" >&2
+  exit 1
+fi
+cargo build --locked --release -p morphir-python-binding --target wasm32-unknown-unknown
+wasm-tools validate target/wasm32-unknown-unknown/release/morphir_python_binding.wasm
+if wasm-tools print target/wasm32-unknown-unknown/release/morphir_python_binding.wasm \
+  | grep -E '^\s*\(import' | grep -v '"extism:host/env"'; then
+  echo "the WASM guest imports something other than the Extism host" >&2
+  exit 1
+fi

@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 #MISE description="Install all dependencies and workspace packages"
+#
+# By default uv builds morphir-python-native from source, which needs Rust.
+# MORPHIR_NATIVE_WHEEL=PATH installs that prebuilt wheel instead, so a CI job can
+# reuse one wheel. MORPHIR_SKIP_NATIVE=1 omits the native compiler for jobs that
+# only lint or type-check.
 set -euo pipefail
 
 echo "Syncing dependencies..."
-uv sync --frozen --all-packages --all-groups
+if [[ -n "${MORPHIR_NATIVE_WHEEL:-}" || "${MORPHIR_SKIP_NATIVE:-0}" == 1 ]]; then
+  uv sync --frozen --all-packages --all-groups --no-install-package morphir-python-native
+  if [[ -n "${MORPHIR_NATIVE_WHEEL:-}" ]]; then
+    uv pip install --no-deps "$MORPHIR_NATIVE_WHEEL"
+  fi
+else
+  uv sync --frozen --all-packages --all-groups
+fi
 
 echo "Install complete!"

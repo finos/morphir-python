@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#MISE description="Qualify built native, core and tools distributions without Rust on PATH"
+set -euo pipefail
+
+native="${NATIVE_DIST:-$PWD/dist/native}"
+receipts="${QUALIFICATION_DIR:-$PWD/.dev/qualification}"
+mkdir -p "$receipts"
+shopt -s nullglob
+wheels=("$native"/morphir_python_native-*.whl)
+if [[ ${#wheels[@]} -ne 1 ]]; then
+  echo "expected exactly one native wheel in $native" >&2
+  exit 1
+fi
+uv run --no-sync python scripts/qualify_native.py wheel "${wheels[0]}" >"$receipts/native-wheel.json"
+sdists=("$native"/morphir_python_native-*.tar.gz)
+if [[ ${#sdists[@]} -eq 1 && "${SKIP_SDIST_BUILD:-0}" != 1 ]]; then
+  uv run --no-sync python scripts/qualify_native.py sdist "${sdists[0]}" --out "$receipts/from-sdist" \
+    >"$receipts/native-sdist.json"
+fi
+uv run --no-sync python scripts/qualify_native.py install \
+  packages/morphir/dist/morphir-*.whl "${wheels[0]}" packages/morphir-tools/dist/morphir_python-*.whl \
+  >"$receipts/clean-install.json"
+cat "$receipts"/*.json
