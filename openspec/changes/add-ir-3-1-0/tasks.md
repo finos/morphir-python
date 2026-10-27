@@ -20,14 +20,14 @@
 
 ## 4. IR interchange CLI and docs for IR 3.1 (morphir-ukvn.8.13.4)
 
-- [ ] 4.1 Write failing CLI tests in `tests/tools/test_cli.py` and BDD scenarios in `features/ir_interchange.feature`: inspect a v3 `Specs` reports `format: 3.1.0` and `kind: Specs`; convert a v3 `Specs` to v4 and back; `"3.2.0"` is refused naming `3.0.x, 3.1.x and draft 4.0.x`; verify they fail
-- [ ] 4.2 Dispatch on the decoded v3 kind in `ir inspect` and `ir convert` and update the help text (design CLI-1); verify the CLI tests and `mise run test-bdd` pass
-- [ ] 4.3 Update `packages/morphir/README.md` ("Morphir IR versions") and `packages/morphir-tools/README.md` for 3.1.0, `Specs`, `specs_before_3_1`, the lowest-version writer and the document-tree scope; verify `tests/unit/ir/test_ir_docs.py` passes
+- [x] 4.1 Write failing CLI tests in `tests/tools/test_cli.py` and BDD scenarios in `features/ir_interchange.feature`: inspect a v3 `Specs` reports `format: 3.1.0` and `kind: Specs`; convert a v3 `Specs` to v4 and back; `"3.2.0"` is refused naming `3.0.x, 3.1.x and draft 4.0.x`; verify they fail
+- [x] 4.2 Dispatch on the decoded v3 kind in `ir inspect` and `ir convert` and update the help text (design CLI-1); verify the CLI tests and `mise run test-bdd` pass
+- [x] 4.3 Update `packages/morphir/README.md` ("Morphir IR versions") and `packages/morphir-tools/README.md` for 3.1.0, `Specs`, `specs_before_3_1`, the lowest-version writer and the document-tree scope; verify `tests/unit/ir/test_ir_docs.py` passes
 
 ## 5. Integration checks for IR 3.1 (morphir-ukvn.8.13.5)
 
-- [ ] 5.1 Run `mise run check` (lint, format check, mypy and pyright strict, tests, coverage at least 80%) and `mise run test-bdd`; verify both pass
-- [ ] 5.2 Run `openspec validate add-ir-3-1-0 --strict`; verify it reports the change as valid
+- [x] 5.1 Run `mise run check` (lint, format check, mypy and pyright strict, tests, coverage at least 80%) and `mise run test-bdd`; verify both pass
+- [x] 5.2 Run `openspec validate add-ir-3-1-0 --strict`; verify it reports the change as valid
 
 ## Workflow follow-up
 

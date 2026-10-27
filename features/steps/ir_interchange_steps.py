@@ -102,6 +102,12 @@ def step_declares_version(context: Context, version: int) -> None:
     assert json.loads(context.output.read_text())["formatVersion"] == version
 
 
+@then('the converted file declares formatVersion "{version}"')
+def step_declares_release(context: Context, version: str) -> None:
+    """Check the converted file's formatVersion release string."""
+    assert json.loads(context.output.read_text())["formatVersion"] == version
+
+
 @then("the converted file has the same JSON as the fixture")
 def step_same_json(context: Context) -> None:
     """Check the converted file matches the fixture JSON."""

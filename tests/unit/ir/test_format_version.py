@@ -9,6 +9,7 @@ from morphir.ir.format_version import (
     V3_1,
     V3_TABLE,
     FormatVersion,
+    Interval,
     dump_json,
     parse_json,
     read_document,
@@ -106,6 +107,15 @@ class TestSupport:
             read_format_version(4, V3_TABLE)
         assert info.value.codes == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
         assert "only 3.0.x and 3.1.x ([3.0.0,3.2.0))" in str(info.value)
+
+    def test_custom_table_description_names_its_lowest_family(self) -> None:
+        table = (
+            Interval(FormatVersion(3, 0, 0), FormatVersion(3, 0, 5)),
+            Interval(FormatVersion(4, 0, 0), FormatVersion(5, 0, 0)),
+        )
+        with pytest.raises(DiagnosticError) as info:
+            read_format_version(6, table)
+        assert "only 3.0.x and draft 4.0.x" in str(info.value)
 
     def test_table_spelling(self) -> None:
         assert table_to_string(SUPPORT_TABLE) == "[3.0.0,3.2.0),[4.0.0,4.1.0)"

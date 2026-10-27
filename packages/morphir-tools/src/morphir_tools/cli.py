@@ -1,8 +1,8 @@
 """The ``morphir-tools`` command line.
 
 Every IR operation goes through the `morphir` library: the shared format-version
-reader, the v3 and draft v4 codecs, and `morphir.ir.migrate`. The CLI adds file
-handling and reporting only.
+reader, the v3 (3.0.x and 3.1.x) and draft v4 codecs, and `morphir.ir.migrate`.
+The CLI adds file handling and reporting only.
 
 Exit codes: 0 for success (including success with warnings), 1 when the library
 reports a diagnostic, 2 for a usage error.
@@ -23,6 +23,7 @@ from morphir.ir.diagnostics import Diagnostic, DiagnosticError
 from morphir.ir.migrate import Err, Ok, v3_to_v4, v4_to_v3
 from morphir.ir.migrate import drop_input_attributes as drop_inputs
 from morphir.ir.v3 import codec as v3_codec
+from morphir.ir.v3 import distribution as v3_dist
 from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import distribution as v4_dist
 from morphir.ir.v4.name import Name as Name4
@@ -35,7 +36,7 @@ app = typer.Typer(
 )
 ir_app = typer.Typer(
     help="Inspect and convert versioned morphir-ir.json files "
-    "(format 3.0.x and draft 4.0.x).",
+    "(format 3.0.x and 3.1.x, and draft 4.0.x).",
     no_args_is_help=True,
 )
 app.add_typer(ir_app, name="ir")
@@ -76,8 +77,12 @@ def _write_atomically(target: Path, text: str) -> None:
         raise
 
 
-def _kind(dist: v4_dist.Distribution) -> str:
+def _kind(dist: v4_dist.Distribution | v3_dist.Distribution) -> str:
     match dist:
+        case v3_dist.Library():
+            return "Library"
+        case v3_dist.Specs():
+            return "Specs"
         case v4_dist.LibraryDistribution():
             return "Library"
         case v4_dist.SpecsDistribution():
@@ -95,10 +100,10 @@ def inspect(
     try:
         version, _ = fv.read_document(text)
         if version.major == 3:
-            library = v3_codec.decode_versioned_distribution(text)
-            kind = "Library"
+            classic = v3_codec.decode_versioned_distribution(text)
+            kind = _kind(classic)
             package = v4_codec.encode_path(
-                Path4(tuple(Name4(tuple(n)) for n in library.package_name))
+                Path4(tuple(Name4(tuple(n)) for n in classic.package_name))
             )
         else:
             dist = v4_codec.decode_versioned_distribution(text)
@@ -137,7 +142,10 @@ def convert(
         ),
     ] = False,
 ) -> None:
-    """Convert between format 3.0.0 and draft IR v4.
+    """Convert between format 3 (3.0.x and 3.1.x) and draft IR v4.
+
+    A v3 Library is written as format 3 and a v3 Specs as format 3.1.0, the lowest
+    version that holds each.
 
     The output is written to a temporary file and renamed only on success, so a
     failed conversion leaves no output file.
@@ -150,18 +158,18 @@ def convert(
             if version.major == 4:
                 upgraded = Ok(v4_codec.decode_versioned_distribution(text))
             else:
-                library_v4 = v3_to_v4(
+                migrated = v3_to_v4(
                     v3_codec.decode_versioned_distribution(text),
                     package_version=package_version,
                 )
-                upgraded = Ok(library_v4.value, library_v4.warnings)
+                upgraded = Ok(migrated.value, migrated.warnings)
             if drop_input_attributes:
                 upgraded = drop_inputs(upgraded.value)
             document = v4_codec.encode_versioned_distribution(upgraded.value)
             warnings: tuple[Diagnostic, ...] = upgraded.warnings
         else:
             if version.major == 3:
-                library = v3_codec.decode_versioned_distribution(text)
+                classic = v3_codec.decode_versioned_distribution(text)
                 warnings = ()
             else:
                 result = v4_to_v3(
@@ -171,8 +179,8 @@ def convert(
                 if isinstance(result, Err):
                     _report(result.diagnostics)
                     raise typer.Exit(1)
-                library, warnings = result.value, result.warnings
-            document = v3_codec.encode_versioned_distribution(library)
+                classic, warnings = result.value, result.warnings
+            document = v3_codec.encode_versioned_distribution(classic)
     except DiagnosticError as error:
         _report(error.diagnostics)
         raise typer.Exit(1) from None
