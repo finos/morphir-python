@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+#MISE description="Check built distributions and scan runtime dependencies"
+set -euo pipefail
+
+# Keep the candidate environment separate from development and scanner dependencies.
+release_dir="$(pwd)/.dev/release-check"
+mkdir -p "$release_dir"
+
+uv lock --check
+python - <<'PY'
+import os
+import tarfile
+import tomllib
+import zipfile
+from email.parser import BytesParser
+from pathlib import Path
+
+versions = set()
+for name in ("morphir", "morphir-tools"):
+    directory = Path("packages") / name
+    project = tomllib.loads((directory / "pyproject.toml").read_text())["project"]
+    versions.add(project["version"])
+    tag = os.environ.get("RELEASE_TAG", "")
+    if tag and tag != f"v{project['version']}":
+        raise SystemExit(f"{tag} does not match {name} {project['version']}")
+    stem = name.replace("-", "_") + "-" + project["version"]
+    expected = {f"{stem}-py3-none-any.whl", f"{stem}.tar.gz"}
+    files = {p.name for p in (directory / "dist").iterdir()
+             if p.is_file() and p.name != ".gitignore"}
+    if files != expected:
+        raise SystemExit(f"Unexpected distributions for {name}: {files}")
+    for filename in expected:
+        path = directory / "dist" / filename
+        if path.suffix == ".whl":
+            with zipfile.ZipFile(path) as archive:
+                metadata = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
+                raw = archive.read(metadata[0])
+                has_license = any(n.endswith("/licenses/LICENSE") for n in archive.namelist())
+        else:
+            with tarfile.open(path) as archive:
+                member = archive.extractfile(f"{stem}/PKG-INFO")
+                if member is None:
+                    raise SystemExit(f"Missing metadata in {path}")
+                raw = member.read()
+                has_license = f"{stem}/LICENSE" in archive.getnames()
+        metadata = BytesParser().parsebytes(raw)
+        if metadata["Name"] != name or metadata["Version"] != project["version"]:
+            raise SystemExit(f"Incorrect name or version in {path}")
+        if metadata["License-Expression"] != "Apache-2.0" or not has_license:
+            raise SystemExit(f"Missing Apache-2.0 license in {path}")
+if len(versions) != 1:
+    raise SystemExit("Both packages must use the same release version")
+PY
+
+uvx --from twine==7.0.0 twine check --strict \
+  packages/morphir/dist/* packages/morphir-tools/dist/*
+
+uv export --frozen --all-packages --no-default-groups --no-emit-workspace \
+  --no-hashes --output-file "$release_dir/constraints.txt"
+uv venv --clear --python 3.14 "$release_dir/venv"
+release_python="$release_dir/venv/bin/python"
+uv pip install --python "$release_python" --constraint "$release_dir/constraints.txt" \
+  packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl
+uv pip check --python "$release_python"
+
+"$release_python" -I - <<'PY'
+from importlib.metadata import version
+
+import morphir
+import morphir_tools
+from morphir.ir import format_version
+from morphir.sdk import basics
+
+assert morphir.__version__ == version("morphir")
+assert morphir_tools.__version__ == version("morphir-tools")
+assert basics.round(2.5) == 3
+assert format_version.V3.major == 3
+PY
+"$release_dir/venv/bin/morphir-tools" --help
+
+# These two first-party packages are not yet on PyPI. Audit the exact installed
+# third-party versions, without querying PyPI for the unpublished packages.
+uv pip freeze --python "$release_python" --exclude morphir --exclude morphir-tools \
+  > "$release_dir/requirements.txt"
+uvx --from pip-audit==2.10.1 pip-audit --strict --no-deps --disable-pip \
+  --requirement "$release_dir/requirements.txt" \
+  --format json --output "$release_dir/vulnerabilities.json"
+
+# An exact allowlist rejects unknown licenses and newly introduced copyleft or
+# proprietary licenses. Changes to this policy require maintainer review.
+uvx --from pip-licenses==5.5.0 pip-licenses --python "$release_python" \
+  --from=mixed \
+  --allow-only='Apache-2.0;Apache Software License;MIT;MIT License;BSD-2-Clause;BSD-3-Clause;BSD License;ISC;ISC License;ISC License (ISCL)' \
+  --format=json --output-file "$release_dir/licenses.json"

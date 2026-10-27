@@ -1,16 +1,16 @@
 [project]
 name = "morphir-tools"
-version = "0.1.0"
+version = "0.0.1"
 description = "CLI tools and extensions for Morphir Python"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 keywords = ["morphir", "cli", "tools", "code-generation", "domain-modeling"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.14",
@@ -22,8 +22,10 @@ authors = [
     { name = "FINOS", email = "morphir@finos.org" }
 ]
 dependencies = [
-    "morphir>=0.1.0",
+    "morphir>=0.0.1",
     "typer>=0.15",
+    # Rich uses Pygments; older versions are affected by CVE-2026-4539.
+    "pygments>=2.20.0",
 ]
 
 [project.urls]
@@ -36,7 +38,7 @@ Issues = "https://github.com/finos/morphir-python/issues"
 morphir-tools = "morphir_tools.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
