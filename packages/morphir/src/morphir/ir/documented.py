@@ -1,10 +1,11 @@
-from dataclasses import dataclass
-from typing import Generic, TypeVar
+"""Compatibility shim: re-exports `morphir.ir.v4.documented`."""
 
-T = TypeVar("T")
+from morphir.ir.v4.documented import (
+    Documented,
+    T,
+)
 
-
-@dataclass(frozen=True)
-class Documented(Generic[T]):
-    doc: str | None
-    value: T
+__all__ = [
+    "Documented",
+    "T",
+]

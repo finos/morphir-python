@@ -1,22 +1,19 @@
-from dataclasses import dataclass
-from typing import Union
+"""Compatibility shim: re-exports `morphir.ir.v4.type_def`."""
 
-from .access_controlled import AccessControlled
-from .name import Name
-from .type import Type
-from .type_spec import Constructors
+from morphir.ir.v4.access_controlled import AccessControlled
+from morphir.ir.v4.type import Type
+from morphir.ir.v4.type_def import (
+    CustomTypeDefinition,
+    Definition,
+    TypeAliasDefinition,
+)
+from morphir.ir.v4.type_spec import Constructors
 
-
-@dataclass(frozen=True)
-class TypeAliasDefinition:
-    type_params: list[Name]
-    tpe: Type
-
-
-@dataclass(frozen=True)
-class CustomTypeDefinition:
-    type_params: list[Name]
-    constructors: AccessControlled[Constructors]
-
-
-Definition = Union[TypeAliasDefinition, CustomTypeDefinition]
+__all__ = [
+    "AccessControlled",
+    "Constructors",
+    "CustomTypeDefinition",
+    "Definition",
+    "Type",
+    "TypeAliasDefinition",
+]

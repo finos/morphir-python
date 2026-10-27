@@ -1,12 +1,18 @@
+"""Morphir IR.
+
+The default model is IR v4 (`morphir.ir.v4`); every name here is the same object
+as its `morphir.ir.v4` counterpart. Format 3.0.0 lives in `morphir.ir.v3`.
+"""
+
 from . import module, package
-from .access_controlled import AccessControlled
-from .decorations import (
+from .v4.access_controlled import AccessControlled
+from .v4.decorations import (
     DecorationFormat,
     DecorationValuesFile,
     LayerManifest,
     SchemaRef,
 )
-from .distribution import (
+from .v4.distribution import (
     ApplicationDistribution,
     Distribution,
     EntryPoint,
@@ -15,7 +21,7 @@ from .distribution import (
     PackageInfo,
     SpecsDistribution,
 )
-from .document import (
+from .v4.document import (
     DocArray,
     DocBool,
     DocFloat,
@@ -25,9 +31,9 @@ from .document import (
     DocString,
     Document,
 )
-from .documented import Documented
-from .fqname import FQName
-from .literal import (
+from .v4.documented import Documented
+from .v4.fqname import FQName
+from .v4.literal import (
     BoolLiteral,
     CharLiteral,
     DecimalLiteral,
@@ -36,18 +42,18 @@ from .literal import (
     Literal,
     StringLiteral,
 )
-from .meta import FileMeta, SourceRange
-from .name import Name
-from .path import Path
-from .qname import QName
-from .ref import DefRef, FileWithDefs, PointerRef, Ref
-from .type import Field, Type, TypeAttributes
-from .type_constraints import TypeConstraints
-from .type_def import Definition as TypeDefinition
-from .type_spec import Specification as TypeSpecification
-from .value import Definition as ValueDefinition
-from .value import Pattern, Value, ValueAttributes
-from .value import Specification as ValueSpecification
+from .v4.meta import FileMeta, SourceRange
+from .v4.name import Name
+from .v4.path import Path
+from .v4.qname import QName
+from .v4.ref import DefRef, FileWithDefs, PointerRef, Ref
+from .v4.type import Field, Type, TypeAttributes
+from .v4.type_constraints import TypeConstraints
+from .v4.type_def import Definition as TypeDefinition
+from .v4.type_spec import Specification as TypeSpecification
+from .v4.value import Definition as ValueDefinition
+from .v4.value import Pattern, Value, ValueAttributes
+from .v4.value import Specification as ValueSpecification
 
 __all__ = [
     "AccessControlled",
