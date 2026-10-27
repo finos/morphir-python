@@ -29,6 +29,11 @@ class TestMorphirToolsPackage:
         }
         assert commands == {"morphir-python": "morphir_tools.cli:main"}
 
+    def test_bundle_does_not_require_separate_core(self) -> None:
+        """Installing the bundle must not query PyPI for an unpublished core."""
+        requirements = distribution("morphir-python").requires or []
+        assert not any(item.startswith("morphir") for item in requirements)
+
     def test_version_is_string(self) -> None:
         """The version should be a string."""
         assert isinstance(morphir_tools.__version__, str)

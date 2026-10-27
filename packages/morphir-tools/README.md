@@ -21,7 +21,9 @@ Or with uv:
 uv add morphir-python
 ```
 
-This will also install the `morphir` core library as a dependency.
+The `morphir-python` distribution includes the `morphir` core library and SDK
+runtime alongside the CLI. It does not depend on a separate `morphir` PyPI
+package. Python imports remain `morphir` and `morphir_tools`.
 
 ## Usage
 
@@ -56,7 +58,7 @@ format-version rules and the draft v4 status.
 ## Requirements
 
 - Python 3.14+
-- morphir (core library)
+- Core library and SDK included
 
 ## License
 

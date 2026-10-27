@@ -22,29 +22,10 @@ jobs:
     with:
       release-tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
-  publish-morphir:
-    name: Publish morphir to PyPI
-    if: github.event_name == 'push' && github.repository == 'finos/morphir-python'
-    needs: qualify
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    environment:
-      name: pypi
-      url: https://pypi.org/project/morphir/
-    steps:
-      - name: Download morphir dist
-        uses: actions/download-artifact@v7
-        with:
-          name: morphir-dist
-          path: dist/
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-
   publish-morphir-python:
     name: Publish morphir-python to PyPI
-    needs: [qualify, publish-morphir]
+    if: github.event_name == 'push' && github.repository == 'finos/morphir-python'
+    needs: qualify
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -63,7 +44,7 @@ jobs:
 
   github-release:
     name: Create GitHub Release
-    needs: [publish-morphir, publish-morphir-python]
+    needs: publish-morphir-python
     runs-on: ubuntu-latest
     permissions:
       contents: write

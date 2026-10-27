@@ -15,11 +15,9 @@ import zipfile
 from email.parser import BytesParser
 from pathlib import Path
 
-versions = set()
-for folder, name in (("morphir", "morphir"), ("morphir-tools", "morphir-python")):
-    directory = Path("packages") / folder
+for folder, name in ((".", "morphir-python"),):
+    directory = Path(folder)
     project = tomllib.loads((directory / "pyproject.toml").read_text())["project"]
-    versions.add(project["version"])
     tag = os.environ.get("RELEASE_TAG", "")
     if tag and tag not in (f"v{project['version']}", f"python-v{project['version']}"):
         raise SystemExit(f"{tag} does not match {name} {project['version']}")
@@ -36,6 +34,12 @@ for folder, name in (("morphir", "morphir"), ("morphir-tools", "morphir-python")
                 metadata = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
                 raw = archive.read(metadata[0])
                 has_license = any(n.endswith("/licenses/LICENSE") for n in archive.namelist())
+                for source in (Path("packages/morphir/src"), Path("packages/morphir-tools/src")):
+                    expected_sources = {str(p.relative_to(source)) for p in source.rglob("*")
+                                        if p.is_file() and p.suffix in (".py", ".typed")}
+                    missing = expected_sources - set(archive.namelist())
+                    if missing:
+                        raise SystemExit(f"Missing bundled sources in {path}: {missing}")
         else:
             with tarfile.open(path) as archive:
                 member = archive.extractfile(f"{stem}/PKG-INFO")
@@ -48,39 +52,46 @@ for folder, name in (("morphir", "morphir"), ("morphir-tools", "morphir-python")
             raise SystemExit(f"Incorrect name or version in {path}")
         if metadata["License-Expression"] != "Apache-2.0" or not has_license:
             raise SystemExit(f"Missing Apache-2.0 license in {path}")
-if len(versions) != 1:
-    raise SystemExit("Both packages must use the same release version")
+        if any(req.startswith("morphir") for req in metadata.get_all("Requires-Dist", [])):
+            raise SystemExit(f"{path} must not depend on a separate Morphir distribution")
 PY
 
 uvx --from twine==7.0.0 twine check --strict \
-  packages/morphir/dist/* packages/morphir-tools/dist/*
+  dist/*
 
 uv export --frozen --all-packages --no-default-groups --no-emit-workspace \
   --no-hashes --output-file "$release_dir/constraints.txt"
 uv venv --clear --python 3.14 "$release_dir/venv"
 release_python="$release_dir/venv/bin/python"
 uv pip install --python "$release_python" --constraint "$release_dir/constraints.txt" \
-  packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl
+  dist/*.whl
 uv pip check --python "$release_python"
 
 "$release_python" -I - <<'PY'
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
 import morphir
 import morphir_tools
 from morphir.ir import format_version
 from morphir.sdk import basics
 
-assert morphir.__version__ == version("morphir")
+assert morphir.__version__ == version("morphir-python")
 assert morphir_tools.__version__ == version("morphir-python")
 assert basics.round(2.5) == 3
 assert format_version.V3.major == 3
+try:
+    version("morphir")
+except PackageNotFoundError:
+    pass
+else:
+    raise AssertionError("Bundle verification must not install a separate morphir wheel")
 PY
 "$release_dir/venv/bin/morphir-python" --help
+"$release_dir/venv/bin/morphir-python" ir inspect tests/fixtures/ir/v3/elm-simpleValueTree.json
 
-# These two first-party packages are not yet on PyPI. Audit the exact installed
-# third-party versions, without querying PyPI for the unpublished packages.
-uv pip freeze --python "$release_python" --exclude morphir --exclude morphir-python \
+# Audit the exact installed third-party versions without querying PyPI for the
+# first-party bundle being released.
+uv pip freeze --python "$release_python" --exclude morphir-python \
   > "$release_dir/requirements.txt"
 uvx --from pip-audit==2.10.1 pip-audit --strict --no-deps --disable-pip \
   --requirement "$release_dir/requirements.txt" \

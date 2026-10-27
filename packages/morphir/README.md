@@ -11,14 +11,17 @@ This is the core library package containing:
 
 ## Installation
 
+The core library is included in the `morphir-python` distribution, together with
+the SDK runtime and CLI. Python code continues to use `import morphir`.
+
 ```bash
-pip install morphir
+pip install morphir-python
 ```
 
 Or with uv:
 
 ```bash
-uv add morphir
+uv add morphir-python
 ```
 
 ## Usage

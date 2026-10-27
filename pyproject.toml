@@ -1,10 +1,45 @@
 [project]
-name = "morphir-workspace"
+name = "morphir-python"
 version = "0.0.1"
-description = "Morphir Python monorepo workspace"
+description = "Morphir domain modeling library, SDK runtime, and CLI for Python"
 requires-python = ">=3.14"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "FINOS", email = "morphir@finos.org" }]
+keywords = ["morphir", "domain-modeling", "functional", "cli", "ir"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = [
+    "typer>=0.15",
+    # Rich uses Pygments; older versions are affected by CVE-2026-4539.
+    "pygments>=2.20.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/finos/morphir-python"
+Documentation = "https://morphir.finos.org"
+Repository = "https://github.com/finos/morphir-python"
+Issues = "https://github.com/finos/morphir-python/issues"
+
+[project.scripts]
+morphir-python = "morphir_tools.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["packages/morphir/src/morphir", "packages/morphir-tools/src/morphir_tools"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["packages", "README.md", "LICENSE", "uv.lock"]
 
 [dependency-groups]
 dev = [
@@ -24,10 +59,7 @@ test = [
 managed = true
 
 [tool.uv.workspace]
-members = ["packages/*"]
-
-[tool.uv.sources]
-morphir = { workspace = true }
+members = ["packages/morphir"]
 
 # =============================================================================
 # Ruff Configuration

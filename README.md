@@ -7,34 +7,9 @@ Python port of [Morphir](https://morphir.finos.org) - a library of tools for bui
 
 Morphir enables you to write business logic once and use it across multiple platforms, languages, and runtimes. It provides a strongly-typed intermediate representation (IR) that captures the semantics of your domain model.
 
-## Packages
-
-This monorepo contains two packages:
-
-| Package | Description | PyPI |
-|---------|-------------|------|
-| `morphir` | Core library - IR models, the Morphir SDK runtime (`morphir.sdk`), types, and functional domain modeling primitives | [![PyPI](https://img.shields.io/pypi/v/morphir)](https://pypi.org/project/morphir/) |
-| `morphir-python` | CLI tools and extensions for working with Morphir | [![PyPI](https://img.shields.io/pypi/v/morphir-python)](https://pypi.org/project/morphir-python/) |
-
 ## Installation
 
-### Library Only
-
-If you just need the Morphir library for your Python project:
-
-```bash
-pip install morphir
-```
-
-Or with uv:
-
-```bash
-uv add morphir
-```
-
-### With CLI Tools
-
-For the full toolset including CLI commands:
+Install the library, Morphir SDK runtime, and CLI together:
 
 ```bash
 pip install morphir-python
@@ -45,6 +20,13 @@ Or with uv:
 ```bash
 uv add morphir-python
 ```
+
+| PyPI distribution | Python imports | Command |
+|-------------------|----------------|---------|
+| [`morphir-python`](https://pypi.org/project/morphir-python/) | `morphir`, `morphir_tools` | `morphir-python` |
+
+The distribution includes the core library and tools. It does not require a
+separate `morphir` package from PyPI.
 
 ## Quick Start
 
@@ -166,21 +148,14 @@ mise run check
 
 ## Releases
 
-The initial release is `0.0.1` for both PyPI distributions:
+The initial PyPI release is `morphir-python==0.0.1`, containing both the `morphir`
+library and the `morphir-python` CLI. Python 3.14 or later is required. The root
+`pyproject.toml` defines the public distribution. The library workspace under
+`packages/morphir/` remains independent of CLI dependencies for development; it
+is included in the bundle rather than published separately by this workflow.
 
-| PyPI distribution | Python import | Command |
-|-------------------|---------------|---------|
-| `morphir` | `morphir` | None |
-| `morphir-python` | `morphir_tools` | `morphir-python` |
-
-`morphir-python` is both the CLI distribution and repository name. The workspace
-itself is not published.
-Both packages require Python 3.14 or later. `morphir-python` installs `morphir` as
-a dependency.
-
-Publishing uses [PyPI trusted publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/),
-without a stored PyPI token. Configure a publisher for **each** distribution on
-PyPI, including a pending publisher if the project has not been created yet:
+Publishing uses [PyPI trusted publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
+without a stored PyPI token. Configure the `morphir-python` project on PyPI with:
 
 | Publisher field | Value |
 |-----------------|-------|
@@ -191,32 +166,33 @@ PyPI, including a pending publisher if the project has not been created yet:
 
 The GitHub `pypi` environment permits release tags matching `v*` or `python-v*`.
 After maintainer approval, push a tag such as `python-v0.0.1` whose version matches
-both package metadata files and their runtime `__version__` values. Update the tools package's minimum
-`morphir` dependency and refresh `uv.lock` when changing versions.
+root package metadata and the runtime `__version__` values. Refresh `uv.lock`
+when changing versions. A new tag records the corrected source without moving
+the earlier failed `v0.0.1` tag.
 
 The release workflow runs the same lint, format, type, coverage and BDD checks as
-PR CI. It builds each package once, validates wheel and source metadata and license
-files, installs the wheels in an isolated environment, checks imports and the CLI,
-then scans the locked runtime dependency versions with `pip-audit` and
-`pip-licenses`. Known vulnerabilities, audit failures, unknown licenses and
-licenses outside the exact Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause and ISC
-allowlist block publication. The license allowlist also accepts the corresponding
-legacy license classifiers. The CVE scan queries third-party dependencies;
-the unpublished first-party packages are excluded from that query. These checks
-use package metadata and known vulnerability advisories, not a source-code license
-or security review. Scan reports are retained as workflow artifacts.
+PR CI. It builds the bundle once, validates wheel and source metadata and license
+files, verifies that every library and CLI source file is in the wheel, installs
+only that wheel in an isolated environment, checks imports and the CLI, then
+scans the locked runtime dependency versions with `pip-audit` and `pip-licenses`.
+Known vulnerabilities, audit failures, unknown licenses and licenses outside the
+Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause and ISC allowlist block publication.
+The allowlist also accepts corresponding legacy license classifiers. The CVE
+scan queries third-party dependencies, excluding the first-party bundle being
+released. These checks use package metadata and known vulnerability advisories;
+they do not replace a source-code license or security review. Scan reports are
+retained as workflow artifacts.
 
-Only the two publishing jobs receive `id-token: write`. They publish the checked
-artifacts, core library first, and then create a GitHub release. The workflow's
-manual **Run workflow** action runs qualification without publishing. To qualify
-locally:
+Only the publishing job receives `id-token: write`. It publishes the checked
+artifacts, then a separate job creates the GitHub release. The workflow's manual
+**Run workflow** action runs qualification without publishing. To qualify locally:
 
 ```bash
 mise run install
 mise run check
 mise run coverage
 mise run build
-RELEASE_TAG=v0.0.1 mise run release-check
+RELEASE_TAG=python-v0.0.1 mise run release-check
 ```
 
 ## Project Principles
