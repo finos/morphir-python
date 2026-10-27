@@ -36,7 +36,8 @@ morphir-python-native = { workspace = true }
 [tool.ruff]
 target-version = "py314"
 line-length = 88
-exclude = [".venv", "build", "dist", ".git", "__pycache__"]
+# rust/ holds compiler test inputs whose exact text is part of the tests.
+exclude = [".venv", "build", "dist", ".git", "__pycache__", "rust"]
 
 [tool.ruff.lint]
 select = [
