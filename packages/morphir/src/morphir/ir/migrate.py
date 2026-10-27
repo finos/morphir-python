@@ -335,7 +335,7 @@ def _package_def_up(defn: pkg3.Definition[None, t3.Type[None]]) -> pkg4.Definiti
 
 def v3_to_v4(
     dist: dist3.Library, *, package_version: str | None = None
-) -> MigrationResult[dist4.LibraryDistribution]:
+) -> Ok[dist4.LibraryDistribution]:
     """Migrate a format-3 Library to a v4 Library.
 
     Unit type attributes become empty `TypeAttributes`; each value attribute type

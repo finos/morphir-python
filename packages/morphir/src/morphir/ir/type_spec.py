@@ -1,5 +1,6 @@
 """Compatibility shim: re-exports `morphir.ir.v4.type_spec`."""
 
+from morphir.ir.v4.type import Type
 from morphir.ir.v4.type_spec import (
     ConstructorArgs,
     Constructors,
@@ -8,7 +9,6 @@ from morphir.ir.v4.type_spec import (
     DerivedTypeSpecificationDetails,
     OpaqueTypeSpecification,
     Specification,
-    Type,
     TypeAliasSpecification,
 )
 

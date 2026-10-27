@@ -48,11 +48,31 @@ uv add morphir-tools
 
 ## Quick Start
 
-```python
-from morphir.ir import Type, Value
+Morphir IR comes in two first-class versions: format 3.0.0 (`morphir.ir.v3`), which
+morphir-elm writes today, and draft IR v4 (`morphir.ir.v4`, also re-exported as
+`morphir.ir`). Read a morphir-elm file and migrate it to v4:
 
-# Example usage will be added as the library develops
+```python
+from pathlib import Path
+
+from morphir.ir.migrate import v3_to_v4
+from morphir.ir.v3 import codec
+
+library = codec.decode_versioned_distribution(Path("morphir-ir.json").read_text())
+v4_library = v3_to_v4(library).value
 ```
+
+Or from the command line:
+
+```bash
+morphir-tools ir inspect morphir-ir.json
+morphir-tools ir convert morphir-ir.json --to v4 -o morphir-ir.v4.json
+```
+
+See the [morphir package README](packages/morphir/README.md#morphir-ir-versions)
+for format-version handling, the draft v4 status, and migrations, and the
+[`add-ir-v3-support` change](openspec/changes/add-ir-v3-support/proposal.md) for
+the design.
 
 ## Morphir SDK
 

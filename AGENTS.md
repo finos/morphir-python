@@ -22,7 +22,13 @@ morphir-python/
 ### Package Responsibilities
 
 **`morphir` (core library)**
-- Morphir IR (Intermediate Representation) models
+- Morphir IR (Intermediate Representation) models, in two versions:
+  `morphir.ir.v3` (format 3.0.0; morphir-elm is normative) and `morphir.ir.v4`
+  (draft upstream; `morphir.ir` re-exports it). Read `formatVersion` only through
+  `morphir.ir.format_version`, convert only through `morphir.ir.migrate`, and keep
+  diagnostic codes in `morphir.ir.diagnostics`. See
+  [packages/morphir/README.md](packages/morphir/README.md#morphir-ir-versions) and
+  `openspec/changes/add-ir-v3-support/`
 - Type definitions and type algebra
 - Pure functional primitives
 - Morphir SDK runtime (`morphir.sdk`): Basics, Char, String, List, Dict, Set, Maybe, Result, Tuple, Decimal, Int, Number
@@ -30,7 +36,7 @@ morphir-python/
 - Should be usable as a standalone library
 
 **`morphir-tools` (CLI/tools)**
-- Command-line interface
+- Command-line interface (`morphir-tools`, Typer): `ir inspect`, `ir convert`
 - File I/O operations
 - Code generation backends
 - Depends on `morphir` core library

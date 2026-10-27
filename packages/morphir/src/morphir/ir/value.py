@@ -1,5 +1,7 @@
 """Compatibility shim: re-exports `morphir.ir.v4.value`."""
 
+from morphir.ir.v4.literal import Literal
+from morphir.ir.v4.type import Type
 from morphir.ir.v4.value import (
     Apply,
     AsPattern,
@@ -18,7 +20,6 @@ from morphir.ir.v4.value import (
     LetDefinition,
     LetRecursion,
     List,
-    Literal,
     LiteralPattern,
     LiteralValue,
     Native,
@@ -30,7 +31,6 @@ from morphir.ir.v4.value import (
     Specification,
     Tuple,
     TuplePattern,
-    Type,
     Unit,
     UnitPattern,
     UpdateRecord,
