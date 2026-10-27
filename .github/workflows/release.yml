@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'python-v*'
   # Qualification only. Publishing requires a tag push.
   workflow_dispatch:
 
@@ -41,20 +42,20 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  publish-morphir-tools:
-    name: Publish morphir-tools to PyPI
+  publish-morphir-python:
+    name: Publish morphir-python to PyPI
     needs: [qualify, publish-morphir]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
     environment:
       name: pypi
-      url: https://pypi.org/project/morphir-tools/
+      url: https://pypi.org/project/morphir-python/
     steps:
-      - name: Download morphir-tools dist
+      - name: Download morphir-python dist
         uses: actions/download-artifact@v7
         with:
-          name: morphir-tools-dist
+          name: morphir-python-dist
           path: dist/
 
       - name: Publish to PyPI
@@ -62,7 +63,7 @@ jobs:
 
   github-release:
     name: Create GitHub Release
-    needs: [publish-morphir, publish-morphir-tools]
+    needs: [publish-morphir, publish-morphir-python]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -1,5 +1,5 @@
 [project]
-name = "morphir-tools"
+name = "morphir-python"
 version = "0.0.1"
 description = "CLI tools and extensions for Morphir Python"
 readme = "README.md"
@@ -35,7 +35,7 @@ Repository = "https://github.com/finos/morphir-python"
 Issues = "https://github.com/finos/morphir-python/issues"
 
 [project.scripts]
-morphir-tools = "morphir_tools.cli:main"
+morphir-python = "morphir_tools.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]

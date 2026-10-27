@@ -15,7 +15,7 @@ morphir-python/
 │   └── morphir-tools/     # CLI tools and extensions (depends on morphir)
 ├── tests/
 │   ├── unit/             # Unit tests for morphir package
-│   └── tools/            # Unit tests for morphir-tools package
+│   └── tools/            # Unit tests for morphir-python package
 └── features/             # BDD feature tests (behave)
 ```
 
@@ -36,8 +36,8 @@ morphir-python/
 - Zero CLI or IO dependencies
 - Should be usable as a standalone library
 
-**`morphir-tools` (CLI/tools)**
-- Command-line interface (`morphir-tools`, Typer): `ir inspect`, `ir convert`
+**`morphir-python` (CLI/tools, in `packages/morphir-tools/`)**
+- Command-line interface (`morphir-python`, Typer): `ir inspect`, `ir convert`
 - File I/O operations
 - Code generation backends
 - Depends on `morphir` core library
@@ -266,7 +266,7 @@ mise run coverage      # Coverage report
 When adding dependencies:
 
 - **morphir package**: Should have minimal/zero dependencies
-- **morphir-tools package**: Can have CLI and IO dependencies
+- **morphir-python package**: Can have CLI and IO dependencies
 - Always pin minimum versions in pyproject.toml
 
 ## Error Handling

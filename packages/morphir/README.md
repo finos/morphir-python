@@ -225,7 +225,7 @@ type there, which can differ from the declared type (an alias expanded, a type
 variable instantiated), and the draft codec then fails with `no_v4_spelling`.
 Opt in to dropping them with `v3_to_v4(..., drop_input_attributes=True)`,
 `drop_input_attributes(dist)` for any v4 distribution, or
-`morphir-tools ir convert --to v4 --drop-input-attributes`. Each input that loses
+`morphir-python ir convert --to v4 --drop-input-attributes`. Each input that loses
 information reports `input_attributes_dropped`; without the opt-in the in-memory
 migration stays lossless.
 
@@ -381,4 +381,4 @@ Apache-2.0 - see the [LICENSE](../../LICENSE) file for details.
 
 ## Related Packages
 
-- [morphir-tools](https://pypi.org/project/morphir-tools/) - CLI tools and extensions
+- [morphir-python](https://pypi.org/project/morphir-python/) - CLI tools and extensions

@@ -1,4 +1,4 @@
-"""The ``morphir-tools`` command line.
+"""The ``morphir-python`` command line.
 
 Every IR operation goes through the `morphir` library: the shared format-version
 reader, the v3 (3.0.x and 3.1.x) and draft v4 codecs, and `morphir.ir.migrate`.
@@ -31,7 +31,7 @@ from morphir.ir.v4.name import Name as Name4
 from morphir.ir.v4.path import Path as Path4
 
 app = typer.Typer(
-    name="morphir-tools",
+    name="morphir-python",
     help="Command-line tools for Morphir IR.",
     no_args_is_help=True,
 )
@@ -219,5 +219,5 @@ def convert(
 
 
 def main() -> None:
-    """Run the ``morphir-tools`` command line."""
+    """Run the ``morphir-python`` command line."""
     app()

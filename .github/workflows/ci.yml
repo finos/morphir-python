@@ -104,10 +104,10 @@ jobs:
           path: packages/morphir/dist/
           if-no-files-found: error
 
-      - name: Upload morphir-tools distributions
+      - name: Upload morphir-python distributions
         uses: actions/upload-artifact@v6
         with:
-          name: morphir-tools-dist
+          name: morphir-python-dist
           path: packages/morphir-tools/dist/
           if-no-files-found: error
 

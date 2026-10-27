@@ -1,7 +1,7 @@
 # tools/ir-interchange Specification
 
 ## Purpose
-Gives morphir-tools users commands to inspect versioned `morphir-ir.json` files and convert them between format 3 (3.0.x and 3.1.x) and draft IR v4, using the same library readers, codecs, and migrations that Python callers use.
+Gives morphir-python users commands to inspect versioned `morphir-ir.json` files and convert them between format 3 (3.0.x and 3.1.x) and draft IR v4, using the same library readers, codecs, and migrations that Python callers use.
 
 ## Requirements
 

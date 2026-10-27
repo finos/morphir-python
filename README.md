@@ -14,7 +14,7 @@ This monorepo contains two packages:
 | Package | Description | PyPI |
 |---------|-------------|------|
 | `morphir` | Core library - IR models, the Morphir SDK runtime (`morphir.sdk`), types, and functional domain modeling primitives | [![PyPI](https://img.shields.io/pypi/v/morphir)](https://pypi.org/project/morphir/) |
-| `morphir-tools` | CLI tools and extensions for working with Morphir | [![PyPI](https://img.shields.io/pypi/v/morphir-tools)](https://pypi.org/project/morphir-tools/) |
+| `morphir-python` | CLI tools and extensions for working with Morphir | [![PyPI](https://img.shields.io/pypi/v/morphir-python)](https://pypi.org/project/morphir-python/) |
 
 ## Installation
 
@@ -37,13 +37,13 @@ uv add morphir
 For the full toolset including CLI commands:
 
 ```bash
-pip install morphir-tools
+pip install morphir-python
 ```
 
 Or with uv:
 
 ```bash
-uv add morphir-tools
+uv add morphir-python
 ```
 
 ## Quick Start
@@ -65,8 +65,8 @@ v4_library = v3_to_v4(library).value
 Or from the command line:
 
 ```bash
-morphir-tools ir inspect morphir-ir.json
-morphir-tools ir convert morphir-ir.json --to v4 -o morphir-ir.v4.json
+morphir-python ir inspect morphir-ir.json
+morphir-python ir convert morphir-ir.json --to v4 -o morphir-ir.v4.json
 ```
 
 See the [morphir package README](packages/morphir/README.md#morphir-ir-versions)
@@ -171,10 +171,11 @@ The initial release is `0.0.1` for both PyPI distributions:
 | PyPI distribution | Python import | Command |
 |-------------------|---------------|---------|
 | `morphir` | `morphir` | None |
-| `morphir-tools` | `morphir_tools` | `morphir-tools` |
+| `morphir-python` | `morphir_tools` | `morphir-python` |
 
-`morphir-python` is the repository name. The workspace itself is not published.
-Both packages require Python 3.14 or later. `morphir-tools` installs `morphir` as
+`morphir-python` is both the CLI distribution and repository name. The workspace
+itself is not published.
+Both packages require Python 3.14 or later. `morphir-python` installs `morphir` as
 a dependency.
 
 Publishing uses [PyPI trusted publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/),
@@ -188,9 +189,9 @@ PyPI, including a pending publisher if the project has not been created yet:
 | Workflow filename | `release.yml` |
 | Environment | `pypi` |
 
-The GitHub `pypi` environment permits release tags matching `v*`. After maintainer
-approval, push a tag such as `v0.0.1` whose version matches both package metadata
-files and their runtime `__version__` values. Update the tools package's minimum
+The GitHub `pypi` environment permits release tags matching `v*` or `python-v*`.
+After maintainer approval, push a tag such as `python-v0.0.1` whose version matches
+both package metadata files and their runtime `__version__` values. Update the tools package's minimum
 `morphir` dependency and refresh `uv.lock` when changing versions.
 
 The release workflow runs the same lint, format, type, coverage and BDD checks as

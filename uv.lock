@@ -5,7 +5,7 @@ requires-python = ">=3.14"
 [manifest]
 members = [
     "morphir",
-    "morphir-tools",
+    "morphir-python",
     "morphir-workspace",
 ]
 
@@ -199,7 +199,7 @@ version = "0.0.1"
 source = { editable = "packages/morphir" }
 
 [[package]]
-name = "morphir-tools"
+name = "morphir-python"
 version = "0.0.1"
 source = { editable = "packages/morphir-tools" }
 dependencies = [

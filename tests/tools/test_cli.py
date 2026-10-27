@@ -1,4 +1,4 @@
-"""Tests for the morphir-tools IR interchange CLI (capability tools/ir-interchange)."""
+"""Tests for the morphir-python IR interchange CLI (capability tools/ir-interchange)."""
 
 import json
 from pathlib import Path
@@ -39,6 +39,11 @@ def v4_file(tmp_path: Path) -> Path:
 
 
 class TestHelp:
+    def test_command_name(self) -> None:
+        result = run("--help")
+        assert result.exit_code == 0
+        assert "morphir-python" in result.output
+
     def test_ir_help(self) -> None:
         result = run("ir", "--help")
         assert result.exit_code == 0
@@ -50,7 +55,7 @@ class TestHelp:
 
         from morphir_tools import cli
 
-        monkeypatch.setattr(sys, "argv", ["morphir-tools", "ir", "--help"])
+        monkeypatch.setattr(sys, "argv", ["morphir-python", "ir", "--help"])
         with pytest.raises(SystemExit) as info:
             cli.main()
         assert info.value.code == 0

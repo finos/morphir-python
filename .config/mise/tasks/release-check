@@ -16,12 +16,12 @@ from email.parser import BytesParser
 from pathlib import Path
 
 versions = set()
-for name in ("morphir", "morphir-tools"):
-    directory = Path("packages") / name
+for folder, name in (("morphir", "morphir"), ("morphir-tools", "morphir-python")):
+    directory = Path("packages") / folder
     project = tomllib.loads((directory / "pyproject.toml").read_text())["project"]
     versions.add(project["version"])
     tag = os.environ.get("RELEASE_TAG", "")
-    if tag and tag != f"v{project['version']}":
+    if tag and tag not in (f"v{project['version']}", f"python-v{project['version']}"):
         raise SystemExit(f"{tag} does not match {name} {project['version']}")
     stem = name.replace("-", "_") + "-" + project["version"]
     expected = {f"{stem}-py3-none-any.whl", f"{stem}.tar.gz"}
@@ -72,15 +72,15 @@ from morphir.ir import format_version
 from morphir.sdk import basics
 
 assert morphir.__version__ == version("morphir")
-assert morphir_tools.__version__ == version("morphir-tools")
+assert morphir_tools.__version__ == version("morphir-python")
 assert basics.round(2.5) == 3
 assert format_version.V3.major == 3
 PY
-"$release_dir/venv/bin/morphir-tools" --help
+"$release_dir/venv/bin/morphir-python" --help
 
 # These two first-party packages are not yet on PyPI. Audit the exact installed
 # third-party versions, without querying PyPI for the unpublished packages.
-uv pip freeze --python "$release_python" --exclude morphir --exclude morphir-tools \
+uv pip freeze --python "$release_python" --exclude morphir --exclude morphir-python \
   > "$release_dir/requirements.txt"
 uvx --from pip-audit==2.10.1 pip-audit --strict --no-deps --disable-pip \
   --requirement "$release_dir/requirements.txt" \
