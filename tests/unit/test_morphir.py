@@ -1,5 +1,7 @@
 """Tests for the morphir core library package."""
 
+from importlib.metadata import distribution
+
 import morphir
 
 
@@ -9,6 +11,12 @@ class TestMorphirPackage:
     def test_version_is_defined(self) -> None:
         """The package should have a version attribute."""
         assert hasattr(morphir, "__version__")
+
+    def test_core_has_no_runtime_dependencies_or_commands(self) -> None:
+        """Library-only installs must not pull in CLI dependencies or scripts."""
+        package = distribution("morphir")
+        assert not package.requires
+        assert not package.entry_points
 
     def test_version_matches_expected(self, sample_version: str) -> None:
         """The version should match the expected value."""

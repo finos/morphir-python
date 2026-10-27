@@ -3,7 +3,7 @@
 set -euo pipefail
 
 echo "Running mypy..."
-uv run mypy packages/morphir/src packages/morphir-tools/src
+uv run mypy packages/morphir/src packages/morphir-tools/src scripts
 
 echo "Running pyright..."
 uv run pyright packages/morphir/src packages/morphir-tools/src

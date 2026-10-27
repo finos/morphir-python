@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'morphir-v*'
       - 'python-v*'
   # Qualification only. Publishing requires a tag push.
   workflow_dispatch:
@@ -22,9 +22,35 @@ jobs:
     with:
       release-tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
+  publish-morphir:
+    name: Publish morphir library and SDK to PyPI
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/morphir-v')
+    needs: qualify
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/morphir/
+    steps:
+      - name: Download qualified morphir distributions
+        uses: actions/download-artifact@v7
+        with:
+          name: morphir-dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
   publish-morphir-python:
     name: Publish morphir-python to PyPI
-    if: github.event_name == 'push' && github.repository == 'finos/morphir-python'
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/python-v')
     needs: qualify
     runs-on: ubuntu-latest
     permissions:
@@ -44,7 +70,12 @@ jobs:
 
   github-release:
     name: Create GitHub Release
-    needs: publish-morphir-python
+    needs: [publish-morphir, publish-morphir-python]
+    if: >-
+      always() && !cancelled() &&
+      (needs.publish-morphir.result == 'success' ||
+       needs.publish-morphir-python.result == 'success') &&
+      !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -52,10 +83,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Download all artifacts
+      - name: Download the published package artifacts
         uses: actions/download-artifact@v7
         with:
-          pattern: '*-dist'
+          name: ${{ startsWith(github.ref, 'refs/tags/morphir-v') && 'morphir-dist' || 'morphir-python-dist' }}
           path: dist/
           merge-multiple: true
 
