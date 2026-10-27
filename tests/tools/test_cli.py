@@ -14,6 +14,9 @@ VALUE_TREE = FIXTURES / "elm-simpleValueTree.json"
 REFERENCE = FIXTURES / "elm-reference-model.json"
 KIT_SPECS = FIXTURES / "mck-distributions-0011-specs.json"
 RUST_SPECS = FIXTURES / "rust-classic-specs-transport.json"
+LEGACY = FIXTURES.parent / "legacy"
+RENTALS_1 = LEGACY / "elm-rentals-format-1.json"
+RENTALS_2 = LEGACY / "elm-rentals-format-2.json"
 
 runner = CliRunner()
 
@@ -98,9 +101,8 @@ class TestInspect:
     @pytest.mark.parametrize(
         ("version", "code"),
         [
-            (1, d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
-            (2, d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
             ("3.2.0", d.UNSUPPORTED_FORMAT_VERSION_MINOR),
+            (5, d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
         ],
     )
     def test_unsupported_versions(
@@ -276,3 +278,46 @@ class TestConvert:
 
     def test_usage_error(self) -> None:
         assert run("ir", "convert", VALUE_TREE, "--to", "v9", "-o", "x").exit_code == 2
+
+
+class TestLegacy:
+    @pytest.mark.parametrize(("fixture", "label"), [(RENTALS_1, "1"), (RENTALS_2, "2")])
+    def test_inspect(self, fixture: Path, label: str) -> None:
+        result = run("ir", "inspect", fixture)
+        assert result.exit_code == 0
+        assert f"format: {label} (legacy)" in result.stdout
+        assert "kind: Library" in result.stdout
+        assert "package: morphir/example/app" in result.stdout
+        assert "ir convert" in result.stdout
+
+    def test_both_formats_upgrade_to_one_format_3_file(self, tmp_path: Path) -> None:
+        out1, out2 = tmp_path / "from1.json", tmp_path / "from2.json"
+        assert run("ir", "convert", RENTALS_1, "--to", "v3", "-o", out1).exit_code == 0
+        assert run("ir", "convert", RENTALS_2, "--to", "v3", "-o", out2).exit_code == 0
+        assert out1.read_text() == out2.read_text()
+        assert json.loads(out1.read_text())["formatVersion"] == 3
+        inspected = run("ir", "inspect", out1)
+        assert "format: 3.0.0" in inspected.stdout
+
+    @pytest.mark.parametrize("fixture", [RENTALS_1, RENTALS_2])
+    def test_upgrade_to_v4(self, tmp_path: Path, fixture: Path) -> None:
+        out = tmp_path / "v4.json"
+        result = run("ir", "convert", fixture, "--to", "v4", "-o", out)
+        assert result.exit_code == 0
+        assert json.loads(out.read_text())["formatVersion"] == 4
+
+    def test_broken_legacy_file_leaves_no_output(self, tmp_path: Path) -> None:
+        doc = {"formatVersion": 1, "distribution": ["Library", [], [], {}]}
+        out = tmp_path / "out.json"
+        src = write(tmp_path, "x.json", doc)
+        result = run("ir", "convert", src, "--to", "v3", "-o", out)
+        assert result.exit_code == 1
+        assert d.UNKNOWN_NODE in result.stderr
+        assert not out.exists()
+        assert run("ir", "inspect", src).exit_code == 1
+
+    def test_string_legacy_version_is_invalid(self, tmp_path: Path) -> None:
+        doc = {"formatVersion": "1", "distribution": []}
+        result = run("ir", "inspect", write(tmp_path, "x.json", doc))
+        assert result.exit_code == 1
+        assert d.INVALID_FORMAT_VERSION_SYNTAX in result.stderr

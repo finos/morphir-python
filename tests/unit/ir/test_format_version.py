@@ -10,11 +10,15 @@ from morphir.ir.format_version import (
     V3_TABLE,
     FormatVersion,
     Interval,
+    LegacyFormat,
     dump_json,
     parse_json,
     read_document,
+    read_document_with_legacy,
     read_format_version,
+    read_legacy_document,
     recognize_format_version,
+    recognize_legacy_format,
     table_to_string,
     write_format_version,
 )
@@ -72,11 +76,12 @@ class TestRecognition:
 
 class TestSupport:
     @pytest.mark.parametrize("value", [1, 2])
-    def test_historical_versions_are_follow_up_work(self, value: int) -> None:
+    def test_legacy_versions_are_outside_the_table(self, value: int) -> None:
         with pytest.raises(DiagnosticError) as info:
             read_format_version(value)
         assert info.value.codes == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
-        assert "formats 1 and 2 are follow-up work" in str(info.value)
+        assert "legacy" in str(info.value)
+        assert "codec_v1" in str(info.value)
 
     @pytest.mark.parametrize("value", ["3.1.0", "3.1.4"])
     def test_ir_3_1_is_supported(self, value: str) -> None:
@@ -124,6 +129,11 @@ class TestSupport:
 class TestWriting:
     def test_baseline_is_integer(self) -> None:
         assert write_format_version(read_format_version("3.0.0")) == 3
+
+    @pytest.mark.parametrize("major", [1, 2])
+    def test_legacy_formats_are_never_written(self, major: int) -> None:
+        with pytest.raises(ValueError, match="never written"):
+            write_format_version(FormatVersion(major, 0, 0))
 
     def test_patch_is_string(self) -> None:
         assert write_format_version(FormatVersion(4, 0, 2)) == "4.0.2"
@@ -177,3 +187,78 @@ class TestDocument:
         diagnostic = d.Diagnostic("c", "X", ("a", 1), "msg")
         assert diagnostic.render() == "c at a/1: msg"
         assert d.Diagnostic("c", "X", (), "msg").render() == "c at <root>: msg"
+
+
+class TestLegacy:
+    @pytest.mark.parametrize(
+        ("value", "expected"), [(1, LegacyFormat.V1), (2, LegacyFormat.V2)]
+    )
+    def test_integers_are_legacy(self, value: int, expected: LegacyFormat) -> None:
+        assert recognize_legacy_format(value) is expected
+        assert str(expected) == str(value)
+
+    @pytest.mark.parametrize("value", [True, "1", "2", "1.0.0", 1.0, 3, 0, None])
+    def test_other_spellings_are_not_legacy(self, value: object) -> None:
+        assert recognize_legacy_format(value) is None
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (1, LegacyFormat.V1),
+            (2, LegacyFormat.V2),
+            (3, FormatVersion(3, 0, 0)),
+            ("4.0.0", FormatVersion(4, 0, 0)),
+        ],
+    )
+    def test_document_with_legacy(
+        self, value: object, expected: FormatVersion | LegacyFormat
+    ) -> None:
+        version, root = read_document_with_legacy({"formatVersion": value, "x": 1})
+        assert version == expected
+        assert root["x"] == 1
+
+    @pytest.mark.parametrize(
+        ("document", "code"),
+        [
+            ('{"distribution": []}', d.MISSING_FORMAT_VERSION),
+            ('{"formatVersion": "1"}', d.INVALID_FORMAT_VERSION_SYNTAX),
+            ('{"formatVersion": true}', d.INVALID_FORMAT_VERSION_TYPE),
+            ('{"formatVersion": 5}', d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
+            ('{"formatVersion": 1, "formatVersion": 3}', d.DUPLICATE_FORMAT_VERSION),
+        ],
+    )
+    def test_document_with_legacy_keeps_diagnostics(
+        self, document: str, code: str
+    ) -> None:
+        with pytest.raises(DiagnosticError) as info:
+            read_document_with_legacy(document)
+        assert info.value.codes == (code,)
+
+    def test_legacy_document(self) -> None:
+        root = read_legacy_document('{"formatVersion": 2, "x": 1}', LegacyFormat.V2)
+        assert root["x"] == 1
+
+    @pytest.mark.parametrize(
+        ("value", "found"), [(2, "2"), (3, "3.0.0"), ("3.1.0", "3.1.0"), (4, "4.0.0")]
+    )
+    def test_legacy_document_refuses_other_formats(
+        self, value: object, found: str
+    ) -> None:
+        with pytest.raises(DiagnosticError) as info:
+            read_legacy_document({"formatVersion": value}, LegacyFormat.V1)
+        assert info.value.codes == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
+        assert f"format version {found} " in str(info.value)
+        assert "only legacy format 1" in str(info.value)
+
+    def test_legacy_document_keeps_recognition_errors(self) -> None:
+        with pytest.raises(DiagnosticError) as info:
+            read_legacy_document({"formatVersion": "1"}, LegacyFormat.V1)
+        assert info.value.codes == (d.INVALID_FORMAT_VERSION_SYNTAX,)
+
+    def test_legacy_document_missing_version(self) -> None:
+        with pytest.raises(DiagnosticError) as info:
+            read_legacy_document("{}", LegacyFormat.V1)
+        assert info.value.codes == (d.MISSING_FORMAT_VERSION,)
+
+    def test_support_table_stays_in_the_release_grammar(self) -> None:
+        assert all(interval.lower.major >= 3 for interval in SUPPORT_TABLE)

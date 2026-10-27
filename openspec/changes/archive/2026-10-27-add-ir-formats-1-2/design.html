@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>add-ir-formats-1-2: design</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>.
+  Styles and scripts are files in docs/templates/assets/, referenced and not embedded. In a copy, change the
+  "assets/" prefix of each href and src to the relative path from the copy to that directory, for example
+  "../../docs/templates/assets/" from .dev/beads-specs/. See AGENTS.md, "Specs and plans are HTML documents".
+  Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
+  list them in nav.toc.
+-->
+<link rel="stylesheet" href="../../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../../docs/templates/assets/agent-document.js"></script>
+</head>
+<body>
+<main>
+<h1>add-ir-formats-1-2: design</h1>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.8.12</code> · 2026-10-27 · draft</p>
+
+<nav class="toc" aria-label="Contents">
+<ul>
+<li><a href="#context">Context</a></li>
+<li><a href="#history">What formats 1 and 2 are</a></li>
+<li><a href="#goals">Goals and non-goals</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#spellings">Spelling table</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration plan</a></li>
+</ul>
+</nav>
+
+<h2 id="context">Context</h2>
+<p>See proposal.md for the motivation. Today <code>morphir.ir.format_version</code> normalizes the integers
+<code>1</code> and <code>2</code> to releases 1.0.0 and 2.0.0 only so that <code>check_supported</code> can refuse
+them with <code>unsupported_format_version_major</code> ("formats 1 and 2 are follow-up work"). The support table is
+<code>[3.0.0,3.2.0),[4.0.0,4.1.0)</code> since bead <code>morphir-ukvn.8.13</code> (IR 3.1.0, PR #34) merged; this
+change does not touch the table. That change also made the v3 distribution <code>Library | Specs</code>; the legacy
+formats only ever produce a <code>Library</code>, because <code>Specs</code> needs format 3.1.0.</p>
+<p>The finos/morphir format-version contract (<code>kb/bundles/morphir/morphir-ir/format-version-support.md</code>)
+says the release grammar starts at major 3. A support table therefore cannot hold format 1 or 2.</p>
+<p>morphir-elm at <code>bc99af69</code> is the source. Its <code>FormatVersion/Codec.elm</code> reads format 3
+with <code>Distribution.Codec</code>, format 1 with <code>Distribution.CodecV1</code>, and refuses everything
+else, format 2 included, with "Please regenerate it!".</p>
+
+<h2 id="history">What formats 1 and 2 are</h2>
+<p>From the morphir-elm history:</p>
+<table>
+<thead><tr><th>Commit</th><th>Date</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><code>8e0e729d</code></td><td>2021-10-08</td><td>Copies the codecs to <code>*/CodecV1.elm</code>, sets
+<code>currentFormatVersion = 2</code>, and decodes format 1 with CodecV1.</td></tr>
+<tr><td><code>e742a620</code></td><td>2021-10-08</td><td>Format 2 shapes: TitleCase distribution, access, type and
+literal tags; <code>{"access", "value"}</code>; <code>{"doc", "value"}</code>; <code>[path, module]</code> package
+entries; <code>{"name", "tpe"}</code> fields.</td></tr>
+<tr><td><code>02aa36af</code></td><td>2023-05-18</td><td>Format 3: value and pattern tags become TitleCase. The old
+value codec is kept as <code>Value/CodecV2.elm</code> with <code>Distribution/CodecV2.elm</code>.</td></tr>
+<tr><td><code>7cb7b300</code></td><td>2023-05-18</td><td>Removes the V2 codecs. Format 2 is refused from then
+on.</td></tr>
+</tbody>
+</table>
+<p><code>git diff 02aa36af^ bc99af69</code> over <code>src/Morphir/IR/*/Codec.elm</code> shows that only the value
+codec changed shape between format 2 and today's format 3 (the Decoration, Component and Source codecs also
+changed, and the Library distribution uses none of them). So format 2 is format 3.0.0 with snake_case value and pattern tags.</p>
+<p>The removed <code>Distribution/CodecV2.elm</code> called <code>Package.Codec</code>, which by then used the TitleCase
+value codec, so elm's own format-2 reader could not read real format-2 values. This design ports the format, not
+that reader.</p>
+
+<h2 id="goals">Goals and non-goals</h2>
+<p><strong>Goals:</strong> read formats 1 and 2 exactly as morphir-elm wrote them, into the existing v3 model; let
+the CLI upgrade them; keep the support table, the diagnostic codes, and the format 3.0.0 codec as they are.</p>
+<p><strong>Non-goals:</strong> writing formats 1 or 2; files with no <code>formatVersion</code> (still
+<code>missing_format_version</code>); the string spellings <code>"1"</code> and <code>"2"</code>, which no tool
+wrote; a separate Python model for the legacy formats.</p>
+
+<h2 id="decisions">Decisions</h2>
+
+<h3 id="fv-2">FV-2. A legacy path beside the support table</h3>
+<p><code>format_version</code> gains a <code>LegacyFormat</code> enum (<code>V1</code>, <code>V2</code>) and two
+readers:</p>
+<pre><code class="language-python">def recognize_legacy_format(value: object) -&gt; LegacyFormat | None: ...
+
+def read_document_with_legacy(
+    document: str | object, table: SupportTable = SUPPORT_TABLE
+) -&gt; tuple[FormatVersion | LegacyFormat, dict[str, object]]: ...
+
+def read_legacy_document(document: str | object, accepted: LegacyFormat) -&gt; dict[str, object]: ...</code></pre>
+<p>Only a JSON integer <code>1</code> or <code>2</code> (not a boolean) is legacy. Every other value goes through
+<code>read_format_version</code> unchanged, so it fails with the same codes. <code>read_format_version</code> and
+<code>read_document</code> keep refusing 1 and 2 with <code>unsupported_format_version_major</code>; only the
+message changes, from "follow-up work" to the names of the legacy readers. <code>read_legacy_document</code> refuses
+any version but the one it is asked for with <code>unsupported_format_version_major</code>. No new diagnostic code
+is needed.</p>
+<p><strong>Alternatives.</strong> Adding <code>[1.0.0,1.1.0)</code> and <code>[2.0.0,2.1.0)</code> to the table breaks
+the finos grammar and changes the table spelling that tools and reports compare. A boolean flag on
+<code>read_document</code> would put the legacy rule inside the code path that bead <code>morphir-ukvn.8.13</code>
+edits. The new functions sit at the end of the module; the only shared edits are a message string, a refactor of
+<code>read_document</code> into a private root reader, and a guard in <code>write_format_version</code>.</p>
+
+<h3 id="fv-3">FV-3. Writers never emit 1 or 2</h3>
+<p><code>write_format_version</code> raises <code>ValueError</code> for a major below 3. A
+<code>FormatVersion(1, 0, 0)</code> can still come out of <code>recognize_format_version</code>, so the guard keeps a
+mistake from writing it. The legacy modules have no encoders.</p>
+
+<h3 id="cdc-1">CDC-1. Legacy decoders in their own modules, into the v3 model</h3>
+<p>As in elm, the legacy decoders produce the same model as format 3.0.0, so decoding is the upgrade and
+<code>morphir.ir.migrate</code> needs no new function. The modules are:</p>
+<table>
+<thead><tr><th>Module</th><th>Ports</th><th>Public decoders</th></tr></thead>
+<tbody>
+<tr><td><code>morphir.ir.v3.codec_v1</code></td><td>morphir-elm <code>*/CodecV1.elm</code> at <code>bc99af69</code>
+(decoders)</td><td>literal, type, type spec and definition, access control, documented, pattern, value, value spec
+and definition, module, package, distribution, versioned distribution</td></tr>
+<tr><td><code>morphir.ir.v3.codec_v2</code></td><td><code>Value/CodecV2.elm</code> at <code>02aa36af</code>, with
+the format 3.0.0 codec for the rest</td><td>pattern, value, value definition, module and package definition,
+distribution, versioned distribution</td></tr>
+<tr><td><code>morphir.ir.v3._legacy_value</code> (private)</td><td>The snake_case value and pattern decoders that
+formats 1 and 2 share</td><td>Built from a literal decoder and a type decoder, because literals and types differ
+between the two formats</td></tr>
+</tbody>
+</table>
+<p>The format 3.0.0 codec is not edited: it still refuses 1 and 2, and bead <code>morphir-ukvn.8.13</code> can change
+it without conflicts. The legacy modules import its primitive helpers (<code>_tag</code>, <code>_field</code>, and so on)
+rather than copy them.</p>
+<p><strong>Alternatives.</strong> A tag-renaming JSON rewrite cannot work, because <code>"variable"</code>,
+<code>"reference"</code>, <code>"tuple"</code>, <code>"record"</code> and <code>"unit"</code> are both type and value
+tags and the shapes around them differ. Parameterizing the 3.0.0 codec by spelling would branch inside it.</p>
+
+<h3 id="cdc-2">CDC-2. Faithful to the elm decoders, including their quirks</h3>
+<ul>
+<li>Documented (format 1) is elm's <code>Decode.oneOf</code>: try <code>[doc, x]</code>, then the bare <code>x</code>.
+When both fail, the <code>DiagnosticError</code> holds the diagnostics of both, as elm's oneOf error lists both.</li>
+<li>Derived types: elm <code>CodecV1.encodeSpecification</code> writes <code>"DerivedTypeSpecification"</code> but
+<code>decodeSpecification</code> reads only <code>"derived_type_specification"</code>. Derived types reached CodecV1
+in 2022, after format 1 stopped being written, so no real file has them; the port follows the decoder.</li>
+<li>Format 1 module specifications and definitions decode with <code>doc = None</code> and ignore a
+<code>doc</code> member (<code>Decode.succeed Nothing</code>). Format 2 reads the optional <code>doc</code>, as format 3.0.0
+does.</li>
+<li>Literal payloads are checked by the format 3.0.0 literal decoder after the tag is renamed, so the rules for
+characters, integers and decimals are the same.</li>
+</ul>
+
+<h3 id="cdc-3">CDC-3. morphir-elm wins over the finos v2 schema docs</h3>
+<p>finos/morphir <code>docs/spec/ir/schemas/v2/whats-new.md</code> says format 2 literals stay snake_case and names
+an integer literal <code>whole_number_literal</code>. morphir-elm wrote <code>"StringLiteral"</code> in format 2 (see the
+rentals fixture) and <code>"int_literal"</code> in format 1. As for format 3, morphir-elm is normative.</p>
+
+<h3 id="cli-2">CLI-2. Dispatch in the CLI</h3>
+<p><code>ir inspect</code> and <code>ir convert</code> read the root with <code>read_document_with_legacy</code> and
+choose <code>codec_v1</code>, <code>codec_v2</code>, the 3.0.0 codec or the v4 codec. Inspect prints
+<code>format: 1 (legacy)</code> and a note that <code>ir convert</code> upgrades the file. Convert writes format
+3.0.0 or, through <code>v3_to_v4</code>, draft v4. The <code>Target</code> enum stays <code>v3</code> and
+<code>v4</code>: there is no way to ask for format 1 or 2.</p>
+
+<h3 id="tst-2">TST-2. Real fixtures, one model in two formats</h3>
+<p>morphir-elm <code>tests-integration/cli/test-data/rentals/</code> has the same example written as format 1
+(<code>expected-morphir-ir-v1.json</code>) and as format 2 (<code>expected-morphir-ir.json</code>). Both are copied
+byte for byte to <code>tests/fixtures/ir/legacy/</code>. Decoding both must give the same Library, which checks the
+two decoders against each other. Hand-written JSON covers every tag that the small fixtures do not use, with the
+spellings taken from the elm source.</p>
+
+<h2 id="spellings">Spelling table</h2>
+<table>
+<thead><tr><th>Construct</th><th>Format 1</th><th>Format 2</th><th>Format 3.0.0</th></tr></thead>
+<tbody>
+<tr><td>Distribution</td><td><code>"library"</code></td><td><code>"Library"</code></td><td><code>"Library"</code></td></tr>
+<tr><td>Access control</td><td><code>["public", x]</code></td><td><code>{"access": "Public", "value": x}</code></td><td>same as 2</td></tr>
+<tr><td>Documented</td><td><code>[doc, x]</code> or <code>x</code></td><td><code>{"doc", "value"}</code> or <code>x</code></td><td>same as 2</td></tr>
+<tr><td>Package modules</td><td><code>{"name", "spec"}</code>, <code>{"name", "def"}</code></td><td><code>[path, module]</code></td><td>same as 2</td></tr>
+<tr><td>Module doc</td><td>none</td><td>optional <code>"doc"</code></td><td>optional <code>"doc"</code></td></tr>
+<tr><td>Type tags</td><td><code>"variable"</code>, <code>"extensible_record"</code>, ...</td><td><code>"Variable"</code>, <code>"ExtensibleRecord"</code>, ...</td><td>same as 2</td></tr>
+<tr><td>Record field</td><td><code>[name, type]</code></td><td><code>{"name", "tpe"}</code></td><td>same as 2</td></tr>
+<tr><td>Type spec and definition</td><td><code>"custom_type_definition"</code>, ...</td><td><code>"CustomTypeDefinition"</code>, ...</td><td>same as 2</td></tr>
+<tr><td>Literals</td><td><code>"int_literal"</code>, <code>"bool_literal"</code>, ...</td><td><code>"WholeNumberLiteral"</code>, <code>"BoolLiteral"</code>, ...</td><td>same as 2</td></tr>
+<tr><td>Value and pattern tags</td><td><code>"let_definition"</code>, <code>"wildcard_pattern"</code>, ...</td><td>same as 1</td><td><code>"LetDefinition"</code>, <code>"WildcardPattern"</code>, ...</td></tr>
+</tbody>
+</table>
+
+<h2 id="risks">Risks and trade-offs</h2>
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>Format-1 files written before later CodecV1 edits (value documentation in 2022, decimals) may differ from
+what the elm decoder reads today.</td><td>The port follows today's elm decoder, which is what morphir-elm users get.
+Documented entries accept the bare value, which covers files written before value documentation.</td></tr>
+<tr><td>The fixtures are small and use few tags.</td><td>Per-tag unit tests with hand-written JSON for every
+type, value, pattern, literal and wrapper tag.</td></tr>
+<tr><td>Importing private helpers from <code>codec.py</code> couples the modules.</td><td>The helpers are stable
+JSON-shape checks. Moving them to a shared module would edit <code>codec.py</code>, which bead
+<code>morphir-ukvn.8.13</code> edits in parallel; that can be a later refactor.</td></tr>
+<tr><td>Rebase conflicts with IR 3.1.0 in <code>format_version.py</code>, the CLI, and the specs.</td><td>The
+support table and the 3.1 message are not touched; the legacy code is appended in its own section. This branch
+was rebased on PR #34 and its spec deltas rewritten against the merged specs.</td></tr>
+</tbody>
+</table>
+
+<h2 id="migration">Migration plan</h2>
+<p>No data migration. Users who got <code>unsupported_format_version_major</code> for a format-1 or format-2 file
+can now run <code>morphir-tools ir convert old.json --to v3 -o new.json</code>. Rollback is a revert: no stored
+data or public name is removed.</p>
+
+</main>
+</body>
+</html>

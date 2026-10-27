@@ -23,6 +23,7 @@ from morphir.ir.diagnostics import Diagnostic, DiagnosticError
 from morphir.ir.migrate import Err, Ok, v3_to_v4, v4_to_v3
 from morphir.ir.migrate import drop_input_attributes as drop_inputs
 from morphir.ir.v3 import codec as v3_codec
+from morphir.ir.v3 import codec_v1, codec_v2
 from morphir.ir.v3 import distribution as v3_dist
 from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import distribution as v4_dist
@@ -36,7 +37,8 @@ app = typer.Typer(
 )
 ir_app = typer.Typer(
     help="Inspect and convert versioned morphir-ir.json files "
-    "(format 3.0.x and 3.1.x, and draft 4.0.x).",
+    "(format 3.0.x and 3.1.x, and draft 4.0.x; legacy formats 1 and 2 are read "
+    "and upgraded).",
     no_args_is_help=True,
 )
 app.add_typer(ir_app, name="ir")
@@ -91,6 +93,26 @@ def _kind(dist: v4_dist.Distribution | v3_dist.Distribution) -> str:
             return "Application"
 
 
+def _read_v3_family(
+    text: str, version: fv.FormatVersion | fv.LegacyFormat
+) -> v3_dist.Distribution:
+    """Decode a format 1, 2, or 3.x document into the v3 model.
+
+    Legacy formats 1 and 2 always give a format 3.0.0 Library.
+    """
+    match version:
+        case fv.LegacyFormat.V1:
+            return codec_v1.decode_versioned_distribution(text)
+        case fv.LegacyFormat.V2:
+            return codec_v2.decode_versioned_distribution(text)
+        case _:
+            return v3_codec.decode_versioned_distribution(text)
+
+
+def _is_v4(version: fv.FormatVersion | fv.LegacyFormat) -> bool:
+    return isinstance(version, fv.FormatVersion) and version.major == 4
+
+
 @ir_app.command()
 def inspect(
     file: Annotated[Path, typer.Argument(help="A versioned morphir-ir.json file.")],
@@ -98,25 +120,31 @@ def inspect(
     """Report the format version, distribution kind, and package name."""
     text = _read(file)
     try:
-        version, _ = fv.read_document(text)
-        if version.major == 3:
-            classic = v3_codec.decode_versioned_distribution(text)
+        version, _ = fv.read_document_with_legacy(text)
+        if _is_v4(version):
+            dist = v4_codec.decode_versioned_distribution(text)
+            kind = _kind(dist)
+            package = v4_codec.encode_path(dist.package.name)
+        else:
+            classic = _read_v3_family(text, version)
             kind = _kind(classic)
             package = v4_codec.encode_path(
                 Path4(tuple(Name4(tuple(n)) for n in classic.package_name))
             )
-        else:
-            dist = v4_codec.decode_versioned_distribution(text)
-            kind = _kind(dist)
-            package = v4_codec.encode_path(dist.package.name)
     except DiagnosticError as error:
         _report(error.diagnostics)
         raise typer.Exit(1) from None
-    typer.echo(f"format: {version}")
+    legacy = isinstance(version, fv.LegacyFormat)
+    typer.echo(f"format: {version}{' (legacy)' if legacy else ''}")
     typer.echo(f"kind: {kind}")
     typer.echo(f"package: {package}")
-    if version.major == 4:
+    if _is_v4(version):
         typer.echo(f"note: {v4_codec.DRAFT_NOTICE}")
+    if legacy:
+        typer.echo(
+            f"note: legacy format {version} is read-only; "
+            "ir convert upgrades it to format 3.0.0 or draft v4"
+        )
 
 
 @ir_app.command()
@@ -145,21 +173,22 @@ def convert(
     """Convert between format 3 (3.0.x and 3.1.x) and draft IR v4.
 
     A v3 Library is written as format 3 and a v3 Specs as format 3.1.0, the lowest
-    version that holds each.
+    version that holds each. Legacy formats 1 and 2 are read as a format 3.0.0
+    Library and never written.
 
     The output is written to a temporary file and renamed only on success, so a
     failed conversion leaves no output file.
     """
     text = _read(file)
     try:
-        version, _ = fv.read_document(text)
+        version, _ = fv.read_document_with_legacy(text)
         if to is Target.V4:
             upgraded: Ok[v4_dist.Distribution]
-            if version.major == 4:
+            if _is_v4(version):
                 upgraded = Ok(v4_codec.decode_versioned_distribution(text))
             else:
                 migrated = v3_to_v4(
-                    v3_codec.decode_versioned_distribution(text),
+                    _read_v3_family(text, version),
                     package_version=package_version,
                 )
                 upgraded = Ok(migrated.value, migrated.warnings)
@@ -168,8 +197,8 @@ def convert(
             document = v4_codec.encode_versioned_distribution(upgraded.value)
             warnings: tuple[Diagnostic, ...] = upgraded.warnings
         else:
-            if version.major == 3:
-                classic = v3_codec.decode_versioned_distribution(text)
+            if not _is_v4(version):
+                classic = _read_v3_family(text, version)
                 warnings = ()
             else:
                 result = v4_to_v3(

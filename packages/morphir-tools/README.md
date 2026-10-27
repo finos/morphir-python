@@ -27,25 +27,29 @@ This will also install the `morphir` core library as a dependency.
 
 The `morphir-tools` command inspects and converts versioned `morphir-ir.json`
 files. It reads format 3.0.x (what morphir-elm writes), format 3.1.x (which adds
-the v3 `Specs` distribution) and draft IR 4.0.x, and uses the `morphir` library
-for every read, write, and migration.
+the v3 `Specs` distribution) and draft IR 4.0.x, reads the legacy formats 1 and 2
+to upgrade them, and uses the `morphir` library for every read, write, and
+migration.
 
 ```bash
 morphir-tools ir inspect morphir-ir.json
 morphir-tools ir convert morphir-ir.json --to v4 -o out.json --package-version 1.2.0
 morphir-tools ir convert v4.json --to v3 -o out.json --drop-source-locations
+morphir-tools ir convert old-format-1.json --to v3 -o out.json
 ```
 
 `inspect` prints the normalized format version, the distribution kind
 (`Library`, `Specs` or `Application`), and the package name, and labels v4 as
-draft. `convert` handles `Library` and `Specs` in both directions. It writes a
-v3 `Library` as format `3` and a v3 `Specs` as `"3.1.0"`, the lowest version that
-holds each. `convert` writes through a temporary file
-and renames it only on success, so a failed conversion leaves no output file.
+draft and formats 1 and 2 as legacy. `convert` handles `Library` and `Specs` in
+both directions. It writes a v3 `Library` as format `3` and a v3 `Specs` as
+`"3.1.0"`, the lowest version that holds each. A legacy format 1 or 2 file
+converts to a format 3.0.0 `Library` or draft v4; nothing writes format 1 or 2.
+`convert` writes through a temporary file and renames it only on success, so a
+failed conversion leaves no output file.
 Diagnostics go to standard error as `code at location: message`.
 
 Exit codes are 0 for success (also with warnings), 1 for a diagnostic, and 2 for
-a usage error. Formats 1 and 2 and 3.x releases from 3.2.0 on are rejected; see the
+a usage error. 3.x releases from 3.2.0 on are rejected; see the
 [morphir package README](../morphir/README.md#morphir-ir-versions) for the
 format-version rules and the draft v4 status.
 

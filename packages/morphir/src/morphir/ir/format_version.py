@@ -16,6 +16,13 @@ The support table is ``[3.0.0,3.2.0),[4.0.0,4.1.0)``, the finos reference table
 (finos/morphir decision record 0018). IR 3.1.0 added the v3 ``Specs``
 distribution; `V3_1` names that release. v4 support is draft.
 
+Formats 1 and 2 are legacy: the finos release grammar starts at major 3, so they
+are in no support table, and `read_format_version` refuses them with
+``unsupported_format_version_major``. `read_document_with_legacy` and
+`read_legacy_document` recognize them, only as the integers morphir-elm wrote, for
+the read-only decoders in `morphir.ir.v3.codec_v1` and `morphir.ir.v3.codec_v2`.
+`write_format_version` never writes them.
+
 Example:
     >>> read_format_version(3)
     FormatVersion(major=3, minor=0, patch=0)
@@ -30,6 +37,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from enum import Enum
 
 from . import diagnostics as d
 from .diagnostics import DiagnosticError, fail
@@ -195,7 +203,7 @@ def check_supported(
     loc: d.Location = (_CONSTRUCT,)
     if not any(interval.lower.major == version.major for interval in table):
         if version.major in (1, 2):
-            detail = "formats 1 and 2 are follow-up work"
+            detail = _LEGACY_DETAIL
         else:
             detail = f"format family {version.major} is not supported"
         raise fail(
@@ -250,7 +258,13 @@ def read_format_version(
 
 
 def write_format_version(version: FormatVersion) -> int | str:
-    """Return the canonical spelling: integer N for N.0.0, else the release string."""
+    """Return the canonical spelling: integer N for N.0.0, else the release string.
+
+    Raises:
+        ValueError: For a legacy major (1 or 2); legacy formats are never written.
+    """
+    if version.major < 3:
+        raise ValueError(f"format {version.major} is legacy and is never written")
     if version.minor == 0 and version.patch == 0:
         return version.major
     return str(version)
@@ -327,6 +341,11 @@ def read_document(
     Raises:
         DiagnosticError: With a format-version or JSON diagnostic.
     """
+    obj = _versioned_root(document)
+    return read_format_version(obj[_CONSTRUCT], table), obj
+
+
+def _versioned_root(document: str | object) -> dict[str, object]:
     root = parse_json(document) if isinstance(document, str) else document
     if not isinstance(root, dict):
         raise fail(
@@ -343,13 +362,99 @@ def read_document(
             "the IR has no formatVersion member; it is in an old format. "
             "Please regenerate it!",
         )
-    obj: dict[str, object] = dict(root)
-    return read_format_version(obj[_CONSTRUCT], table), obj
+    return dict(root)
 
 
 def dump_json(value: object) -> str:
     """Serialize JSON compactly with members in insertion order."""
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+# --- Legacy formats 1 and 2 (read-only) ---
+
+_LEGACY_DETAIL = (
+    "formats 1 and 2 are legacy formats outside the support table; "
+    "morphir.ir.v3.codec_v1 and codec_v2 read them as format 3.0.0"
+)
+
+
+class LegacyFormat(Enum):
+    """A morphir-elm format from before the release grammar, which starts at 3.
+
+    morphir-elm wrote formats 1 and 2 only as the JSON integers ``1`` and ``2``.
+    They are in no support table: the legacy readers decode them into the
+    format 3.0.0 model, and no writer emits them.
+    """
+
+    V1 = 1
+    V2 = 2
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+def recognize_legacy_format(value: object) -> LegacyFormat | None:
+    """Return the legacy format for the JSON integer ``1`` or ``2``, else ``None``.
+
+    Example:
+        >>> recognize_legacy_format(1)
+        <LegacyFormat.V1: 1>
+        >>> recognize_legacy_format("1") is None
+        True
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return {1: LegacyFormat.V1, 2: LegacyFormat.V2}.get(value)
+
+
+def read_document_with_legacy(
+    document: str | object, table: SupportTable = SUPPORT_TABLE
+) -> tuple[FormatVersion | LegacyFormat, dict[str, object]]:
+    """Read a document root like `read_document`, but report legacy formats.
+
+    The integers ``1`` and ``2`` give a `LegacyFormat`; every other value goes
+    through `read_format_version` with ``table`` and fails as it does there.
+
+    Raises:
+        DiagnosticError: With a format-version or JSON diagnostic.
+    """
+    obj = _versioned_root(document)
+    legacy = recognize_legacy_format(obj[_CONSTRUCT])
+    if legacy is not None:
+        return legacy, obj
+    return read_format_version(obj[_CONSTRUCT], table), obj
+
+
+def read_legacy_document(
+    document: str | object, accepted: LegacyFormat
+) -> dict[str, object]:
+    """Read the root of a legacy document and check that it is ``accepted``.
+
+    Args:
+        document: JSON text, or an already-decoded JSON value.
+        accepted: The one legacy format the caller decodes.
+
+    Returns:
+        The root object.
+
+    Raises:
+        DiagnosticError: With ``unsupported_format_version_major`` for any other
+            format, or with the recognition diagnostic for a malformed version.
+    """
+    obj = _versioned_root(document)
+    value = obj[_CONSTRUCT]
+    found: FormatVersion | LegacyFormat | None = recognize_legacy_format(value)
+    if found is accepted:
+        return obj
+    if found is None:
+        found = recognize_format_version(value)
+    raise fail(
+        d.UNSUPPORTED_FORMAT_VERSION_MAJOR,
+        _CONSTRUCT,
+        (_CONSTRUCT,),
+        f"format version {found} is not supported; "
+        f"this reader accepts only legacy format {accepted}",
+    )
 
 
 __all__ = [
@@ -362,13 +467,17 @@ __all__ = [
     "DiagnosticError",
     "FormatVersion",
     "Interval",
+    "LegacyFormat",
     "SupportTable",
     "check_supported",
     "dump_json",
     "parse_json",
     "read_document",
+    "read_document_with_legacy",
     "read_format_version",
+    "read_legacy_document",
     "recognize_format_version",
+    "recognize_legacy_format",
     "table_to_string",
     "write_format_version",
 ]

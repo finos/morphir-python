@@ -36,6 +36,7 @@ from morphir.ir import Type, Value
 | Package | IR | Source of truth | JSON codec |
 |---------|----|-----------------|------------|
 | `morphir.ir.v3` | format 3.0.0, what morphir-elm writes today, and its 3.1.0 revision | [morphir-elm](https://github.com/finos/morphir-elm) at `bc99af69` for 3.0.0; [finos/morphir](https://github.com/finos/morphir) at `efa36060` for what 3.1.0 adds | `morphir.ir.v3.codec`, matches morphir-elm byte for byte for 3.0.0 |
+| `morphir.ir.v3` (legacy) | formats 1 and 2, read-only | morphir-elm `*/CodecV1.elm` at `bc99af69`; `Value/CodecV2.elm` at `02aa36af` | `morphir.ir.v3.codec_v1`, `morphir.ir.v3.codec_v2`, decoders only |
 | `morphir.ir.v4` | IR v4, **draft upstream** | [finos/morphir](https://github.com/finos/morphir) at `efa36060` | `morphir.ir.v4.codec`, **draft** |
 
 `morphir.ir` and its old submodule paths (`morphir.ir.name`, `morphir.ir.value`,
@@ -122,10 +123,46 @@ files written by other tools:
   accepts `3` and `"3.0.0"` but rejects `"3"`.
 
 The support table is `[3.0.0,3.2.0),[4.0.0,4.1.0)`, the finos reference table.
-Formats 1 and 2 fail with `unsupported_format_version_major`; a later 3.x minor
-such as `"3.2.0"` fails with `unsupported_format_version_minor`.
+Formats 1 and 2 are not in it (see below) and fail there with
+`unsupported_format_version_major`; a later 3.x minor such as `"3.2.0"` fails
+with `unsupported_format_version_minor`.
 Failures raise `morphir.ir.diagnostics.DiagnosticError`, whose diagnostics carry
 the stable codes of the finos contract.
+
+### Legacy formats 1 and 2
+
+morphir-elm wrote `"formatVersion": 1` until October 2021 and `2` until May 2023.
+The finos release grammar starts at major 3, so these legacy formats are outside
+every support table. `read_document_with_legacy` and `read_legacy_document`
+recognize them, only as the integers `1` and `2`, and `morphir.ir.v3.codec_v1` and
+`morphir.ir.v3.codec_v2` decode them into the format 3.0.0 model, as morphir-elm
+does. Encoding the result with `morphir.ir.v3.codec` writes format 3, so decoding
+is the upgrade. No writer emits format 1 or 2.
+
+Format 2 is format 3.0.0 with snake_case value and pattern tags
+(`"let_definition"`, `"wildcard_pattern"`). Format 1 is snake_case throughout and
+also differs in access control, documentation, record fields, and package modules;
+the `codec_v1` docstring lists the differences. morphir-elm reads format 1 but no
+longer reads format 2; reading format 2 here is a deliberate divergence.
+
+```python
+from pathlib import Path
+
+from morphir.ir.format_version import LegacyFormat, read_document_with_legacy
+from morphir.ir.v3 import codec, codec_v1, codec_v2
+
+legacy = Path("tests/fixtures/ir/legacy")
+text = (legacy / "elm-rentals-format-1.json").read_text()
+version, _ = read_document_with_legacy(text)
+assert version is LegacyFormat.V1
+
+library = codec_v1.decode_versioned_distribution(text)
+same = codec_v2.decode_versioned_distribution(
+    (legacy / "elm-rentals-format-2.json").read_text()
+)
+assert library == same
+assert codec.encode_versioned_distribution(library)["formatVersion"] == 3
+```
 
 ### Draft IR v4
 
