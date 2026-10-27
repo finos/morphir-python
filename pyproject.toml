@@ -24,10 +24,11 @@ test = [
 managed = true
 
 [tool.uv.workspace]
-members = ["packages/morphir", "packages/morphir-tools"]
+members = ["packages/morphir", "packages/morphir-python-native", "packages/morphir-tools"]
 
 [tool.uv.sources]
 morphir = { workspace = true }
+morphir-python-native = { workspace = true }
 
 # =============================================================================
 # Ruff Configuration
@@ -66,7 +67,7 @@ ignore = [
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["morphir", "morphir_tools"]
+known-first-party = ["morphir", "morphir_tools", "morphir_python_native"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -85,7 +86,7 @@ show_error_codes = true
 show_column_numbers = true
 namespace_packages = true
 explicit_package_bases = true
-mypy_path = ["packages/morphir/src", "packages/morphir-tools/src"]
+mypy_path = ["packages/morphir/src", "packages/morphir-tools/src", "packages/morphir-python-native/python"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -104,7 +105,7 @@ pythonVersion = "3.14"
 typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false
-include = ["packages/morphir/src", "packages/morphir-tools/src", "scripts", "tests"]
+include = ["packages/morphir/src", "packages/morphir-tools/src", "packages/morphir-python-native/python", "scripts", "tests"]
 exclude = ["**/__pycache__", ".venv", "build", "dist"]
 
 # =============================================================================

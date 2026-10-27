@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/morphir-python-binding"]
+members = ["crates/morphir-python-binding", "crates/morphir-python-native"]
 resolver = "2"
 
 [workspace.package]

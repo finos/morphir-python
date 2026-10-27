@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 members = [
     "morphir",
     "morphir-python",
+    "morphir-python-native",
     "morphir-workspace",
 ]
 
@@ -204,6 +205,7 @@ version = "0.0.2"
 source = { editable = "packages/morphir-tools" }
 dependencies = [
     { name = "morphir" },
+    { name = "morphir-python-native" },
     { name = "pygments" },
     { name = "typer" },
 ]
@@ -211,9 +213,14 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "morphir", editable = "packages/morphir" },
+    { name = "morphir-python-native", editable = "packages/morphir-python-native" },
     { name = "pygments", specifier = ">=2.20.0" },
     { name = "typer", specifier = ">=0.15" },
 ]
+
+[[package]]
+name = "morphir-python-native"
+source = { editable = "packages/morphir-python-native" }
 
 [[package]]
 name = "morphir-workspace"

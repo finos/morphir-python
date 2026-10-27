@@ -1,0 +1,42 @@
+[project]
+name = "morphir-python-native"
+dynamic = ["version"]
+description = "Private native compiler for the morphir-python tools"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+keywords = ["morphir", "compiler", "native"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Compilers",
+    "Typing :: Typed",
+]
+authors = [
+    { name = "FINOS", email = "morphir@finos.org" }
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/finos/morphir-python"
+Repository = "https://github.com/finos/morphir-python"
+Issues = "https://github.com/finos/morphir-python/issues"
+
+[build-system]
+# Pinned with PyO3 =0.30.1 in rust/crates/morphir-python-native/Cargo.toml.
+requires = ["maturin==1.15.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+# The version comes from this crate, so the compiled module, the wheel metadata
+# and the release tag (native-v<version>) share one source.
+manifest-path = "../../rust/crates/morphir-python-native/Cargo.toml"
+python-source = "python"
+module-name = "morphir_python_native._native"
+bindings = "pyo3"
+locked = true
