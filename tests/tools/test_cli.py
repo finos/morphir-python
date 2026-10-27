@@ -12,6 +12,8 @@ from morphir_tools.cli import app
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "ir" / "v3"
 VALUE_TREE = FIXTURES / "elm-simpleValueTree.json"
 REFERENCE = FIXTURES / "elm-reference-model.json"
+KIT_SPECS = FIXTURES / "mck-distributions-0011-specs.json"
+RUST_SPECS = FIXTURES / "rust-classic-specs-transport.json"
 
 runner = CliRunner()
 
@@ -60,6 +62,27 @@ class TestInspect:
         assert "package: morphir/example/app" in result.stdout
         assert "draft" not in result.stdout
 
+    def test_v3_specs(self) -> None:
+        result = run("ir", "inspect", KIT_SPECS)
+        assert result.exit_code == 0
+        assert "format: 3.1.0" in result.stdout
+        assert "kind: Specs" in result.stdout
+        assert "package: my/pkg" in result.stdout
+
+    def test_library_at_3_1_0(self, tmp_path: Path) -> None:
+        doc = json.loads(VALUE_TREE.read_text())
+        doc["formatVersion"] = "3.1.0"
+        result = run("ir", "inspect", write(tmp_path, "x.json", doc))
+        assert result.exit_code == 0
+        assert "format: 3.1.0" in result.stdout
+        assert "kind: Library" in result.stdout
+
+    def test_specs_before_3_1(self, tmp_path: Path) -> None:
+        doc = {"formatVersion": 3, "distribution": ["Specs", [["a"]], [], {}]}
+        result = run("ir", "inspect", write(tmp_path, "x.json", doc))
+        assert result.exit_code == 1
+        assert f"{d.SPECS_BEFORE_3_1} at formatVersion" in result.stderr
+
     def test_v4_is_labelled_draft(self, v4_file: Path) -> None:
         result = run("ir", "inspect", v4_file)
         assert result.exit_code == 0
@@ -77,7 +100,7 @@ class TestInspect:
         [
             (1, d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
             (2, d.UNSUPPORTED_FORMAT_VERSION_MAJOR),
-            ("3.1.0", d.UNSUPPORTED_FORMAT_VERSION_MINOR),
+            ("3.2.0", d.UNSUPPORTED_FORMAT_VERSION_MINOR),
         ],
     )
     def test_unsupported_versions(
@@ -87,7 +110,7 @@ class TestInspect:
         result = run("ir", "inspect", write(tmp_path, "x.json", doc))
         assert result.exit_code == 1
         assert code in result.stderr
-        assert "only 3.0.x and draft 4.0.x" in result.stderr
+        assert "only 3.0.x, 3.1.x and draft 4.0.x" in result.stderr
 
     def test_unreadable_file(self, tmp_path: Path) -> None:
         result = run("ir", "inspect", tmp_path / "missing.json")
@@ -95,7 +118,7 @@ class TestInspect:
         assert "cannot read" in result.stderr
 
     def test_same_codes_as_library(self, tmp_path: Path) -> None:
-        doc = {"formatVersion": 3, "distribution": ["Specs", [], [], {}]}
+        doc = {"formatVersion": 3, "distribution": ["Application", [], [], {}]}
         result = run("ir", "inspect", write(tmp_path, "x.json", doc))
         assert result.exit_code == 1
         assert d.UNKNOWN_NODE in result.stderr
@@ -147,8 +170,34 @@ class TestConvert:
         assert run("ir", "convert", VALUE_TREE, "--to", "v3", "-o", out).exit_code == 0
         assert run("ir", "convert", v4_file, "--to", "v4", "-o", out).exit_code == 0
 
+    def test_specs_upgrade_and_downgrade(self, tmp_path: Path) -> None:
+        up = tmp_path / "up.json"
+        result = run("ir", "convert", RUST_SPECS, "--to", "v4", "-o", up)
+        assert result.exit_code == 0
+        written = json.loads(up.read_text())
+        assert written["formatVersion"] == 4
+        assert "Specs" in written["distribution"]
+        back = tmp_path / "back.json"
+        result = run("ir", "convert", up, "--to", "v3", "-o", back)
+        assert result.exit_code == 0
+        assert result.stderr == ""
+        assert json.loads(back.read_text()) == json.loads(RUST_SPECS.read_text())
+
+    def test_v3_rewrite_emits_the_lowest_version(self, tmp_path: Path) -> None:
+        doc = json.loads(VALUE_TREE.read_text())
+        doc["formatVersion"] = "3.1.0"
+        out = tmp_path / "out.json"
+        source = write(tmp_path, "x.json", doc)
+        assert run("ir", "convert", source, "--to", "v3", "-o", out).exit_code == 0
+        assert json.loads(out.read_text())["formatVersion"] == 3
+        assert run("ir", "convert", KIT_SPECS, "--to", "v3", "-o", out).exit_code == 0
+        assert json.loads(out.read_text()) == json.loads(KIT_SPECS.read_text())
+
     def test_downgrade_failure_leaves_no_output(self, tmp_path: Path) -> None:
-        doc = {"formatVersion": 4, "distribution": {"Specs": {"packageName": "a"}}}
+        doc = {
+            "formatVersion": 4,
+            "distribution": {"Application": {"packageName": "a", "entryPoints": {}}},
+        }
         out = tmp_path / "out.json"
         result = run(
             "ir", "convert", write(tmp_path, "x.json", doc), "--to", "v3", "-o", out

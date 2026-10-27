@@ -35,7 +35,7 @@ from morphir.ir import Type, Value
 
 | Package | IR | Source of truth | JSON codec |
 |---------|----|-----------------|------------|
-| `morphir.ir.v3` | format 3.0.0, what morphir-elm writes today | [morphir-elm](https://github.com/finos/morphir-elm) at `bc99af69` | `morphir.ir.v3.codec`, matches morphir-elm byte for byte |
+| `morphir.ir.v3` | format 3.0.0, what morphir-elm writes today, and its 3.1.0 revision | [morphir-elm](https://github.com/finos/morphir-elm) at `bc99af69` for 3.0.0; [finos/morphir](https://github.com/finos/morphir) at `efa36060` for what 3.1.0 adds | `morphir.ir.v3.codec`, matches morphir-elm byte for byte for 3.0.0 |
 | `morphir.ir.v4` | IR v4, **draft upstream** | [finos/morphir](https://github.com/finos/morphir) at `efa36060` | `morphir.ir.v4.codec`, **draft** |
 
 `morphir.ir` and its old submodule paths (`morphir.ir.name`, `morphir.ir.value`,
@@ -64,7 +64,47 @@ assert document["formatVersion"] == 4
 downgraded = v4_to_v3(upgraded.value)
 assert isinstance(downgraded, Ok) and downgraded.value == library
 assert read_format_version("3.0.0") == read_format_version(3)
+
+specs = v3_codec.decode_versioned_distribution(
+    Path("tests/fixtures/ir/v3/mck-distributions-0011-specs.json").read_text()
+)
+assert isinstance(specs, v3.Specs)
+assert v3_codec.encode_versioned_distribution(specs)["formatVersion"] == "3.1.0"
+assert isinstance(v3_to_v4(specs).value, v4.SpecsDistribution)
 ```
+
+### IR 3.1.0 and the v3 `Specs` distribution
+
+IR `3.1.0` is a minor revision of format 3
+([finos/morphir decision record 0018](https://github.com/finos/morphir/blob/main/kb/bundles/morphir/morphir-ir/decisions/0018-ir-3-1-adds-specs-and-v3-document-trees.md)).
+It adds `v3.Specs`, a distribution that publishes a package's specification
+without its definitions:
+
+```json
+{"formatVersion": "3.1.0", "distribution": ["Specs", [["my"], ["pkg"]], [], {"modules": []}]}
+```
+
+A v3 distribution is `v3.Library | v3.Specs`, and
+`v3_codec.decode_versioned_distribution` returns either. The rules are:
+
+- A `Specs` needs `3.1.0` or later. A `Specs` that declares `3`, `"3"` or any
+  `"3.0.x"` fails with `specs_before_3_1`. A `Library` reads at every `3.0.x` and
+  `3.1.x` release.
+- The modules of a `Specs` distribution's own package are module
+  specifications. A member other than `types`, `values` and `doc`, such as the
+  `access` of a module definition, fails with `unknown_member`. `types` and
+  `values` are required, as morphir-elm requires them in every module
+  specification; morphir-rust lets them default to empty.
+- Writers emit the lowest version that fits: `3` for a `Library`, even one read
+  as `"3.1.0"`, and `"3.1.0"` for a `Specs`. Readers that stay on 3.0.0, such as
+  morphir-elm, still read every `Library` this package writes.
+- `v3_to_v4` turns a v3 `Specs` into a v4 `SpecsDistribution`, and `v4_to_v3`
+  turns a v4 `SpecsDistribution` into a v3 `Specs`, with the diagnostics of a
+  `Library`'s dependencies.
+
+Decision 0018 also adds v3 JSON and YAML document trees. This package has no
+document tree reader or writer, for v3 or v4; bead `morphir-ukvn.8.17` tracks
+that work.
 
 ### Reading `formatVersion`
 
@@ -81,10 +121,9 @@ files written by other tools:
 - the [finos/morphir format-version contract](https://github.com/finos/morphir/blob/main/docs/spec/ir/format-version.md)
   accepts `3` and `"3.0.0"` but rejects `"3"`.
 
-The support table is `[3.0.0,3.1.0),[4.0.0,4.1.0)`. Formats 1 and 2 fail with
-`unsupported_format_version_major`; IR 3.1.0 fails with
-`unsupported_format_version_minor` until
-[finos/morphir-python#28](https://github.com/finos/morphir-python/issues/28) lands.
+The support table is `[3.0.0,3.2.0),[4.0.0,4.1.0)`, the finos reference table.
+Formats 1 and 2 fail with `unsupported_format_version_major`; a later 3.x minor
+such as `"3.2.0"` fails with `unsupported_format_version_minor`.
 Failures raise `morphir.ir.diagnostics.DiagnosticError`, whose diagnostics carry
 the stable codes of the finos contract.
 
@@ -135,12 +174,12 @@ with the warning `package_version_dropped`.
 
 ### Migrations
 
-`morphir.ir.migrate.v3_to_v4` always succeeds for a v3 Library.
+`morphir.ir.migrate.v3_to_v4` always succeeds for a v3 Library or Specs.
 `v4_to_v3` returns `Ok(value, warnings)` or `Err(diagnostics)` and reports every
-construct format 3.0.0 cannot hold in one pass: Specs and Application
-distributions, `Hole`, `Native`, `External`, `DocumentLiteral`, native, external
-and incomplete bodies, incomplete type definitions, `Union`, annotations, a
-missing `inferred_type`, semantic attributes, and missing member documentation. Value
+construct format 3 cannot hold in one pass: Application distributions, `Hole`,
+`Native`, `External`, `DocumentLiteral`, native, external and incomplete
+bodies, incomplete type definitions, `Union`, annotations, a missing
+`inferred_type`, semantic attributes, and missing member documentation. Value
 source locations fail unless you pass `drop_source_locations=True`.
 
 v4 JSON spells a value-definition input as a bare type, so it has no place for

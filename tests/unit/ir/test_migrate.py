@@ -14,6 +14,7 @@ from morphir.ir.v3 import literal as lit3
 from morphir.ir.v3 import package as pkg3
 from morphir.ir.v3 import type as t3
 from morphir.ir.v3 import value as val3
+from morphir.ir.v4 import annotation as ann4
 from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import document as doc4
 from morphir.ir.v4 import incompleteness as inc4
@@ -41,8 +42,14 @@ FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "ir" / "v3"
 FIXTURE_FILES = sorted(FIXTURES.glob("*.json"))
 
 
-def load(path: Path) -> v3.Library:
+def load(path: Path) -> v3.Distribution:
     return v3_codec.decode_versioned_distribution(path.read_text(encoding="utf-8"))
+
+
+def load_library(path: Path) -> v3.Library:
+    dist = load(path)
+    assert isinstance(dist, v3.Library)
+    return dist
 
 
 def n(*words: str) -> Name:
@@ -94,7 +101,7 @@ class TestForward:
         assert [w.code for w in back.warnings] == [d.PACKAGE_VERSION_DROPPED]
 
     def test_values_carry_inferred_type(self) -> None:
-        lib = load(FIXTURES / "elm-simpleValueTree.json")
+        lib = load_library(FIXTURES / "elm-simpleValueTree.json")
         result = v3_to_v4(lib)
         assert isinstance(result, Ok)
         assert result.value.package.version is None
@@ -149,20 +156,13 @@ class TestReverse:
         assert isinstance(result, Ok)
         assert [w.code for w in result.warnings] == [d.PACKAGE_VERSION_DROPPED]
 
-    @pytest.mark.parametrize(
-        ("dist", "kind"),
-        [
-            (SpecsDistribution(PackageInfo(PKG), pkg4.Specification()), "Specs"),
-            (
-                ApplicationDistribution(PackageInfo(PKG), pkg4.Definition()),
-                "Application",
-            ),
-        ],
-    )
-    def test_specs_and_application_do_not_downgrade(
-        self, dist: object, kind: str
-    ) -> None:
-        assert errors(v4_to_v3(dist)) == [(d.UNSUPPORTED_V4_DOWNGRADE, kind)]  # type: ignore[arg-type]
+    def test_application_does_not_downgrade(self) -> None:
+        dist = ApplicationDistribution(PackageInfo(PKG), pkg4.Definition())
+        result = v4_to_v3(dist)
+        assert errors(result) == [(d.UNSUPPORTED_V4_DOWNGRADE, "Application")]
+        assert isinstance(result, Err)
+        assert "issues/28" not in result.diagnostics[0].message
+        assert "format 3" in result.diagnostics[0].message
 
     @pytest.mark.parametrize(
         "node",
@@ -419,3 +419,111 @@ class TestDropInputAttributes:
         back = v4_to_v3(result.value)
         assert isinstance(back, Ok)
         assert back.value == lib
+
+
+SDK = IRPath((n("morphir"), n("s", "d", "k")))
+
+
+def module_spec(
+    type_doc: str | None = "", value_doc: str | None = ""
+) -> mod4.Specification:
+    return mod4.Specification(
+        types={
+            n("int"): Documented(type_doc, ts4.OpaqueTypeSpecification([])),
+        },
+        values={
+            n("inc"): Documented(value_doc, v4.Specification([(n("x"), INT)], INT)),
+        },
+        doc="Basics.",
+    )
+
+
+def specs(
+    *, version: str | None = None, spec: mod4.Specification | None = None
+) -> SpecsDistribution:
+    return SpecsDistribution(
+        PackageInfo(PKG, version),
+        pkg4.Specification({IRPath((n("basics"),)): spec or module_spec()}),
+        {SDK: pkg4.Specification()},
+    )
+
+
+class TestSpecs:
+    def test_v3_specs_migrates_forward(self) -> None:
+        dist = load(FIXTURES / "rust-classic-specs-transport.json")
+        assert isinstance(dist, v3.Specs)
+        result = v3_to_v4(dist, package_version="2.0.0")
+        assert isinstance(result, Ok)
+        assert result.warnings == ()
+        up = result.value
+        assert isinstance(up, SpecsDistribution)
+        assert up.package == PackageInfo(PKG, "2.0.0")
+        assert up.dependencies == {SDK: pkg4.Specification()}
+        basics = up.specification.modules[IRPath((n("basics"),))]
+        assert basics.doc == "Basics."
+        assert basics.types == {
+            n("int"): Documented("", ts4.OpaqueTypeSpecification([]))
+        }
+
+    def test_compatible_v4_specs_downgrades(self) -> None:
+        result = v4_to_v3(specs())
+        assert isinstance(result, Ok)
+        assert result.warnings == ()
+        down = result.value
+        assert isinstance(down, v3.Specs)
+        assert down.package_name == v3.Path((v3.Name(("my",)), v3.Name(("pkg",))))
+        assert list(down.dependencies.values()) == [pkg3.Specification()]
+        basics = down.specification.modules[v3.Path((v3.Name(("basics",)),))]
+        assert set(basics.values) == {v3.Name(("inc",))}
+
+    def test_v4_specs_version_is_dropped_with_a_warning(self) -> None:
+        result = v4_to_v3(specs(version="1.2.0"))
+        assert isinstance(result, Ok)
+        assert [w.code for w in result.warnings] == [d.PACKAGE_VERSION_DROPPED]
+
+    def test_incompatible_v4_specs_is_reported(self) -> None:
+        result = v4_to_v3(specs(spec=module_spec(type_doc=None, value_doc=None)))
+        assert errors(result) == [
+            (d.UNSUPPORTED_DOCUMENTATION_DOWNGRADE, "TypeSpecification"),
+            (d.UNSUPPORTED_DOCUMENTATION_DOWNGRADE, "ValueSpecification"),
+        ]
+        assert isinstance(result, Err)
+        assert result.diagnostics[0].location == (
+            "distribution",
+            "modules",
+            "basics",
+            "types",
+            "int",
+        )
+
+    def test_v4_specs_round_trips_through_v3(self) -> None:
+        down = v4_to_v3(specs())
+        assert isinstance(down, Ok)
+        up = v3_to_v4(down.value)
+        assert up.value == specs()
+
+    def test_v3_specs_upgrade_has_no_annotations(self) -> None:
+        dist = load(FIXTURES / "mck-distributions-0011-specs.json")
+        assert isinstance(dist, v3.Specs)
+        up = v3_to_v4(dist, drop_input_attributes=True)
+        assert up.warnings == ()
+        assert isinstance(up.value, SpecsDistribution)
+        for mod in up.value.specification.modules.values():
+            for tpe in mod.types.values():
+                assert tpe.value.annotations == []
+        assert v4_codec.encode_versioned_distribution(up.value)["formatVersion"] == 4
+
+    def test_annotated_v4_specs_is_refused(self) -> None:
+        marker = ann4.CompactAnnotation(FQName(PKG, IRPath((n("a"),)), n("b")))
+        spec = module_spec()
+        inc = spec.values[n("inc")]
+        annotated = dataclasses.replace(
+            spec,
+            values={
+                n("inc"): Documented(
+                    inc.doc, dataclasses.replace(inc.value, annotations=[marker])
+                )
+            },
+        )
+        result = v4_to_v3(specs(spec=annotated))
+        assert errors(result) == [(d.UNSUPPORTED_V4_DOWNGRADE, "Annotations")]

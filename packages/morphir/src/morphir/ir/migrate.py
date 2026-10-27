@@ -1,8 +1,9 @@
-"""Migrations between Morphir IR format 3.0.0 and IR v4.
+"""Migrations between Morphir IR format 3 and IR v4.
 
-`v3_to_v4` always succeeds for a valid v3 Library. `v4_to_v3` collects every
-construct format 3.0.0 cannot represent in one pass and fails with all of them, so
-users fix every problem at once. Nothing is invented or dropped, except:
+`v3_to_v4` always succeeds for a valid v3 Library or Specs. `v4_to_v3` collects
+every construct format 3 cannot represent in one pass and fails with all of them,
+so users fix every problem at once. A v4 Specs becomes a v3 Specs (format 3.1.0);
+a v4 Application has no v3 form. Nothing is invented or dropped, except:
 
 - the package release version, which v3 cannot hold (``package_version_dropped``);
 - value source locations, only when ``drop_source_locations=True``
@@ -29,7 +30,7 @@ from __future__ import annotations
 import dataclasses
 import re
 from dataclasses import dataclass, field
-from typing import cast
+from typing import cast, overload
 
 from . import diagnostics as d
 from .diagnostics import Diagnostic, Location
@@ -340,19 +341,34 @@ def _package_def_up(defn: pkg3.Definition[None, t3.Type[None]]) -> pkg4.Definiti
     )
 
 
+@overload
 def v3_to_v4(
     dist: dist3.Library,
     *,
     package_version: str | None = None,
     drop_input_attributes: bool = False,
-) -> Ok[dist4.LibraryDistribution]:
-    """Migrate a format-3 Library to a v4 Library.
+) -> Ok[dist4.LibraryDistribution]: ...
+@overload
+def v3_to_v4(
+    dist: dist3.Specs,
+    *,
+    package_version: str | None = None,
+    drop_input_attributes: bool = False,
+) -> Ok[dist4.SpecsDistribution]: ...
+def v3_to_v4(
+    dist: dist3.Distribution,
+    *,
+    package_version: str | None = None,
+    drop_input_attributes: bool = False,
+) -> Ok[dist4.LibraryDistribution] | Ok[dist4.SpecsDistribution]:
+    """Migrate a format-3 Library or Specs to the same v4 distribution kind.
 
     Unit type attributes become empty `TypeAttributes`; each value attribute type
     becomes ``inferred_type``; ``WholeNumberLiteral`` becomes ``IntegerLiteral``.
+    A Specs maps its package specification as a Library maps its dependencies.
 
     Args:
-        dist: The v3 Library.
+        dist: The v3 Library or Specs.
         package_version: Optional release version for the v4 package identity.
             Without it the version is absent; nothing is invented.
         drop_input_attributes: Reset each value-definition input's attributes to
@@ -360,15 +376,26 @@ def v3_to_v4(
             be encoded as v4 JSON. Each input that loses information is reported.
 
     Returns:
-        ``Ok`` with the v4 Library and any ``input_attributes_dropped`` warnings.
-        Forward migration has no failure paths.
+        ``Ok`` with the v4 Library or Specs and any ``input_attributes_dropped``
+        warnings. Forward migration has no failure paths.
     """
+    package = dist4.PackageInfo(_path_up(dist.package_name), package_version)
+    dependencies = {
+        _path_up(p): _package_spec_up(s) for p, s in dist.dependencies.items()
+    }
+    if isinstance(dist, dist3.Specs):
+        specs = dist4.SpecsDistribution(
+            package=package,
+            specification=_package_spec_up(dist.specification),
+            dependencies=dependencies,
+        )
+        if drop_input_attributes:
+            return _drop_input_attributes(specs)
+        return Ok(specs)
     library = dist4.LibraryDistribution(
-        package=dist4.PackageInfo(_path_up(dist.package_name), package_version),
+        package=package,
         definition=_package_def_up(dist.definition),
-        dependencies={
-            _path_up(p): _package_spec_up(s) for p, s in dist.dependencies.items()
-        },
+        dependencies=dependencies,
     )
     if drop_input_attributes:
         return _drop_input_attributes(library)
@@ -1136,12 +1163,25 @@ class _Downgrade:
         )
 
 
+@overload
+def v4_to_v3(
+    dist: dist4.LibraryDistribution, *, drop_source_locations: bool = False
+) -> MigrationResult[dist3.Library]: ...
+@overload
+def v4_to_v3(
+    dist: dist4.SpecsDistribution, *, drop_source_locations: bool = False
+) -> MigrationResult[dist3.Specs]: ...
+@overload
+def v4_to_v3(
+    dist: dist4.ApplicationDistribution, *, drop_source_locations: bool = False
+) -> Err: ...
 def v4_to_v3(
     dist: dist4.Distribution, *, drop_source_locations: bool = False
-) -> MigrationResult[dist3.Library]:
-    """Migrate a v4 distribution to a format-3 Library, or report why it cannot.
+) -> MigrationResult[dist3.Library] | MigrationResult[dist3.Specs]:
+    """Migrate a v4 Library or Specs to format 3, or report why it cannot.
 
-    Every unsupported construct is collected in one pass.
+    Every unsupported construct is collected in one pass. A Specs becomes a v3
+    Specs, which format 3.1.0 introduced; an Application has no format-3 form.
 
     Args:
         dist: The v4 distribution.
@@ -1149,39 +1189,46 @@ def v4_to_v3(
             This is the only opt-in loss.
 
     Returns:
-        ``Ok`` with the v3 Library and any warnings, or ``Err`` with every
-        diagnostic found.
+        ``Ok`` with the v3 Library or Specs and any warnings, or ``Err`` with
+        every diagnostic found.
     """
-    if not isinstance(dist, dist4.LibraryDistribution):
-        kind = "Specs" if isinstance(dist, dist4.SpecsDistribution) else "Application"
-        detail = (
-            "; a v3 Specs distribution needs IR 3.1.0 "
-            "(https://github.com/finos/morphir-python/issues/28)"
-            if kind == "Specs"
-            else ""
-        )
+    if isinstance(dist, dist4.ApplicationDistribution):
         return Err(
             (
                 Diagnostic(
                     d.UNSUPPORTED_V4_DOWNGRADE,
-                    kind,
+                    "Application",
                     ("distribution",),
-                    f"{kind} distributions cannot be written as format 3.0.0{detail}",
+                    "Application distributions cannot be written as format 3, "
+                    "which has no Application",
                 ),
             )
         )
     job = _Downgrade(drop_source_locations)
     loc: Location = ("distribution",)
-    library = dist3.Library(
-        package_name=job.path(dist.package.name, (*loc, "package")),
-        definition=job.package_def(dist.definition, (*loc, "modules")),
-        dependencies={
+
+    def dependencies() -> dict[path3.Path, pkg3.Specification[None]]:
+        return {
             job.path(p, loc): job.package_spec(
                 s, (*loc, "dependencies", path4.to_string(p))
             )
             for p, s in dist.dependencies.items()
-        },
-    )
+        }
+
+    # Fields are migrated in declaration order, so diagnostics keep that order.
+    result: dist3.Library | dist3.Specs
+    if isinstance(dist, dist4.SpecsDistribution):
+        result = dist3.Specs(
+            package_name=job.path(dist.package.name, (*loc, "package")),
+            specification=job.package_spec(dist.specification, (*loc, "modules")),
+            dependencies=dependencies(),
+        )
+    else:
+        result = dist3.Library(
+            package_name=job.path(dist.package.name, (*loc, "package")),
+            definition=job.package_def(dist.definition, (*loc, "modules")),
+            dependencies=dependencies(),
+        )
     if job.errors:
         return Err(tuple(job.errors))
     warnings: list[Diagnostic] = []
@@ -1191,7 +1238,7 @@ def v4_to_v3(
                 d.PACKAGE_VERSION_DROPPED,
                 "PackageInfo",
                 (*loc, "package", "version"),
-                f"package version {dist.package.version!r} was dropped; format 3.0.0 "
+                f"package version {dist.package.version!r} was dropped; format 3 "
                 "has no package version",
             )
         )
@@ -1204,7 +1251,10 @@ def v4_to_v3(
                 f"{job.dropped_sources} value source location(s) were dropped",
             )
         )
-    return Ok(library, tuple(warnings))
+    # Ok is invariant, so each kind is returned under its own narrowed type.
+    if isinstance(result, dist3.Specs):
+        return Ok(result, tuple(warnings))
+    return Ok(result, tuple(warnings))
 
 
 __all__ = [

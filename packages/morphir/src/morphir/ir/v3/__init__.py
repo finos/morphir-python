@@ -1,8 +1,9 @@
-"""Morphir IR format 3.0.0, the format morphir-elm writes today.
+"""Morphir IR format 3, the format morphir-elm writes today, and its 3.1.0 revision.
 
-morphir-elm (commit bc99af69) is normative for the model and its JSON shapes. The
-classes here are distinct from `morphir.ir.v4`; use `morphir.ir.migrate` to move
-between versions.
+morphir-elm (commit bc99af69) is normative for the 3.0.0 model and its JSON
+shapes. What 3.1.0 adds, the `Specs` distribution, follows the finos/morphir v3
+specification (decision record 0018). The classes here are distinct from
+`morphir.ir.v4`; use `morphir.ir.migrate` to move between versions.
 """
 
 from . import (
@@ -21,7 +22,7 @@ from . import (
     value,
 )
 from .access_controlled import Access, AccessControlled
-from .distribution import Distribution, Library
+from .distribution import Distribution, Library, Specs
 from .documented import Documented
 from .fqname import FQName
 from .name import Name
@@ -38,6 +39,7 @@ __all__ = [
     "Name",
     "Path",
     "QName",
+    "Specs",
     "access_controlled",
     "codec",
     "distribution",

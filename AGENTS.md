@@ -23,7 +23,8 @@ morphir-python/
 
 **`morphir` (core library)**
 - Morphir IR (Intermediate Representation) models, in two versions:
-  `morphir.ir.v3` (format 3.0.0; morphir-elm is normative) and `morphir.ir.v4`
+  `morphir.ir.v3` (formats 3.0.0 and 3.1.0; morphir-elm is normative for 3.0.0,
+  finos/morphir for the 3.1.0 `Specs` distribution) and `morphir.ir.v4`
   (draft upstream; `morphir.ir` re-exports it). Read `formatVersion` only through
   `morphir.ir.format_version`, convert only through `morphir.ir.migrate`, and keep
   diagnostic codes in `morphir.ir.diagnostics`. See

@@ -27,17 +27,6 @@ Accepting string spellings SHALL be documented as a deliberate divergence from m
 - **WHEN** a user reads the package documentation for format version handling
 - **THEN** it states which accepted spellings morphir-elm and the finos/morphir contract would reject
 
-### Requirement: Support table is checked before decoding
-The reader SHALL declare the support table `[3.0.0,3.1.0),[4.0.0,4.1.0)` and MUST finish recognition and the support check before invoking any distribution decoder or migration. A release outside the table SHALL fail with `unsupported_format_version_major` or `unsupported_format_version_minor`. (bead: morphir-ukvn.8)
-
-#### Scenario: IR 3.1.0 is refused for now
-- **WHEN** a document declares `formatVersion` `"3.1.0"`
-- **THEN** reading fails with `unsupported_format_version_minor` before the distribution is decoded
-
-#### Scenario: Historical versions are refused
-- **WHEN** a document declares `formatVersion` `1` or `2`
-- **THEN** reading fails with `unsupported_format_version_major` and a message that formats 1 and 2 are follow-up work
-
 ### Requirement: Stable format version diagnostics
 Format-version failures SHALL use the finos/morphir contract codes: `missing_format_version`, `duplicate_format_version`, `invalid_format_version_type`, `invalid_format_version_syntax`, `format_version_out_of_range`, `unsupported_format_version_major`, and `unsupported_format_version_minor`. (bead: morphir-ukvn.8)
 
@@ -55,3 +44,18 @@ Writers SHALL emit `formatVersion` first, as the integer `N` for a baseline rele
 #### Scenario: Read string, write integer
 - **WHEN** a document read with `formatVersion` `"3.0.0"` is written again
 - **THEN** the output declares `formatVersion` as the integer `3`
+
+### Requirement: Support table with IR 3.1 is checked before decoding
+The reader SHALL declare the support table `[3.0.0,3.2.0),[4.0.0,4.1.0)` and MUST finish recognition and the support check before invoking any distribution decoder or migration. A release outside the table SHALL fail with `unsupported_format_version_major` or `unsupported_format_version_minor`. (bead: morphir-ukvn.8.13)
+
+#### Scenario: IR 3.1.0 is supported
+- **WHEN** a document declares `formatVersion` `"3.1.0"` or `"3.1.4"`
+- **THEN** the support check passes and the distribution is decoded
+
+#### Scenario: A later 3.x minor is refused
+- **WHEN** a document declares `formatVersion` `"3.2.0"`
+- **THEN** reading fails with `unsupported_format_version_minor` before the distribution is decoded, and the message names the accepted table `[3.0.0,3.2.0),[4.0.0,4.1.0)`
+
+#### Scenario: Historical versions are refused
+- **WHEN** a document declares `formatVersion` `1` or `2`
+- **THEN** reading fails with `unsupported_format_version_major` and a message that formats 1 and 2 are follow-up work

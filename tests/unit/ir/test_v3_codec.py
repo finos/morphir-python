@@ -25,6 +25,8 @@ from morphir.ir.v3.qname import QName
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "ir" / "v3"
 FIXTURE_FILES = sorted(FIXTURES.glob("*.json"))
+KIT_SPECS = FIXTURES / "mck-distributions-0011-specs.json"
+RUST_SPECS = FIXTURES / "rust-classic-specs-transport.json"
 
 INT = t.Reference(None, fqn("Morphir.SDK", "Basics", "Int"))
 
@@ -298,17 +300,20 @@ class TestVersionedDistribution:
     @pytest.mark.parametrize("path", FIXTURE_FILES, ids=lambda p: p.name)
     def test_golden_fixture_round_trips(self, path: Path) -> None:
         text = path.read_text(encoding="utf-8")
-        lib = codec.decode_versioned_distribution(text)
-        encoded = codec.encode_versioned_distribution(lib)
+        dist = codec.decode_versioned_distribution(text)
+        encoded = codec.encode_versioned_distribution(dist)
         assert next(iter(encoded)) == "formatVersion"
-        assert encoded["formatVersion"] == 3
-        assert codec.decode_versioned_distribution(json.dumps(encoded)) == lib
+        assert encoded["formatVersion"] == (
+            3 if isinstance(dist, v3.Library) else "3.1.0"
+        )
+        assert codec.decode_versioned_distribution(json.dumps(encoded)) == dist
         assert encoded == json.loads(text)
 
     def test_fixture_is_inspectable_without_migration(self) -> None:
         lib = codec.decode_versioned_distribution(
             (FIXTURES / "elm-simpleValueTree.json").read_text()
         )
+        assert isinstance(lib, v3.Library)
         assert isinstance(lib.package_name, IRPath)
         for mod in lib.definition.modules.values():
             for value in mod.value.values.values():
@@ -328,13 +333,16 @@ class TestVersionedDistribution:
         )
         assert err.codes == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
         assert "4.0.0" in str(err)
-        assert "only 3.0.x" in str(err)
+        assert "only 3.0.x and 3.1.x" in str(err)
 
     def test_unknown_distribution_tag(self) -> None:
-        doc = {"formatVersion": 3, "distribution": ["Specs", [], [], {}]}
+        doc = {"formatVersion": 3, "distribution": ["Application", [], [], {}]}
         err = decode_error(codec.decode_versioned_distribution, doc)
         assert err.codes == (d.UNKNOWN_NODE,)
-        assert "'Specs'" in str(err)
+        assert err.diagnostics[0].location == ("distribution", 0)
+        assert "'Application'" in str(err)
+        assert "Library" in str(err)
+        assert "Specs" in str(err)
 
     def test_missing_distribution(self) -> None:
         err = decode_error(codec.decode_versioned_distribution, {"formatVersion": 3})
@@ -342,3 +350,115 @@ class TestVersionedDistribution:
 
     def test_fqname_type(self) -> None:
         assert isinstance(fqn("a", "b", "c"), FQName)
+
+
+def specs_doc(version: object, modules: object = None) -> dict[str, object]:
+    return {
+        "formatVersion": version,
+        "distribution": [
+            "Specs",
+            [["my"], ["pkg"]],
+            [],
+            {"modules": [] if modules is None else modules},
+        ],
+    }
+
+
+class TestSpecs:
+    def test_kit_case_decodes(self) -> None:
+        dist = codec.decode_versioned_distribution(KIT_SPECS.read_text())
+        assert isinstance(dist, v3.Specs)
+        assert dist.package_name == path_from_string("my.pkg")
+        assert dist.dependencies == {}
+        basics = dist.specification.modules[path_from_string("basics")]
+        assert basics.doc == "Basics."
+        assert basics.types[n("int")] == Documented("", t.OpaqueTypeSpecification(()))
+        assert basics.values == {}
+
+    def test_kit_case_encodes_to_its_canonical_json(self) -> None:
+        dist = codec.decode_versioned_distribution(KIT_SPECS.read_text())
+        assert codec.encode_versioned_distribution(dist) == json.loads(
+            KIT_SPECS.read_text()
+        )
+
+    def test_dependencies_decode_as_for_a_library(self) -> None:
+        dist = codec.decode_versioned_distribution(RUST_SPECS.read_text())
+        assert isinstance(dist, v3.Specs)
+        assert dist.dependencies == {
+            IRPath((Name(("morphir",)), Name(("s", "d", "k")))): (
+                package.Specification()
+            )
+        }
+
+    def test_specs_is_written_as_3_1_0(self) -> None:
+        dist = v3.Specs(path_from_string("my.pkg"), package.Specification())
+        encoded = codec.encode_versioned_distribution(dist)
+        assert encoded == specs_doc("3.1.0")
+        assert list(encoded) == ["formatVersion", "distribution"]
+
+    @pytest.mark.parametrize("version", ["3.1.0", "3.1.7"])
+    def test_specs_reads_at_every_3_1_release(self, version: str) -> None:
+        dist = codec.decode_versioned_distribution(specs_doc(version))
+        assert isinstance(dist, v3.Specs)
+
+    @pytest.mark.parametrize("version", [3, "3", "3.0.0", "3.0.1"])
+    def test_specs_before_3_1_is_refused(self, version: object) -> None:
+        err = decode_error(codec.decode_versioned_distribution, specs_doc(version))
+        assert err.codes == (d.SPECS_BEFORE_3_1,)
+        diagnostic = err.diagnostics[0]
+        assert diagnostic.construct == "Specs"
+        assert diagnostic.location == ("formatVersion",)
+        assert "3.1.0 or later" in diagnostic.message
+
+    def test_specs_version_is_checked_before_the_body(self) -> None:
+        doc = specs_doc(3, modules="not a list")
+        err = decode_error(codec.decode_versioned_distribution, doc)
+        assert err.codes == (d.SPECS_BEFORE_3_1,)
+
+    @pytest.mark.parametrize("version", [3, "3.0.0", "3.1.0"])
+    def test_library_reads_at_every_supported_3_x(self, version: object) -> None:
+        doc = json.loads((FIXTURES / "elm-base.json").read_text())
+        doc["formatVersion"] = version
+        dist = codec.decode_versioned_distribution(doc)
+        assert isinstance(dist, v3.Library)
+        assert codec.encode_versioned_distribution(dist)["formatVersion"] == 3
+
+    def test_module_definition_in_specs_is_refused(self) -> None:
+        definition = {
+            "access": "Public",
+            "value": {"types": [], "values": [], "doc": "Basics."},
+        }
+        doc = specs_doc("3.1.0", [[[["basics"]], definition]])
+        err = decode_error(codec.decode_versioned_distribution, doc)
+        assert d.UNKNOWN_MEMBER in err.codes
+        diagnostic = err.diagnostics[0]
+        assert diagnostic.code == d.UNKNOWN_MEMBER
+        assert diagnostic.location == ("distribution", 3, "modules", 0, 1, "access")
+        assert "specifications, not definitions" in diagnostic.message
+
+    def test_extra_member_in_specs_module_is_refused(self) -> None:
+        spec = {"types": [], "values": [], "doc": None, "extra": 1}
+        doc = specs_doc("3.1.0", [[[["basics"]], spec]])
+        err = decode_error(codec.decode_versioned_distribution, doc)
+        assert err.codes == (d.UNKNOWN_MEMBER,)
+
+    def test_specs_module_needs_types_and_values(self) -> None:
+        doc = specs_doc("3.1.0", [[[["basics"]], {"values": []}]])
+        err = decode_error(codec.decode_versioned_distribution, doc)
+        assert err.codes == (d.MISSING_MEMBER,)
+
+    def test_specs_module_must_be_an_object(self) -> None:
+        doc = specs_doc("3.1.0", [[[["basics"]], []]])
+        err = decode_error(codec.decode_versioned_distribution, doc)
+        assert err.codes == (d.INVALID_JSON,)
+
+    def test_dependency_modules_keep_the_elm_reading(self) -> None:
+        doc = json.loads(RUST_SPECS.read_text())
+        dependency = {"types": [], "values": [], "doc": None, "extra": 1}
+        doc["distribution"][2][0][1]["modules"] = [[[["basics"]], dependency]]
+        dist = codec.decode_versioned_distribution(doc)
+        assert isinstance(dist, v3.Specs)
+
+    def test_unversioned_specs_round_trips(self) -> None:
+        dist = codec.decode_versioned_distribution(RUST_SPECS.read_text())
+        assert codec.decode_distribution(codec.encode_distribution(dist)) == dist
