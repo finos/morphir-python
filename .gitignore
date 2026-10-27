@@ -76,3 +76,6 @@ pretty.output
 
 # Rust
 rust/target/
+
+# Extension bundles built by mise run extension:bundle
+.morphir/
