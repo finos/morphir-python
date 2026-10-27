@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#MISE description="Build, package and qualify the morphir-python WASM extension bundle offline"
+set -euo pipefail
+
+bundle="${BUNDLE_DIR:-$PWD/.morphir/build/extensions/python}"
+receipts="${QUALIFICATION_DIR:-$PWD/.dev/qualification}"
+mkdir -p "$receipts" "$(dirname "$bundle")"
+rm -rf "$bundle"
+(cd rust && cargo build --locked --release -p morphir-python-binding --target wasm32-unknown-unknown)
+wasm="rust/target/wasm32-unknown-unknown/release/morphir_python_binding.wasm"
+wasm-tools validate "$wasm"
+commit=()
+if [[ -z "$(git status --porcelain --untracked-files=normal)" ]]; then
+  commit=(--git-commit "$(git rev-parse HEAD)")
+fi
+uv run --no-sync python scripts/extension_bundle.py package --wasm "$wasm" --output "$bundle" "${commit[@]}" \
+  >"$receipts/bundle.json"
+uv run --no-sync python scripts/extension_bundle.py host-check --bundle "$bundle" >"$receipts/bundle-host.json"
+cat "$receipts/bundle-host.json"

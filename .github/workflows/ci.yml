@@ -15,10 +15,45 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Superseded pull request runs are cancelled; pushes and release calls are not.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    name: Select checks
+    runs-on: ubuntu-latest
+    outputs:
+      jobs: ${{ steps.select.outputs.jobs }}
+      reason: ${{ steps.select.outputs.reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Select categories
+        id: select
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Pushes and release qualification run everything.
+          if [[ "${{ github.event_name }}" == pull_request ]]; then
+            python3 scripts/ci_changes.py select --base "$BASE" --head "$HEAD" >> "$GITHUB_OUTPUT"
+          else
+            python3 scripts/ci_changes.py select --full >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
   lint:
     name: Lint
+    needs: changes
+    if: fromJSON(needs.changes.outputs.jobs).lint
     runs-on: ubuntu-latest
+    env:
+      MORPHIR_SKIP_NATIVE: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -37,7 +72,11 @@ jobs:
 
   typecheck:
     name: Type Check
+    needs: changes
+    if: fromJSON(needs.changes.outputs.jobs).typecheck
     runs-on: ubuntu-latest
+    env:
+      MORPHIR_SKIP_NATIVE: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -51,8 +90,47 @@ jobs:
       - name: Run type checkers
         run: mise run typecheck
 
+  native-wheel:
+    name: Native wheel (Linux x86_64)
+    needs: changes
+    if: fromJSON(needs.changes.outputs.jobs)['native-wheel']
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build the manylinux_2_28 wheel and source archive
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: packages/morphir-python-native
+          maturin-version: '1.15.0'
+          rust-toolchain: '1.98.1'
+          manylinux: '2_28'
+          target: x86_64-unknown-linux-gnu
+          args: --release --locked --sdist --out ../../dist/native
+
+      - name: Audit the Linux baseline and bundled libraries
+        shell: bash
+        run: |
+          # The build container writes dist/ as root.
+          sudo chown -R "$(id -u):$(id -g)" dist
+          pipx run --spec 'auditwheel==6.8.2' auditwheel show dist/native/*.whl | tee dist/native/auditwheel.txt
+          # The report starts with the file name, so match auditwheel's own verdict.
+          tr '\n' ' ' < dist/native/auditwheel.txt | tr -s ' ' \
+            | grep -q 'consistent with the following platform tag: "manylinux_2_28_x86_64"'
+          sha256sum dist/native/*.whl dist/native/*.tar.gz | tee dist/native/SHA256SUMS
+
+      - name: Upload the native distributions
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-linux-x86_64
+          path: dist/native/
+          if-no-files-found: error
+
   test:
     name: Test
+    needs: [changes, native-wheel]
+    if: fromJSON(needs.changes.outputs.jobs).test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -61,10 +139,17 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@v3
 
-      - name: Install dependencies
-        run: mise run install
+      - name: Download the native distributions
+        uses: actions/download-artifact@v7
+        with:
+          name: native-linux-x86_64
+          path: dist/native/
 
-      - name: Run pytest
+      - name: Install dependencies with the built native wheel
+        run: |
+          MORPHIR_NATIVE_WHEEL="$(ls dist/native/*.whl)" mise run install
+
+      - name: Run pytest and check the native stubs
         run: mise run coverage
 
       - name: Run behave
@@ -78,10 +163,76 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  rust:
+    name: Rust
+    needs: changes
+    if: fromJSON(needs.changes.outputs.jobs).rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Format, lint, test and build the WASM guest
+        run: mise run rust:check
+
+      - name: Build an independent Cargo consumer
+        run: mise run rust:consumer
+
+  bundle:
+    name: Extension bundle
+    needs: [changes, native-wheel]
+    if: fromJSON(needs.changes.outputs.jobs).bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust
+            .dev/tools/morphir-rust-0aa60eb799d4
+
+      - name: Download the native distributions
+        uses: actions/download-artifact@v7
+        with:
+          name: native-linux-x86_64
+          path: dist/native/
+
+      - name: Install dependencies with the built native wheel
+        run: |
+          MORPHIR_NATIVE_WHEEL="$(ls dist/native/*.whl)" mise run install
+
+      - name: Package and qualify the bundle offline
+        run: mise run extension:bundle
+
+      - name: Upload the extension bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: morphir-python-extension-bundle
+          path: |
+            .morphir/build/extensions/python/
+            .dev/qualification/bundle*.json
+          include-hidden-files: true
+          if-no-files-found: error
+
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test]
+    needs: [changes, lint, typecheck, test, native-wheel]
+    if: fromJSON(needs.changes.outputs.jobs).build
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -92,9 +243,22 @@ jobs:
       - name: Build packages
         run: mise run build
 
+      - name: Download the native distributions
+        uses: actions/download-artifact@v7
+        with:
+          name: native-linux-x86_64
+          path: dist/native/
+
       - name: Check distributions, vulnerabilities and licenses
         run: mise run release-check
         env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+
+      - name: Qualify the native archive and a clean install without Rust
+        run: mise run native:qualify
+        env:
+          NATIVE_DIST: ${{ github.workspace }}/dist/native
+          # A python-v release qualifies the published native wheel instead.
           RELEASE_TAG: ${{ inputs.release-tag }}
 
       - name: Upload morphir distributions
@@ -116,5 +280,22 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: release-scan-reports
-          path: .dev/release-check/*.json
+          path: |
+            .dev/release-check/*.json
+            .dev/qualification/*.json
           include-hidden-files: true
+
+  all-checks:
+    name: All Checks
+    if: always()
+    needs: [changes, lint, typecheck, native-wheel, test, rust, bundle, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Require every selected check
+        env:
+          SELECTED: ${{ needs.changes.outputs.jobs || '{}' }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci_changes.py aggregate --selected "$SELECTED" --needs "$NEEDS"

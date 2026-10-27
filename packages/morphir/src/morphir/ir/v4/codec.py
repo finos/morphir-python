@@ -9,15 +9,83 @@ The envelope is ``{"formatVersion": 4, "distribution": {"Library": {...}}}``, wi
 the distribution wrapped by its kind (``Library``, ``Specs``, or ``Application``).
 The codec never writes a format-3 tagged-array shape.
 
-Every node is written in the schema's expanded form, ``{"Kind": {members}}``, with
-``attributes`` omitted when empty. The reader accepts exactly the spellings listed
-in `TYPE_NODES`, `VALUE_NODES`, `PATTERN_NODES`, and the other tables below, and
-fails with a located diagnostic on anything else; it does not guess.
+The writer emits every node in the schema's expanded form, ``{"Kind": {members}}``,
+with ``attributes`` omitted when empty. The profile says that readers MUST accept
+every spelling the v4 JSON Schema marks as valid, so the reader also accepts the
+compact canonical vocabulary that Rust ``morphir-core`` writes, and the legacy
+spellings that the schema itself lists. Each spelling of a node gives the same
+Python model. The reader fails with a located diagnostic on anything else; it
+does not guess.
+
+Spellings the reader accepts (compact first, then expanded):
+
+- Name: ``"value-in-USD"``, or the legacy word array ``["value", "in", "u", "s",
+  "d"]``. Path: ``"morphir/SDK"``, or an array of names. FQName:
+  ``"morphir/SDK:list#map"``, or the legacy ``[package, module, name]`` array.
+- Type: a bare FQName string (``Reference``); a bare lowercase name such as
+  ``"a"`` (``Variable``); a bare array (``Tuple``); ``{"Variable": name}``;
+  ``{"Reference": "fqn"}``; ``{"Reference": [fqn, arg, ...]}`` with one or more
+  arguments; ``{"Tuple": [type, ...]}``; and the expanded payload of every kind.
+  ``Record``, ``ExtensibleRecord``, ``Function`` and ``Unit`` have only the
+  expanded payload. A string is an FQName when it has ``:`` or ``#``, as the
+  schema patterns separate them.
+- Value (decision 0009): ``true``/``false`` (``BoolLiteral``); a number, which is
+  an ``IntegerLiteral`` when its lexeme has no point and no exponent and a
+  ``FloatLiteral`` otherwise; an FQName string (``Reference``); a name string
+  (``Variable``); a bare array (``List``). Wrapped compact payloads:
+  ``{"Literal": scalar | literal}``, ``{"Constructor": fqn}``, ``{"Tuple": [...]}``,
+  ``{"List": [...]}``, ``{"Variable": name}``, ``{"Reference": fqn}``,
+  ``{"FieldFunction": name}``. ``{"Literal": {"literal": scalar | literal}}`` is
+  the expanded literal. A bare string is never a string literal: ``{"Literal":
+  "a"}`` is. Every other kind has only its expanded payload.
+- Pattern: a bare array (``TuplePattern``); ``{"TuplePattern": [...]}``;
+  ``{"LiteralPattern": scalar | literal}``; and the expanded payloads. A
+  ``DocumentLiteral`` is not a pattern (decision 0013).
+- Literal: ``{"IntegerLiteral": 42}`` or ``{"IntegerLiteral": {"value": 42}}``, and
+  the same for every scalar kind; members beside ``value`` are ignored (kit
+  values-0046). ``WholeNumberLiteral`` reads as ``IntegerLiteral``. A
+  ``DecimalLiteral`` must spell a decimal lexeme. A ``DocumentLiteral`` payload is
+  the document itself.
+- Constructors: ``{"name": [[arg, type], ...]}`` or the legacy array
+  ``[["name", [[arg, type], ...]], ...]``.
+- Type and value specifications and definitions: ``{"Kind": {...}}`` with an
+  optional flattened ``doc`` beside the kind (decision 0010), the nested
+  ``{"doc", "value"}`` wrapper, and the legacy tagged arrays
+  ``["TypeAliasDefinition", params, type]``, ``["CustomTypeDefinition", params,
+  access-controlled constructors]``, ``["TypeAliasSpecification", params, type]``,
+  ``["OpaqueTypeSpecification", params]``, ``["CustomTypeSpecification", params,
+  constructors]`` and ``["DerivedTypeSpecification", params, {...}]``. A value
+  specification's ``inputs`` may be omitted or be a legacy ``[[name, type], ...]``
+  array, and its ``doc`` sits beside ``inputs`` and ``output``.
+- AccessControlled (module types and values, package modules): ``{"Public": x}``
+  and ``{"Private": x}`` (canonical), ``{"public": x}``, ``{"pub": x}``,
+  ``{"private": x}``, the legacy ``{"access": level, "value": x}``, and the
+  flattened ``{"access": level, ...members of x}``, with ``level`` any of those
+  five spellings. A ``CustomTypeDefinition`` body's own ``access`` stays
+  ``Public`` or ``Private``, as the schema says.
+- Distributions: ``packageName`` and entry-point targets take the legacy arrays.
+
+Schema-valid spellings the reader still refuses, deliberately:
+
+- A ``doc`` on a value definition inside ``LetDefinition`` or ``LetRecursion``
+  (``unknown_member``): the Python model has no slot for it there, so reading it
+  would lose data.
+- A ``doc`` both beside and inside a nested ``{"doc", "value"}`` wrapper
+  (``duplicate_member``): two strings for one slot.
+- Members the schema leaves open (it omits ``additionalProperties: false`` on some
+  objects, and on the legacy tagged arrays it sets no length): the reader rejects
+  unknown members and wrong lengths, following the kit's ``unknown_member`` cases.
+  The expanded literal ``{"value": ...}`` is the exception, as the kit requires.
+- A non-empty ``TypeAttributes.constraints`` object: the schema calls it a
+  placeholder and the deprecated Python ``TypeConstraints`` has no reading. An
+  empty object is accepted.
+- An ``{"access": level}`` object with no other member, and a payload under an
+  access level that is not the expected node: the schema leaves it unconstrained.
 
 The codec covers the value-definition bodies (``ExpressionBody``, ``NativeBody``,
 ``ExternalBody``, ``IncompleteBody``), ``IncompleteTypeDefinition`` with typed hole
 reasons, annotations on specifications, and the draft ``Union`` type (from
-``docs/spec/draft/types.md``, not yet in the pinned schema).
+``docs/spec/draft/types.md``, not yet in the pinned schema; expanded only).
 
 Known gaps between the Python v4 model and upstream v4, each handled explicitly:
 
@@ -25,9 +93,18 @@ Known gaps between the Python v4 model and upstream v4, each handled explicitly:
   (upstream makes them definition bodies); encoding fails with ``no_v4_spelling``.
 - Structured ``TypeConstraints`` (deprecated) have no spelling; encoding fails
   with ``no_v4_spelling``.
-- Only the expanded spelling is read and written. Compact spellings, the legacy
-  spellings readers accept for one release, and the 4.1.0 linked annotations
-  wait for the re-sync when upstream v4 settles.
+- The writer emits only the expanded spelling, not the compact canonical one the
+  profile prefers.
+- The reader refuses the decision-0006 legacy-window spellings that the pinned
+  schema marks invalid (``attrs``, ``thenBranch``, ``argumentType``, a record's
+  field map directly under ``Record``, the nested ``{"value": ...}`` wrapper with
+  no ``doc``, and others) with ``unknown_member`` or ``unknown_node``. The 4.1.0
+  linked annotations wait for the re-sync when upstream v4 settles.
+- Python's ``json`` module keeps the integer-or-float kind of a number lexeme, but
+  not the lexeme itself: a ``FloatLiteral`` or a ``DocumentLiteral`` number such
+  as ``0.10`` reads as a Python ``float``, and a ``DecimalLiteral`` keeps its value
+  as a ``Decimal`` (``.5`` is written back as ``0.5``). Integers keep full
+  precision.
 - Records are objects keyed by field name (finos decision 0004); duplicate field
   names fail encoding with ``duplicate_member``.
 - ``ExpressionBody.inputTypes`` has no attribute slot: upstream spells an input as
@@ -42,15 +119,17 @@ Known gaps between the Python v4 model and upstream v4, each handled explicitly:
   single-letter words is written as an uppercase initialism (``value-in-USD``).
   Names the word-list model cannot represent, such as a one-letter initialism,
   an initialism with digits, adjacent initialisms, or adjacent single-letter
-  words, fail with ``invalid_name``.
+  words (the published ``complete-example.json`` has ``u-s/f-r-2052-a``), fail
+  with ``invalid_name``.
 - An entry point's ``doc`` is written from ``EntryPoint.doc.value`` and decodes as
   ``Documented(None, doc)``.
 """
 
 from __future__ import annotations
 
+import math
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -205,6 +284,27 @@ LITERAL_KINDS = frozenset(
 )
 
 ACCESS_TAGS = {"Public": Public, "Private": Private}
+"""The ``access`` member of a ``CustomTypeDefinition`` body."""
+
+ACCESS_SPELLINGS = {
+    "Public": True,
+    "public": True,
+    "pub": True,
+    "Private": False,
+    "private": False,
+}
+"""Access levels of an access-controlled wrapper, mapped to whether it is public."""
+
+LEGACY_TYPE_SPECIFICATION_ARITY = {
+    "TypeAliasSpecification": 3,
+    "OpaqueTypeSpecification": 2,
+    "CustomTypeSpecification": 3,
+    "DerivedTypeSpecification": 3,
+}
+"""Legacy tagged-array type specifications and their lengths, tag included."""
+
+LEGACY_TYPE_DEFINITION_ARITY = {"TypeAliasDefinition": 3, "CustomTypeDefinition": 3}
+"""Legacy tagged-array type definitions and their lengths, tag included."""
 
 ENTRY_POINT_KINDS = {kind: kind.value.lower() for kind in EntryPointKind}
 
@@ -259,9 +359,10 @@ def _check_members(
             )
 
 
-def _node(
-    j: object, loc: Location, family: str, table: dict[str, Members]
-) -> tuple[str, dict[str, object], Location]:
+def _tagged(
+    j: object, loc: Location, family: str, tags: Collection[str]
+) -> tuple[str, object, Location]:
+    """Read ``{"Kind": payload}`` and return the kind, its payload and location."""
     obj = _expect_object(j, loc, family)
     if len(obj) != 1:
         raise fail(
@@ -271,17 +372,71 @@ def _node(
             f"expected a {family} wrapped by its kind, found members {sorted(obj)}",
         )
     ((tag, payload),) = obj.items()
-    if tag not in table:
+    if tag not in tags:
         raise fail(
             d.UNKNOWN_NODE,
             family,
             (*loc, tag),
             f"unknown {family} kind {tag!r} in the draft v4 codec",
         )
-    here = (*loc, tag)
+    return tag, payload, (*loc, tag)
+
+
+def _expanded(
+    payload: object, here: Location, tag: str, members: Members
+) -> dict[str, object]:
+    """Read the expanded payload of a node and check its members."""
     body = _expect_object(payload, here, tag)
-    _check_members(body, table[tag], here, tag)
-    return tag, body, here
+    _check_members(body, members, here, tag)
+    return body
+
+
+def _node(
+    j: object, loc: Location, family: str, table: dict[str, Members]
+) -> tuple[str, dict[str, object], Location]:
+    tag, payload, here = _tagged(j, loc, family, table)
+    return tag, _expanded(payload, here, tag, table[tag]), here
+
+
+def _refuse_tagged_array(
+    items: list[object], loc: Location, family: str, tags: Collection[str]
+) -> None:
+    """Refuse a format-3 tagged array where a v4 bare array belongs.
+
+    No v4 bare-array element can be a string that names a node kind, so the
+    refusal only gives a clearer diagnostic.
+    """
+    if items and isinstance(items[0], str) and items[0] in tags:
+        raise fail(
+            d.UNKNOWN_NODE,
+            family,
+            loc,
+            f"an array headed by {items[0]!r} is a format-3 tagged array, "
+            f"not a v4 {family}",
+        )
+
+
+def _legacy_array(
+    j: list[object], loc: Location, family: str, arity: dict[str, int]
+) -> str:
+    """Check a legacy tagged array such as ``["OpaqueTypeSpecification", []]``."""
+    head = j[0] if j else None
+    if not isinstance(head, str) or head not in arity:
+        raise fail(
+            d.UNKNOWN_NODE,
+            family,
+            loc,
+            f"expected a {family} object, or a legacy array headed by one of "
+            f"{sorted(arity)}",
+        )
+    if len(j) != arity[head]:
+        raise fail(
+            d.INVALID_JSON,
+            head,
+            loc,
+            f"a legacy {head} array has {arity[head]} items, found {len(j)}",
+        )
+    return head
 
 
 def _wrap(tag: str, members: dict[str, Json]) -> Json:
@@ -330,6 +485,23 @@ _WORD = re.compile(r"^[a-z0-9]+$")
 _INITIALISM = re.compile(r"^[A-Z]{2,}$")
 _LOWER_SEGMENT = re.compile(r"^[a-z0-9]+$")
 
+# Schema patterns at FINOS_MORPHIR_PIN, used with ``fullmatch``.
+_LEGACY_WORD = re.compile(r"[a-z0-9]+")
+_NAME_STRING = re.compile(r"(?:[a-z0-9]+|[A-Z0-9]+)(?:-(?:[a-z0-9]+|[A-Z0-9]+))*")
+_TYPE_VARIABLE_STRING = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
+_DECIMAL_LEXEME = re.compile(
+    r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
+)
+
+
+def _spells_fqname(text: str) -> bool:
+    """Tell an FQName string from a name string, as the schema patterns do.
+
+    An FQName has ``:`` and ``#``; a name has neither. A string with only one of
+    them is a malformed FQName, which `decode_fqname` reports.
+    """
+    return ":" in text or "#" in text
+
 
 def _single_letter(word: str) -> bool:
     return len(word) == 1 and word.isalpha()
@@ -372,8 +544,21 @@ def encode_name(name: Name, loc: Location = ()) -> str:
 
 
 def decode_name(j: object, loc: Location = ()) -> Name:
-    """Read a canonical name string such as ``value-in-USD``."""
-    text = _expect_str(j, loc, "Name")
+    """Read a canonical name string such as ``value-in-USD``, or a legacy array.
+
+    The legacy word array ``["value", "in", "u", "s", "d"]`` is the Python word
+    list itself, so it reads as ``value-in-USD`` (kit names-0001).
+    """
+    if isinstance(j, list):
+        return _decode_legacy_name(j, loc)
+    if not isinstance(j, str):
+        raise fail(
+            d.INVALID_JSON,
+            "Name",
+            loc,
+            "expected a name string or a legacy word array for Name",
+        )
+    text = j
     words: list[str] = []
     previous = ""
     for segment in text.split("-"):
@@ -403,18 +588,46 @@ def decode_name(j: object, loc: Location = ()) -> Name:
     return Name(tuple(words))
 
 
+def _decode_legacy_name(items: list[object], loc: Location) -> Name:
+    if not items:
+        raise fail(
+            d.INVALID_NAME, "Name", loc, "a legacy name array needs at least one word"
+        )
+    words: list[str] = []
+    for i, word in enumerate(items):
+        if not isinstance(word, str) or not _LEGACY_WORD.fullmatch(word):
+            raise fail(
+                d.INVALID_NAME,
+                "Name",
+                (*loc, i),
+                f"legacy name word {word!r} is not lowercase letters and digits",
+            )
+        words.append(word)
+    return Name(tuple(words))
+
+
 def encode_path(path: Path, loc: Location = ()) -> str:
     return "/".join(encode_name(n, loc) for n in path)
 
 
 def decode_path(j: object, loc: Location = ()) -> Path:
+    """Read ``morphir/SDK``, or a legacy array of names such as ``[["morphir"], ...]``."""
+    if isinstance(j, list):
+        if not j:
+            raise fail(
+                d.INVALID_NAME,
+                "Path",
+                loc,
+                "a legacy path array needs at least one name",
+            )
+        return Path(tuple(decode_name(item, (*loc, i)) for i, item in enumerate(j)))
     text = _expect_str(j, loc, "Path")
     if not text:
         return Path(())
     return Path(tuple(decode_name(part, loc) for part in text.split("/")))
 
 
-_FQNAME = re.compile(r"^([^:#]*):([^:#]*)#([^:#/]+)$")
+_FQNAME = re.compile(r"^([^:#]+):([^:#]+)#([^:#/]+)$")
 
 
 def encode_fqname(fqn: FQName, loc: Location = ()) -> str:
@@ -425,6 +638,20 @@ def encode_fqname(fqn: FQName, loc: Location = ()) -> str:
 
 
 def decode_fqname(j: object, loc: Location = ()) -> FQName:
+    """Read ``package:module#name``, or the legacy ``[package, module, name]`` array."""
+    if isinstance(j, list):
+        if len(j) != 3:
+            raise fail(
+                d.INVALID_JSON,
+                "FQName",
+                loc,
+                f"a legacy FQName array is [package, module, name], found {len(j)} items",
+            )
+        return FQName(
+            decode_path(j[0], (*loc, 0)),
+            decode_path(j[1], (*loc, 1)),
+            decode_name(j[2], (*loc, 2)),
+        )
     text = _expect_str(j, loc, "FQName")
     match = _FQNAME.match(text)
     if match is None:
@@ -505,7 +732,9 @@ def _decode_type_attributes(body: dict[str, object], loc: Location) -> t.TypeAtt
         return t.TypeAttributes()
     here = (*loc, "attributes")
     obj = _expect_object(body["attributes"], here, "TypeAttributes")
-    _check_members(obj, _m("", "source extensions"), here, "TypeAttributes")
+    _check_members(obj, _m("", "source constraints extensions"), here, "TypeAttributes")
+    if "constraints" in obj:
+        _check_no_constraints(obj["constraints"], (*here, "constraints"))
     source = (
         t.SourceLocation(*_decode_source(obj["source"], (*here, "source")))
         if "source" in obj
@@ -517,6 +746,19 @@ def _decode_type_attributes(body: dict[str, object], loc: Location) -> t.TypeAtt
         else {}
     )
     return t.TypeAttributes(source=source, extensions=ext)
+
+
+def _check_no_constraints(j: object, loc: Location) -> None:
+    """Accept an empty ``constraints`` object, the schema's placeholder."""
+    constraints = _expect_object(j, loc, "TypeConstraints")
+    if constraints:
+        raise fail(
+            d.UNKNOWN_MEMBER,
+            "TypeConstraints",
+            (*loc, next(iter(constraints))),
+            "structured type constraints have no reading in the draft v4 codec; "
+            "only an empty constraints object is accepted",
+        )
 
 
 def _encode_value_attributes(a: v.ValueAttributes, loc: Location) -> dict[str, Json]:
@@ -652,8 +894,35 @@ def _encode_type_fields(fields: list[t.Field], loc: Location) -> dict[str, Json]
 
 
 def decode_type(j: object, loc: Location = ()) -> t.Type:
-    """Decode a v4 type from the expanded draft spelling."""
-    tag, body, here = _node(j, loc, "Type", TYPE_NODES)
+    """Decode a v4 type from any spelling the pinned schema accepts.
+
+    A bare FQName string is a ``Reference``, a bare lowercase name a ``Variable``,
+    and a bare array a ``Tuple``. ``Variable``, ``Reference`` and ``Tuple`` also
+    take a compact payload; every kind takes its expanded payload.
+
+    Raises:
+        DiagnosticError: With ``invalid_name`` for a string that is neither an
+            FQName nor a type variable, ``unknown_node`` for an unknown kind,
+            and ``invalid_json``, ``unknown_member`` or ``missing_member`` for a
+            malformed node.
+    """
+    if isinstance(j, str):
+        return _decode_type_string(j, loc)
+    if isinstance(j, list):
+        _refuse_tagged_array(j, loc, "Type", TYPE_NODES)
+        return t.Tuple(t.TypeAttributes(), _decode_list(decode_type, j, loc, "Type"))
+    if not isinstance(j, dict):
+        raise fail(
+            d.INVALID_JSON,
+            "Type",
+            loc,
+            "a Type is a string, an array, or an object wrapped by its kind",
+        )
+    tag, payload, here = _tagged(j, loc, "Type", TYPE_NODES)
+    compact = _decode_compact_type(tag, payload, here)
+    if compact is not None:
+        return compact
+    body = _expanded(payload, here, tag, TYPE_NODES[tag])
     attrs = _decode_type_attributes(body, here)
 
     def fields() -> list[t.Field]:
@@ -701,6 +970,46 @@ def decode_type(j: object, loc: Location = ()) -> t.Type:
             return t.Union(attrs, alternatives)
         case _:
             return t.Unit(attrs)
+
+
+def _decode_type_string(text: str, loc: Location) -> t.Type:
+    if _spells_fqname(text):
+        return t.Reference(t.TypeAttributes(), decode_fqname(text, loc))
+    if not _TYPE_VARIABLE_STRING.fullmatch(text):
+        raise fail(
+            d.INVALID_NAME,
+            "Type",
+            loc,
+            f"{text!r} is neither an FQName nor a type variable name "
+            "(lowercase words joined by '-')",
+        )
+    return t.Variable(t.TypeAttributes(), decode_name(text, loc))
+
+
+def _decode_compact_type(tag: str, payload: object, here: Location) -> t.Type | None:
+    """Decode a compact wrapper payload, or return None for an expanded one."""
+    attrs = t.TypeAttributes()
+    if tag == "Variable" and isinstance(payload, (str, list)):
+        return t.Variable(attrs, decode_name(payload, here))
+    if tag == "Reference" and isinstance(payload, str):
+        return t.Reference(attrs, decode_fqname(payload, here))
+    if tag == "Reference" and isinstance(payload, list):
+        if len(payload) < 2:
+            raise fail(
+                d.INVALID_JSON,
+                "Reference",
+                here,
+                "a Reference array is an FQName followed by one or more type "
+                "arguments; a Reference with no arguments is the FQName string",
+            )
+        return t.Reference(
+            attrs,
+            decode_fqname(payload[0], (*here, 0)),
+            [decode_type(arg, (*here, i)) for i, arg in enumerate(payload) if i],
+        )
+    if tag == "Tuple" and isinstance(payload, list):
+        return t.Tuple(attrs, _decode_list(decode_type, payload, here, "Type"))
+    return None
 
 
 def _decode_list[A](
@@ -770,7 +1079,13 @@ def encode_literal(literal: lit.Literal, loc: Location = ()) -> Json:
 
 
 def decode_literal(j: object, loc: Location = ()) -> lit.Literal:
-    """Decode a literal; ``WholeNumberLiteral`` reads as ``IntegerLiteral``."""
+    """Decode a literal wrapper such as ``{"IntegerLiteral": 42}``.
+
+    A scalar kind also takes the expanded ``{"value": 42}`` payload, and members
+    beside ``value`` are ignored (kit values-0046 and values-0047). A
+    ``DocumentLiteral`` payload is the document itself. ``WholeNumberLiteral``
+    reads as ``IntegerLiteral``.
+    """
     obj = _expect_object(j, loc, "Literal")
     if len(obj) != 1 or next(iter(obj)) not in LITERAL_KINDS:
         raise fail(
@@ -781,7 +1096,22 @@ def decode_literal(j: object, loc: Location = ()) -> lit.Literal:
         )
     ((tag, payload),) = obj.items()
     here = (*loc, tag)
+    if tag == "DocumentLiteral":
+        return lit.DocumentLiteral(_decode_document(payload))
+    if isinstance(payload, dict):
+        if "value" not in payload:
+            raise fail(
+                d.INVALID_LITERAL,
+                tag,
+                here,
+                f"{tag} expects a value, or an object with a 'value' member",
+            )
+        payload = payload["value"]
+        here = (*here, "value")
+    return _decode_scalar_kind(tag, payload, here)
 
+
+def _decode_scalar_kind(tag: str, payload: object, here: Location) -> lit.Literal:
     def bad(message: str) -> DiagnosticError:
         return fail(d.INVALID_LITERAL, tag, here, message)
 
@@ -803,18 +1133,99 @@ def decode_literal(j: object, loc: Location = ()) -> lit.Literal:
                 raise bad(f"{tag} expects an integer")
             return lit.IntegerLiteral(payload)
         case "FloatLiteral":
-            if isinstance(payload, bool) or not isinstance(payload, (int, float)):
-                raise bad("FloatLiteral expects a number")
-            return lit.FloatLiteral(float(payload))
-        case "DecimalLiteral":
-            if not isinstance(payload, str):
-                raise bad("DecimalLiteral expects a string")
+            return lit.FloatLiteral(_float_value(payload, here, tag))
+        case _:
+            if not isinstance(payload, str) or not _DECIMAL_LEXEME.fullmatch(payload):
+                raise bad(
+                    f"{payload!r} is not a decimal lexeme: "
+                    "[+-]?(digits(.digits?)?|.digits)([eE][+-]?digits)?"
+                )
             try:
                 return lit.DecimalLiteral(Decimal(payload))
             except InvalidOperation:
-                raise bad(f"invalid decimal {payload!r}") from None
-        case _:
-            return lit.DocumentLiteral(_decode_document(payload))
+                raise bad(
+                    f"{payload!r} is outside the representable decimal range"
+                ) from None
+
+
+def _float_value(payload: object, loc: Location, construct: str) -> float:
+    if isinstance(payload, bool) or not isinstance(payload, (int, float)):
+        raise fail(d.INVALID_LITERAL, construct, loc, f"{construct} expects a number")
+    try:
+        value = float(payload)
+    except OverflowError:
+        value = math.inf
+    if not math.isfinite(value):
+        raise fail(
+            d.INVALID_LITERAL,
+            construct,
+            loc,
+            f"{construct} expects a finite number that a float can hold",
+        )
+    return value
+
+
+def _decode_bare_scalar(j: object, loc: Location) -> lit.Literal | None:
+    """Read a bare boolean or number as a literal (decision 0009).
+
+    A number's kind follows its lexeme: no point and no exponent is an
+    ``IntegerLiteral``, anything else a ``FloatLiteral``. Python's ``json``
+    module keeps that distinction, because it parses an integer lexeme to an
+    ``int`` of any size and every other number lexeme to a ``float``; so ``0``
+    reads as ``int`` and ``0.0`` and ``1e3`` as ``float``.
+    """
+    if isinstance(j, bool):
+        return lit.BoolLiteral(j)
+    if isinstance(j, int):
+        return lit.IntegerLiteral(j)
+    if isinstance(j, float):
+        return lit.FloatLiteral(_float_value(j, loc, "FloatLiteral"))
+    return None
+
+
+def _decode_literal_payload(
+    payload: object, here: Location, tag: str, *, documents: bool
+) -> tuple[v.ValueAttributes, lit.Literal]:
+    """Read the payload of ``Literal`` or ``LiteralPattern``.
+
+    The payload is a bare scalar, a literal wrapper, or the expanded
+    ``{"attributes": ..., "literal": scalar | literal}``.
+    """
+    if isinstance(payload, dict) and ("literal" in payload or "attributes" in payload):
+        body = _expanded(payload, here, tag, _m("literal"))
+        literal = _decode_literal_spelling(
+            body["literal"], (*here, "literal"), tag, documents=documents
+        )
+        return _decode_value_attributes(body, here), literal
+    return v.ValueAttributes(), _decode_literal_spelling(
+        payload, here, tag, documents=documents
+    )
+
+
+def _decode_literal_spelling(
+    j: object, loc: Location, construct: str, *, documents: bool
+) -> lit.Literal:
+    if isinstance(j, str):
+        return lit.StringLiteral(j)
+    bare = _decode_bare_scalar(j, loc)
+    if bare is not None:
+        return bare
+    if not isinstance(j, dict):
+        raise fail(
+            d.INVALID_LITERAL,
+            construct,
+            loc,
+            f"{construct} expects a boolean, a number, a string or a typed literal",
+        )
+    literal = decode_literal(j, loc)
+    if not documents and isinstance(literal, lit.DocumentLiteral):
+        raise fail(
+            d.INVALID_LITERAL,
+            construct,
+            loc,
+            "a DocumentLiteral cannot be pattern matched (decision 0013)",
+        )
+    return literal
 
 
 # --- Patterns ---
@@ -869,8 +1280,32 @@ def encode_pattern(p: v.Pattern, loc: Location = ()) -> Json:
 
 
 def decode_pattern(j: object, loc: Location = ()) -> v.Pattern:
-    """Decode a v4 pattern from the expanded draft spelling."""
-    tag, body, here = _node(j, loc, "Pattern", PATTERN_NODES)
+    """Decode a v4 pattern from any spelling the pinned schema accepts.
+
+    A bare array is a ``TuplePattern``. ``TuplePattern`` also takes an array
+    payload and ``LiteralPattern`` a bare scalar or a literal wrapper.
+    """
+    if isinstance(j, list):
+        _refuse_tagged_array(j, loc, "Pattern", PATTERN_NODES.keys() | LITERAL_KINDS)
+        return v.TuplePattern(
+            v.ValueAttributes(), _decode_list(decode_pattern, j, loc, "Pattern")
+        )
+    if not isinstance(j, dict):
+        raise fail(
+            d.INVALID_JSON,
+            "Pattern",
+            loc,
+            "a Pattern is an array or an object wrapped by its kind",
+        )
+    tag, payload, here = _tagged(j, loc, "Pattern", PATTERN_NODES)
+    if tag == "TuplePattern" and isinstance(payload, list):
+        return v.TuplePattern(
+            v.ValueAttributes(), _decode_list(decode_pattern, payload, here, "Pattern")
+        )
+    if tag == "LiteralPattern":
+        attrs, literal = _decode_literal_payload(payload, here, tag, documents=False)
+        return v.LiteralPattern(attrs, literal)
+    body = _expanded(payload, here, tag, PATTERN_NODES[tag])
     attrs = _decode_value_attributes(body, here)
 
     def sub(key: str) -> v.Pattern:
@@ -894,10 +1329,6 @@ def decode_pattern(j: object, loc: Location = ()) -> v.Pattern:
             return v.EmptyListPattern(attrs)
         case "HeadTailPattern":
             return v.HeadTailPattern(attrs, sub("head"), sub("tail"))
-        case "LiteralPattern":
-            return v.LiteralPattern(
-                attrs, decode_literal(body["literal"], (*here, "literal"))
-            )
         case _:
             return v.UnitPattern(attrs)
 
@@ -1052,8 +1483,47 @@ def encode_value(val: v.Value, loc: Location = ()) -> Json:
 
 
 def decode_value(j: object, loc: Location = ()) -> v.Value:
-    """Decode a v4 value from the expanded draft spelling."""
-    tag, body, here = _node(j, loc, "Value", VALUE_NODES)
+    """Decode a v4 value from any spelling the pinned schema accepts.
+
+    At value position (decision 0009) a bare boolean or number is a literal, a
+    bare FQName string a ``Reference``, a bare name string a ``Variable``, and a
+    bare array a ``List``. ``Literal``, ``Constructor``, ``Tuple``, ``List``,
+    ``Variable``, ``Reference`` and ``FieldFunction`` also take a compact
+    payload; every kind takes its expanded payload.
+
+    Raises:
+        DiagnosticError: With ``invalid_name`` for a bare string that is neither
+            a name nor an FQName (a string literal needs its ``Literal`` wrapper),
+            ``invalid_literal`` for a bad literal, ``unknown_node`` for an unknown
+            kind, and ``invalid_json``, ``unknown_member`` or ``missing_member``
+            for a malformed node.
+    """
+    if isinstance(j, str):
+        return _decode_value_string(j, loc)
+    if isinstance(j, list):
+        _refuse_tagged_array(j, loc, "Value", VALUE_NODES.keys() | LITERAL_KINDS)
+        return v.List(v.ValueAttributes(), _decode_list(decode_value, j, loc, "Value"))
+    bare = _decode_bare_scalar(j, loc)
+    if bare is not None:
+        return v.LiteralValue(v.ValueAttributes(), bare)
+    if not isinstance(j, dict):
+        raise fail(
+            d.INVALID_JSON,
+            "Value",
+            loc,
+            "a Value is a boolean, a number, a string, an array, or an object "
+            "wrapped by its kind",
+        )
+    tag, payload, here = _tagged(j, loc, "Value", VALUE_NODES)
+    if tag == "Literal":
+        literal_attrs, literal = _decode_literal_payload(
+            payload, here, tag, documents=True
+        )
+        return v.LiteralValue(literal_attrs, literal)
+    compact = _decode_compact_value(tag, payload, here)
+    if compact is not None:
+        return compact
+    body = _expanded(payload, here, tag, VALUE_NODES[tag])
     attrs = _decode_value_attributes(body, here)
 
     def sub(key: str) -> v.Value:
@@ -1068,10 +1538,6 @@ def decode_value(j: object, loc: Location = ()) -> v.Value:
         )
 
     match tag:
-        case "Literal":
-            return v.LiteralValue(
-                attrs, decode_literal(body["literal"], (*here, "literal"))
-            )
         case "Constructor":
             return v.Constructor(attrs, decode_fqname(body["fqname"], here))
         case "Tuple":
@@ -1151,6 +1617,41 @@ def decode_value(j: object, loc: Location = ()) -> v.Value:
                 if "expectedType" in body
                 else None,
             )
+
+
+def _decode_value_string(text: str, loc: Location) -> v.Value:
+    if _spells_fqname(text):
+        return v.Reference(v.ValueAttributes(), decode_fqname(text, loc))
+    if not _NAME_STRING.fullmatch(text):
+        raise fail(
+            d.INVALID_NAME,
+            "Value",
+            loc,
+            f"{text!r} is neither a name nor an FQName; a string literal needs its "
+            "Literal wrapper (decision 0009)",
+        )
+    return v.Variable(v.ValueAttributes(), decode_name(text, loc))
+
+
+def _decode_compact_value(tag: str, payload: object, here: Location) -> v.Value | None:
+    """Decode a compact wrapper payload, or return None for an expanded one."""
+    attrs = v.ValueAttributes()
+    if isinstance(payload, list) and tag in ("Tuple", "List"):
+        items = _decode_list(decode_value, payload, here, "Value")
+        return v.Tuple(attrs, items) if tag == "Tuple" else v.List(attrs, items)
+    if not isinstance(payload, (str, list)):
+        return None
+    match tag:
+        case "Constructor":
+            return v.Constructor(attrs, decode_fqname(payload, here))
+        case "Reference":
+            return v.Reference(attrs, decode_fqname(payload, here))
+        case "Variable":
+            return v.Variable(attrs, decode_name(payload, here))
+        case "FieldFunction":
+            return v.FieldFunction(attrs, decode_name(payload, here))
+        case _:
+            return None
 
 
 # --- Hole reasons and incompleteness ---
@@ -1386,7 +1887,20 @@ def encode_value_definition(defn: v.ValueDefinitionBody, loc: Location = ()) -> 
 
 
 def decode_value_definition(j: object, loc: Location = ()) -> v.ValueDefinitionBody:
-    """Decode an expression, native, external or incomplete body."""
+    """Decode an expression, native, external or incomplete body.
+
+    A module value's ``doc`` is read by the module decoder. Here, as in a
+    ``LetDefinition``, the Python model has no slot for it, so a ``doc`` member
+    fails with ``unknown_member`` instead of being dropped.
+    """
+    if isinstance(j, dict) and "doc" in j and len(j) > 1:
+        raise fail(
+            d.UNKNOWN_MEMBER,
+            "ValueDefinition",
+            (*loc, "doc"),
+            "the Python model has no documentation slot on this value definition; "
+            "only module values carry a doc",
+        )
     tag, body, here = _node(j, loc, "ValueDefinition", VALUE_DEFINITION_NODES)
     inputs = _unkeyed(
         body["inputTypes"],
@@ -1450,13 +1964,47 @@ def encode_value_specification(spec: v.Specification, loc: Location = ()) -> Jso
 
 
 def decode_value_specification(j: object, loc: Location = ()) -> v.Specification:
+    """Decode ``{"inputs": {...}, "output": type}``.
+
+    ``inputs`` may be omitted when empty (kit definitions-0029) or be the legacy
+    ``[[name, type], ...]`` array (kit definitions-0004).
+    """
     obj = _expect_object(j, loc, "ValueSpecification")
-    _check_members(obj, _m("inputs output", "annotations"), loc, "ValueSpecification")
+    _check_members(obj, _m("output", "annotations inputs"), loc, "ValueSpecification")
     return v.Specification(
-        _unkeyed(obj["inputs"], decode_name, decode_type, (*loc, "inputs"), "inputs"),
+        _decode_spec_inputs(obj["inputs"], (*loc, "inputs")) if "inputs" in obj else [],
         decode_type(obj["output"], (*loc, "output")),
         _decode_annotations(obj, loc),
     )
+
+
+def _decode_spec_inputs(j: object, loc: Location) -> list[tuple[Name, t.Type]]:
+    if not isinstance(j, list):
+        return _unkeyed(j, decode_name, decode_type, loc, "inputs")
+    inputs = _decode_list(_decode_name_type_pair, j, loc, "inputs")
+    _check_unique([name for name, _ in inputs], loc, "inputs")
+    return inputs
+
+
+def _decode_name_type_pair(j: object, loc: Location) -> tuple[Name, t.Type]:
+    items = _expect_list(j, loc, "Argument")
+    if len(items) != 2:
+        raise fail(d.INVALID_JSON, "Argument", loc, "an argument is [name, type]")
+    return decode_name(items[0], (*loc, 0)), decode_type(items[1], (*loc, 1))
+
+
+def _check_unique(names: list[Name], loc: Location, construct: str) -> None:
+    """Refuse a repeated name that the canonical object spelling cannot carry."""
+    seen: set[Name] = set()
+    for i, name in enumerate(names):
+        if name in seen:
+            raise fail(
+                d.DUPLICATE_MEMBER,
+                construct,
+                (*loc, i),
+                f"{construct} has {encode_name(name)!r} more than once",
+            )
+        seen.add(name)
 
 
 # --- Annotations ---
@@ -1569,23 +2117,38 @@ def _encode_constructors(ctors: ts.Constructors, loc: Location) -> Json:
 
 
 def _decode_constructors(j: object, loc: Location) -> ts.Constructors:
-    def decode_args(j: object, here: Location) -> list[tuple[Name, t.Type]]:
-        args: list[tuple[Name, t.Type]] = []
-        for i, pair in enumerate(_expect_list(j, here, "Constructor")):
-            items = _expect_list(pair, (*here, i), "ConstructorArg")
-            if len(items) != 2:
-                raise fail(
-                    d.INVALID_JSON,
-                    "ConstructorArg",
-                    (*here, i),
-                    "a constructor argument is [name, type]",
-                )
-            args.append(
-                (decode_name(items[0], (*here, i)), decode_type(items[1], (*here, i)))
-            )
-        return args
+    """Decode ``{"name": [[arg, type], ...]}`` or the legacy array form.
 
-    return dict(_unkeyed(j, decode_name, decode_args, loc, "Constructors"))
+    The legacy form is ``[["name", [[arg, type], ...]], ...]``; it keeps the
+    constructor order.
+    """
+    if not isinstance(j, list):
+        return dict(_unkeyed(j, decode_name, _decode_ctor_args, loc, "Constructors"))
+    ctors: ts.Constructors = {}
+    for i, entry in enumerate(j):
+        here = (*loc, i)
+        items = _expect_list(entry, here, "Constructor")
+        if len(items) != 2:
+            raise fail(
+                d.INVALID_JSON,
+                "Constructor",
+                here,
+                "a legacy constructor is [name, [[arg, type], ...]]",
+            )
+        name = decode_name(items[0], (*here, 0))
+        if name in ctors:
+            raise fail(
+                d.DUPLICATE_MEMBER,
+                "Constructors",
+                here,
+                f"constructor {encode_name(name)!r} is given more than once",
+            )
+        ctors[name] = _decode_ctor_args(items[1], (*here, 1))
+    return ctors
+
+
+def _decode_ctor_args(j: object, loc: Location) -> list[tuple[Name, t.Type]]:
+    return _decode_list(_decode_name_type_pair, j, loc, "Constructor")
 
 
 def encode_type_specification(spec: ts.Specification, loc: Location = ()) -> Json:
@@ -1628,6 +2191,9 @@ def _encode_type_specification(spec: ts.Specification, loc: Location) -> Json:
 
 
 def decode_type_specification(j: object, loc: Location = ()) -> ts.Specification:
+    """Decode ``{"Kind": {...}}`` or a legacy tagged array (kit definitions-0002)."""
+    if isinstance(j, list):
+        return _decode_legacy_type_specification(j, loc)
     tag, body, here = _node(j, loc, "TypeSpecification", TYPE_SPECIFICATION_NODES)
     params = (
         _decode_params(body["typeParams"], (*here, "typeParams"))
@@ -1657,6 +2223,36 @@ def decode_type_specification(j: object, loc: Location = ()) -> ts.Specification
                     decode_fqname(body["toBaseType"], here),
                 ),
                 annotations,
+            )
+
+
+def _decode_legacy_type_specification(
+    j: list[object], loc: Location
+) -> ts.Specification:
+    tag = _legacy_array(j, loc, "TypeSpecification", LEGACY_TYPE_SPECIFICATION_ARITY)
+    params = _decode_params(j[1], (*loc, 1))
+    match tag:
+        case "TypeAliasSpecification":
+            return ts.TypeAliasSpecification(params, decode_type(j[2], (*loc, 2)))
+        case "OpaqueTypeSpecification":
+            return ts.OpaqueTypeSpecification(params)
+        case "CustomTypeSpecification":
+            return ts.CustomTypeSpecification(
+                params, _decode_constructors(j[2], (*loc, 2))
+            )
+        case _:
+            here = (*loc, 2)
+            details = _expect_object(j[2], here, tag)
+            _check_members(
+                details, _m("baseType fromBaseType toBaseType", ""), here, tag
+            )
+            return ts.DerivedTypeSpecification(
+                params,
+                ts.DerivedTypeSpecificationDetails(
+                    decode_type(details["baseType"], (*here, "baseType")),
+                    decode_fqname(details["fromBaseType"], (*here, "fromBaseType")),
+                    decode_fqname(details["toBaseType"], (*here, "toBaseType")),
+                ),
             )
 
 
@@ -1695,6 +2291,17 @@ def encode_type_definition(defn: td.Definition, loc: Location = ()) -> Json:
 
 
 def decode_type_definition(j: object, loc: Location = ()) -> td.Definition:
+    """Decode ``{"Kind": {...}}`` or a legacy tagged array.
+
+    The legacy arrays are ``["TypeAliasDefinition", params, type]`` and
+    ``["CustomTypeDefinition", params, access-controlled constructors]``.
+    """
+    if isinstance(j, list):
+        tag = _legacy_array(j, loc, "TypeDefinition", LEGACY_TYPE_DEFINITION_ARITY)
+        params = _decode_params(j[1], (*loc, 1))
+        if tag == "TypeAliasDefinition":
+            return td.TypeAliasDefinition(params, decode_type(j[2], (*loc, 2)))
+        return td.CustomTypeDefinition(params, _dec_access_ctors(j[2], (*loc, 2)))
     tag, body, here = _node(j, loc, "TypeDefinition", TYPE_DEFINITION_NODES)
     params = _decode_params(body["typeParams"], (*here, "typeParams"))
     if tag == "TypeAliasDefinition":
@@ -1738,13 +2345,36 @@ def _encode_documented[A](
 def _decode_documented[A](
     decode: Callable[[object, Location], A],
 ) -> Callable[[object, Location], Documented[A]]:
+    """Read a ``doc`` flattened beside the node (decision 0010) or nested."""
+
     def run(j: object, loc: Location) -> Documented[A]:
-        if isinstance(j, dict) and set(j) == {"doc", "value"}:
-            text = _expect_str(j["doc"], (*loc, "doc"), "Documented")
-            return Documented(text, decode(j["value"], (*loc, "value")))
-        return Documented(None, decode(j, loc))
+        text, rest, here = _split_doc(j, loc)
+        return Documented(text, decode(rest, here))
 
     return run
+
+
+def _split_doc(j: object, loc: Location) -> tuple[str | None, object, Location]:
+    """Split a documented node into its ``doc`` and the node.
+
+    The canonical form puts ``doc`` beside the node's own members. The nested
+    ``{"doc": ..., "value": node}`` form is also valid; a node that is
+    documented in both places fails with ``duplicate_member``.
+    """
+    if not isinstance(j, dict) or "doc" not in j:
+        return None, j, loc
+    text = _expect_str(j["doc"], (*loc, "doc"), "doc")
+    if set(j) != {"doc", "value"}:
+        return text, {key: x for key, x in j.items() if key != "doc"}, loc
+    inner, here = j["value"], (*loc, "value")
+    if isinstance(inner, dict) and "doc" in inner:
+        raise fail(
+            d.DUPLICATE_MEMBER,
+            "doc",
+            (*here, "doc"),
+            "the node is documented both beside and inside 'value'",
+        )
+    return text, inner, here
 
 
 def _encode_access[A](
@@ -1760,12 +2390,47 @@ def _encode_access[A](
 def _decode_access[A](
     decode: Callable[[object, Location], A],
 ) -> Callable[[object, Location], AccessControlled[A]]:
+    """Read every access-controlled spelling in `ACCESS_SPELLINGS`.
+
+    The forms are ``{level: x}``, the legacy ``{"access": level, "value": x}``,
+    and the flattened ``{"access": level, ...members of x}``.
+    """
+
     def run(j: object, loc: Location) -> AccessControlled[A]:
-        tag, payload = _single(j, loc, "AccessControlled", ACCESS_TAGS)
-        value = decode(payload, (*loc, tag))
-        return Public(value) if tag == "Public" else Private(value)
+        obj = _expect_object(j, loc, "AccessControlled")
+        if "access" in obj:
+            public = _decode_access_level(obj["access"], (*loc, "access"))
+            rest = {key: x for key, x in obj.items() if key != "access"}
+            if not rest:
+                raise fail(
+                    d.MISSING_MEMBER,
+                    "AccessControlled",
+                    loc,
+                    "an access-controlled node needs 'value' or its own members "
+                    "beside 'access'",
+                )
+            if set(rest) == {"value"}:
+                value = decode(rest["value"], (*loc, "value"))
+            else:
+                value = decode(rest, loc)
+        else:
+            tag, payload = _single(obj, loc, "AccessControlled", ACCESS_SPELLINGS)
+            public = ACCESS_SPELLINGS[tag]
+            value = decode(payload, (*loc, tag))
+        return Public(value) if public else Private(value)
 
     return run
+
+
+def _decode_access_level(j: object, loc: Location) -> bool:
+    if not isinstance(j, str) or j not in ACCESS_SPELLINGS:
+        raise fail(
+            d.UNKNOWN_NODE,
+            "Access",
+            loc,
+            f"unknown access {j!r}; expected one of {sorted(ACCESS_SPELLINGS)}",
+        )
+    return ACCESS_SPELLINGS[j]
 
 
 def _single(
@@ -1791,6 +2456,7 @@ _enc_value_spec = _encode_documented(encode_value_specification)
 _dec_value_spec = _decode_documented(decode_value_specification)
 _enc_type_def = _encode_access(_encode_documented(encode_type_definition))
 _dec_type_def = _decode_access(_decode_documented(decode_type_definition))
+_dec_access_ctors = _decode_access(_decode_constructors)
 _enc_value_def = _encode_access(_encode_documented(encode_value_definition))
 _dec_value_def = _decode_access(_decode_documented(decode_value_definition))
 

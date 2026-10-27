@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.request import urlopen
 
+from scripts.release_candidates import NATIVE_PLATFORMS, classify
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from email.message import Message
@@ -139,10 +141,38 @@ def match_published_wheel(wheel: Path, published: Mapping[str, str]) -> None:
         )
 
 
+def require_published_native(version: str, published: set[str]) -> None:
+    """Refuse a CLI release before its exact native dependency is published.
+
+    Args:
+        version: The exact ``morphir-python-native`` version the CLI pins.
+        published: File names PyPI lists for that version.
+    """
+    expected = set(native_candidates_for(version))
+    if not expected <= published:
+        raise ValueError(
+            f"publish morphir-python-native {version} with every qualified platform "
+            f"before this CLI; missing {sorted(expected - published)}"
+        )
+
+
+def native_candidates_for(version: str) -> list[str]:
+    """Return the file names a complete native release contains."""
+    stem = f"morphir_python_native-{version}"
+    return [f"{stem}-cp314-abi3-{tag}.whl" for tag in NATIVE_PLATFORMS] + [
+        f"{stem}.tar.gz"
+    ]
+
+
 def main() -> None:
-    """Validate both candidates and require the selected CLI's published core."""
-    packages = load_packages(Path(__file__).resolve().parents[1])
-    selected = select_package(os.environ.get("RELEASE_TAG", ""), packages)
+    """Validate both candidates and require the selected CLI's published inputs."""
+    root = Path(__file__).resolve().parents[1]
+    packages = load_packages(root)
+    tag = os.environ.get("RELEASE_TAG", "")
+    if tag.startswith(("native-v", "extension/python/v")):
+        classify(tag)
+        tag = ""
+    selected = select_package(tag, packages)
     for package in packages:
         expected = {package.wheel.name, f"{package.stem}.tar.gz"}
         actual = {
@@ -165,6 +195,18 @@ def main() -> None:
         }
         match_published_wheel(core.wheel, digests)
         print("The CLI's qualified core matches the published library")
+        pin = next(
+            requirement.split("==", 1)[1]
+            for requirement in tomllib.loads(
+                (packages[1].directory / "pyproject.toml").read_text()
+            )["project"]["dependencies"]
+            if requirement.startswith("morphir-python-native==")
+        )
+        url = f"https://pypi.org/pypi/morphir-python-native/{pin}/json"
+        with urlopen(url, timeout=30) as response:
+            files = {item["filename"] for item in json.load(response)["urls"]}
+        require_published_native(pin, files)
+        print(f"The CLI's native dependency {pin} is published")
 
 
 if __name__ == "__main__":

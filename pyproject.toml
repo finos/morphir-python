@@ -24,10 +24,11 @@ test = [
 managed = true
 
 [tool.uv.workspace]
-members = ["packages/morphir", "packages/morphir-tools"]
+members = ["packages/morphir", "packages/morphir-python-native", "packages/morphir-tools"]
 
 [tool.uv.sources]
 morphir = { workspace = true }
+morphir-python-native = { workspace = true }
 
 # =============================================================================
 # Ruff Configuration
@@ -35,7 +36,8 @@ morphir = { workspace = true }
 [tool.ruff]
 target-version = "py314"
 line-length = 88
-exclude = [".venv", "build", "dist", ".git", "__pycache__"]
+# rust/ holds compiler test inputs whose exact text is part of the tests.
+exclude = [".venv", "build", "dist", ".git", "__pycache__", "rust"]
 
 [tool.ruff.lint]
 select = [
@@ -60,13 +62,17 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["D101", "D102", "D103", "E501"]
+# The benchmark report embeds the HTML document template's long head lines.
+"scripts/bench.py" = ["E501"]
+# Compiler input: the supported subset has no TYPE_CHECKING blocks.
+"tests/fixtures/python/**/*" = ["TC001", "TC003"]
 "packages/morphir/src/morphir/ir/**/*.py" = ["D101", "D102", "D103", "UP006", "UP007", "UP035", "UP037", "UP046", "TC001", "TC003", "E501", "C408", "RUF005", "E402"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["morphir", "morphir_tools"]
+known-first-party = ["morphir", "morphir_tools", "morphir_python_native"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -85,7 +91,7 @@ show_error_codes = true
 show_column_numbers = true
 namespace_packages = true
 explicit_package_bases = true
-mypy_path = ["packages/morphir/src", "packages/morphir-tools/src"]
+mypy_path = ["packages/morphir/src", "packages/morphir-tools/src", "packages/morphir-python-native/python"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -104,7 +110,7 @@ pythonVersion = "3.14"
 typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false
-include = ["packages/morphir/src", "packages/morphir-tools/src", "scripts", "tests"]
+include = ["packages/morphir/src", "packages/morphir-tools/src", "packages/morphir-python-native/python", "scripts", "tests"]
 exclude = ["**/__pycache__", ".venv", "build", "dist"]
 
 # =============================================================================
