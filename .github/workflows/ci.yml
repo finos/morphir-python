@@ -258,6 +258,8 @@ jobs:
         run: mise run native:qualify
         env:
           NATIVE_DIST: ${{ github.workspace }}/dist/native
+          # A python-v release qualifies the published native wheel instead.
+          RELEASE_TAG: ${{ inputs.release-tag }}
 
       - name: Upload morphir distributions
         uses: actions/upload-artifact@v6

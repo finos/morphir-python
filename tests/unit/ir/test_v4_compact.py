@@ -1537,3 +1537,10 @@ def test_fqname_strings_need_package_and_module_paths(text: str) -> None:
         codec.decode_fqname(text)
     with pytest.raises(DiagnosticError):
         codec.decode_type(text)
+
+
+def test_a_decimal_beyond_the_decimal_range_is_a_diagnostic() -> None:
+    # The lexeme is valid, but Python's Decimal cannot represent the exponent.
+    with pytest.raises(DiagnosticError) as error:
+        codec.decode_literal({"DecimalLiteral": "1e999999999999999999999999999"})
+    assert error.value.codes == (d.INVALID_LITERAL,)

@@ -130,7 +130,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable, Collection
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from .. import diagnostics as d
@@ -1140,7 +1140,12 @@ def _decode_scalar_kind(tag: str, payload: object, here: Location) -> lit.Litera
                     f"{payload!r} is not a decimal lexeme: "
                     "[+-]?(digits(.digits?)?|.digits)([eE][+-]?digits)?"
                 )
-            return lit.DecimalLiteral(Decimal(payload))
+            try:
+                return lit.DecimalLiteral(Decimal(payload))
+            except InvalidOperation:
+                raise bad(
+                    f"{payload!r} is outside the representable decimal range"
+                ) from None
 
 
 def _float_value(payload: object, loc: Location, construct: str) -> float:
