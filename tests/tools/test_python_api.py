@@ -114,7 +114,7 @@ class TestCompile:
         assert diagnostic.source is not None
         assert diagnostic.source.path == "broken.py"
         assert diagnostic.source.start.line == 0
-        assert "PY002" in diagnostic.render()
+        assert diagnostic.render().startswith("PY002 at broken.py:1:")
 
     @pytest.mark.parametrize(
         "text",

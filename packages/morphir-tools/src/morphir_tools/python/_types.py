@@ -78,7 +78,11 @@ class CompilerDiagnostic:
     ir_path: tuple[str | int, ...] = ()
 
     def render(self) -> str:
-        """Render as ``severity code at location: message`` for terminal output."""
+        """Render as ``code at location: message``, like IR diagnostics.
+
+        Source locations are written ``path:line:column`` with one-based line and
+        column numbers.
+        """
         if self.source is not None:
             start = self.source.start
             where = f"{self.source.path}:{start.line + 1}:{start.character + 1}"
@@ -86,7 +90,7 @@ class CompilerDiagnostic:
             where = "/".join(str(part) for part in self.ir_path)
         else:
             where = "<request>"
-        return f"{self.severity.value} {self.code} at {where}: {self.message}"
+        return f"{self.code} at {where}: {self.message}"
 
 
 def _warnings_only(diagnostics: tuple[CompilerDiagnostic, ...]) -> None:

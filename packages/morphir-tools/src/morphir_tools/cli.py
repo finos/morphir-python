@@ -2,7 +2,9 @@
 
 Every IR operation goes through the `morphir` library: the shared format-version
 reader, the v3 (3.0.x and 3.1.x) and draft v4 codecs, and `morphir.ir.migrate`.
-The CLI adds file handling and reporting only.
+``compile`` and ``generate`` go through the public `morphir_tools.python` API,
+which loads the native compiler only when one of them runs. The CLI adds file
+handling and reporting only.
 
 Exit codes: 0 for success (including success with warnings), 1 when the library
 reports a diagnostic, 2 for a usage error.
@@ -14,7 +16,7 @@ import os
 import tempfile
 from enum import Enum
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
@@ -29,6 +31,13 @@ from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import distribution as v4_dist
 from morphir.ir.v4.name import Name as Name4
 from morphir.ir.v4.path import Path as Path4
+
+from ._output import OutputError, publish_tree, validate_artifact_paths
+
+if TYPE_CHECKING:
+    from .python import CompilerDiagnostic
+
+__all__ = ["OutputError", "app", "main", "validate_artifact_paths"]
 
 app = typer.Typer(
     name="morphir-python",
@@ -216,6 +225,159 @@ def convert(
     _write_atomically(output, fv.dump_json(document))
     _report(warnings, warning=True)
     typer.echo(f"wrote {output} (format {to.value})")
+
+
+def _report_compiler(diagnostics: tuple[CompilerDiagnostic, ...]) -> None:
+    for diagnostic in diagnostics:
+        typer.echo(f"{diagnostic.severity.value}: {diagnostic.render()}", err=True)
+
+
+def _fail(message: str) -> typer.Exit:
+    typer.echo(f"error: {message}", err=True)
+    return typer.Exit(1)
+
+
+def _discover(source: Path) -> tuple[Path, list[Path]]:
+    """Return the source root and its Python files, sorted, without following links."""
+    if source.is_dir() and not source.is_symlink():
+        files: list[Path] = []
+        for directory, names, filenames in os.walk(source, followlinks=False):
+            names[:] = sorted(
+                name
+                for name in names
+                if not name.startswith(".") and name != "__pycache__"
+            )
+            files.extend(
+                Path(directory) / name
+                for name in sorted(filenames)
+                if name.endswith(".py") and not (Path(directory) / name).is_symlink()
+            )
+        if not files:
+            raise _fail(f"no Python source files under {source}")
+        return source, files
+    return source.parent, [source]
+
+
+@app.command("compile")
+def compile_command(
+    source: Annotated[
+        Path, typer.Argument(help="A Python file, or a directory of Python files.")
+    ],
+    package: Annotated[
+        str, typer.Option(help="Morphir package name, such as acme/example.")
+    ],
+    output: Annotated[
+        Path, typer.Option("--output", "-o", help="Where to write the IR document.")
+    ],
+    ir_version: Annotated[
+        Target, typer.Option("--ir-version", help="The IR version to write.")
+    ] = Target.V3,
+    expose: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--expose",
+            help="Module to make public, such as acme/models. Repeat for more. "
+            "Without it every module is public.",
+        ),
+    ] = None,
+) -> None:
+    """Compile supported Python source to a versioned Morphir IR Library.
+
+    A directory is compiled as one package; a single file uses its parent
+    directory as the source root. Sources are parsed, never imported or run.
+    The output is written to a temporary file and renamed only on success, so a
+    failed compilation leaves an existing output file unchanged.
+    """
+    from .python import (  # Loads the compiler on demand.
+        CompiledV3,
+        CompileFailure,
+        IrVersion,
+        NativeCompilerUnavailable,
+        SourceDocument,
+        compile_sources,
+    )
+
+    root, files = _discover(source)
+    documents = [
+        SourceDocument(path.relative_to(root).as_posix(), _read(path)) for path in files
+    ]
+    version = IrVersion.V3 if ir_version is Target.V3 else IrVersion.V4
+    try:
+        result = compile_sources(
+            documents,
+            package=package,
+            exposed_modules=expose,
+            ir_version=version,
+        )
+    except (ValueError, NativeCompilerUnavailable) as error:
+        raise _fail(str(error)) from None
+    if isinstance(result, CompileFailure):
+        _report_compiler(result.diagnostics)
+        raise typer.Exit(1)
+    if isinstance(result, CompiledV3):
+        document = v3_codec.encode_versioned_distribution(result.distribution)
+    else:
+        document = v4_codec.encode_versioned_distribution(result.distribution)
+    try:
+        _write_atomically(output, fv.dump_json(document))
+    except OSError as error:
+        raise _fail(f"cannot write {output}: {error.strerror}") from None
+    _report_compiler(result.warnings)
+    typer.echo(f"wrote {output} (format {ir_version.value})")
+    if ir_version is Target.V4:
+        typer.echo(f"note: {v4_codec.DRAFT_NOTICE}")
+
+
+@app.command("generate")
+def generate_command(
+    file: Annotated[Path, typer.Argument(help="A versioned morphir-ir.json file.")],
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output-dir", help="A new or empty directory for the Python modules."
+        ),
+    ],
+) -> None:
+    """Generate Python modules from a format 3.0 or draft v4 Library.
+
+    Module paths are preserved under the output directory. All files are written
+    to a staging directory first and published together, so a failure leaves no
+    partial output. Legacy formats 1 and 2 must be upgraded with ir convert first.
+    """
+    from .python import (  # Loads the compiler on demand.
+        GenerationFailure,
+        NativeCompilerUnavailable,
+        generate_python,
+    )
+
+    text = _read(file)
+    try:
+        version, _ = fv.read_document(text)
+        model: object = (
+            v4_codec.decode_versioned_distribution(text)
+            if _is_v4(version)
+            else v3_codec.decode_versioned_distribution(text)
+        )
+    except DiagnosticError as error:
+        _report(error.diagnostics)
+        raise typer.Exit(1) from None
+    try:
+        result = generate_python(model)
+    except NativeCompilerUnavailable as error:
+        raise _fail(str(error)) from None
+    if isinstance(result, GenerationFailure):
+        _report_compiler(result.diagnostics)
+        raise typer.Exit(1)
+    files = [(artifact.path, artifact.text) for artifact in result.artifacts]
+    try:
+        validate_artifact_paths(path for path, _ in files)
+        publish_tree(output_dir, files)
+    except OutputError as error:
+        raise _fail(str(error)) from None
+    except OSError as error:
+        raise _fail(f"cannot write {output_dir}: {error.strerror}") from None
+    _report_compiler(result.warnings)
+    typer.echo(f"wrote {len(files)} modules to {output_dir}")
 
 
 def main() -> None:
