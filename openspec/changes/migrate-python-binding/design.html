@@ -32,6 +32,7 @@
 <li><a href="#risks">Risks and trade-offs</a></li>
 <li><a href="#migration">Migration and rollback</a></li>
 <li><a href="#acceptance">Acceptance examples</a></li>
+<li><a href="#findings">Implementation findings</a></li>
 </ul></nav>
 <section id="context"><h2>Context and evidence</h2>
 <p>See <a href="proposal.md">proposal.md</a> for motivation. Inspection used the clean local morphir-rust checkout at <code>f4298d0d416628ce3c910b662a78e224cf8eba8a</code>, on <code>chore/openspec-html-designs</code>. This is an observed source revision, not a claim that it is the eventual migration base. Before copying, select the current upstream main revision and reconcile binding changes since this snapshot.</p>
@@ -152,6 +153,20 @@ morphir-python generate model-v4.json --output-dir generated-v4
 <p>No unresolved design choice changes the scope or task breakdown. Exact release versions and approval timing are release inputs; source revisions and toolchain pins are implementation evidence to record before their dependent tasks.</p>
 </section>
 
+<h2 id="findings">Implementation findings</h2>
+<p>Implementation on 2026-10-27 found these facts. They refine the decisions above without changing scope.</p>
+<table>
+<thead><tr><th>Finding</th><th>Resolution</th></tr></thead>
+<tbody>
+<tr><td>The binding at finos/morphir-rust <code>0aa60eb</code> is unchanged since <code>f4298d0</code>, and published <code>morphir-core 0.2.0</code> and <code>morphir-extension-sdk 0.3.0</code> build it. Its examples failed at upstream too, because they skipped the MEP <code>initialize</code> handshake.</td><td>No git-revision fallback is needed. The examples now initialize, and <code>rust:check</code> runs them.</td></tr>
+<tr><td>The finos/morphir <code>morphir extension bundle</code> command packages native process executables only. A WASM guest still needs morphir-rust's <code>scripts/package_extension.py</code>, which reads claims through its workspace.</td><td>The pinned morphir-rust packager (<code>rust/extension.toml</code>) runs unchanged, with this repository's declaration, so the descriptor format stays the same. Native process bundling remains A2 work, <code>morphir-ukvn.1.3.3</code>.</td></tr>
+<tr><td>Rust core writes the compact canonical v4 spelling. The Python v4 reader accepted only the expanded spelling, but the profile at <code>efa36060</code> requires readers to accept every schema-valid spelling.</td><td>The Python reader now accepts them (the reader half of <code>morphir-ukvn.8.16</code>). The writer is unchanged.</td></tr>
+<tr><td>IR from <code>v3_to_v4</code> carries empty documentation and inferred-type attributes. The v4 backend rejected any documentation and rejects value attributes.</td><td>Empty documentation is now treated as absent, as the v3 reader already did. Value attributes keep their explicit <code>PY004</code>, and the limit is documented.</td></tr>
+<tr><td>A bundle built here would share version 0.4.0 with different morphir-rust bytes.</td><td>The compiler crate is now 0.4.1, so the first bundle from this repository gets a new version. The native distribution starts at 0.1.0.</td></tr>
+<tr><td>The PyO3 build script needs an interpreter even for Rust-only tests.</td><td>The CPython module sits behind a <code>python</code> feature that Maturin enables. Bridge logic, tests and benchmarks build without Python.</td></tr>
+<tr><td>In the first benchmark, the Python codecs and JSON exchange cost more than native compilation for large inputs. Interpreter start-up sets a CLI floor of about 65 ms on the measured machine.</td><td>Recorded as observations only. The private JSON boundary stays replaceable.</td></tr>
+</tbody>
+</table>
 </main>
 </body>
 </html>
