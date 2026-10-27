@@ -638,3 +638,82 @@ class TestInputDropCoverage:
         result = drop_input_attributes(app)
         assert isinstance(result.value, ApplicationDistribution)
         assert len(result.warnings) == 1
+
+
+def attributed_let() -> v.Value:
+    inner = v.Definition(
+        [(n("y"), v.ValueAttributes(inferred_type=STRING), INT)], INT, v.Unit(TYPED)
+    )
+    return v.LetDefinition(TYPED, n("g"), inner, v.Unit(TYPED))
+
+
+def annotated_spec() -> module.Specification:
+    def structured(name: str) -> ann.StructuredAnnotation:
+        return ann.StructuredAnnotation(
+            anno(name),
+            [
+                ann.PositionalArgument(attributed_let()),
+                ann.NamedArgument(n("k"), attributed_let()),
+            ],
+        )
+
+    return module.Specification(
+        types={
+            n("t"): Documented(
+                "doc", ts.OpaqueTypeSpecification([], [structured("type")])
+            )
+        },
+        values={
+            n("f"): Documented("doc", v.Specification([], INT, [structured("value")]))
+        },
+        annotations=[ann.CompactAnnotation(anno("stable")), structured("module")],
+    )
+
+
+class TestInputDropInSpecifications:
+    def test_specs_distribution_annotation_arguments(self) -> None:
+        from morphir.ir.migrate import drop_input_attributes
+
+        specs = SpecsDistribution(
+            PackageInfo(p(n("my"), n("pkg"))),
+            package.Specification({p(n("m")): annotated_spec()}),
+        )
+        with pytest.raises(DiagnosticError):
+            codec.encode_versioned_distribution(specs)
+        result = drop_input_attributes(specs)
+        assert len(result.warnings) == 6
+        assert {w.location[:3] for w in result.warnings} == {
+            ("distribution", "modules", "m")
+        }
+        codec.encode_versioned_distribution(result.value)
+
+    def test_library_dependency_specifications(self) -> None:
+        from morphir.ir.migrate import drop_input_attributes
+
+        lib = library()
+        lib = LibraryDistribution(
+            lib.package,
+            lib.definition,
+            {p(n("dep")): package.Specification({p(n("m")): annotated_spec()})},
+        )
+        result = drop_input_attributes(lib)
+        assert len(result.warnings) == 6
+        assert all(
+            w.location[:3] == ("distribution", "dependencies", "dep")
+            for w in result.warnings
+        )
+        codec.encode_versioned_distribution(result.value)
+
+    def test_application_dependency_definitions(self) -> None:
+        from morphir.ir.migrate import drop_input_attributes
+        from morphir.ir.v4.distribution import ApplicationDistribution
+
+        dep = library(values={n("f"): v.Definition([], INT, attributed_let())})
+        app = ApplicationDistribution(
+            dep.package, package.Definition(), {p(n("dep")): dep.definition}
+        )
+        result = drop_input_attributes(app)
+        assert [w.location[:3] for w in result.warnings] == [
+            ("distribution", "dependencies", "dep")
+        ]
+        codec.encode_versioned_distribution(result.value)

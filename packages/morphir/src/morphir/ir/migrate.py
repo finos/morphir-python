@@ -26,6 +26,7 @@ Example:
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from dataclasses import dataclass, field
 from typing import cast
@@ -527,6 +528,71 @@ class _InputDrop:
             )
         return pkg4.Definition(modules)
 
+    # Specifications: annotation arguments are expressions too.
+
+    def annotations(
+        self, items: list[ann4.Annotation], loc: Location
+    ) -> list[ann4.Annotation]:
+        result: list[ann4.Annotation] = []
+        for i, item in enumerate(items):
+            here = (*loc, "annotations", i)
+            if isinstance(item, ann4.CompactAnnotation):
+                result.append(item)
+                continue
+            arguments: list[ann4.AnnotationArgument] = []
+            for j, arg in enumerate(item.arguments):
+                at = (*here, "arguments", j)
+                match arg:
+                    case ann4.PositionalArgument(value):
+                        arguments.append(ann4.PositionalArgument(self.value(value, at)))
+                    case ann4.NamedArgument(name, value):
+                        arguments.append(
+                            ann4.NamedArgument(name, self.value(value, (*at, "value")))
+                        )
+            result.append(ann4.StructuredAnnotation(item.name, arguments))
+        return result
+
+    def module_spec(
+        self, spec: mod4.Specification, loc: Location
+    ) -> mod4.Specification:
+        types = {
+            k: doc4.Documented(
+                x.doc,
+                dataclasses.replace(
+                    x.value,
+                    annotations=self.annotations(
+                        x.value.annotations, (*loc, "types", name4.to_string(k))
+                    ),
+                ),
+            )
+            for k, x in spec.types.items()
+        }
+        values = {
+            k: doc4.Documented(
+                x.doc,
+                dataclasses.replace(
+                    x.value,
+                    annotations=self.annotations(
+                        x.value.annotations, (*loc, "values", name4.to_string(k))
+                    ),
+                ),
+            )
+            for k, x in spec.values.items()
+        }
+        return mod4.Specification(
+            types, values, spec.doc, self.annotations(spec.annotations, loc)
+        )
+
+    def package_spec(
+        self, spec: pkg4.Specification, loc: Location
+    ) -> pkg4.Specification:
+        return pkg4.Specification(
+            {
+                p: self.module_spec(m, (*loc, path4.to_string(p)))
+                for p, m in spec.modules.items()
+            }
+        )
+
 
 def _with_access[A, B](
     item: ac4.AccessControlled[A], value: B
@@ -543,8 +609,8 @@ def drop_input_attributes[D: dist4.Distribution](dist: D) -> Ok[D]:
     a distribution encodable. Module-level and let-bound definitions are covered.
 
     Args:
-        dist: Any v4 distribution. A Specs distribution has no definitions and
-            is returned unchanged.
+        dist: Any v4 distribution. Dependencies and the expressions in
+            specification annotation arguments are covered too.
 
     Returns:
         ``Ok`` with the distribution and one ``input_attributes_dropped`` warning
@@ -556,17 +622,30 @@ def drop_input_attributes[D: dist4.Distribution](dist: D) -> Ok[D]:
 def _drop_input_attributes[D: dist4.Distribution](dist: D) -> Ok[D]:
     job = _InputDrop()
     loc: Location = ("distribution", "modules")
+
+    def dep(p: path4.Path) -> Location:
+        return ("distribution", "dependencies", path4.to_string(p))
+
     result: dist4.Distribution
     match dist:
-        case dist4.SpecsDistribution():
-            return Ok(dist)
-        case dist4.LibraryDistribution(package, definition, dependencies):
+        case dist4.SpecsDistribution(package, specification, deps):
+            result = dist4.SpecsDistribution(
+                package,
+                job.package_spec(specification, loc),
+                {p: job.package_spec(s, dep(p)) for p, s in deps.items()},
+            )
+        case dist4.LibraryDistribution(package, definition, deps):
             result = dist4.LibraryDistribution(
-                package, job.package_def(definition, loc), dependencies
+                package,
+                job.package_def(definition, loc),
+                {p: job.package_spec(s, dep(p)) for p, s in deps.items()},
             )
         case dist4.ApplicationDistribution(package, definition, deps, entry_points):
             result = dist4.ApplicationDistribution(
-                package, job.package_def(definition, loc), deps, entry_points
+                package,
+                job.package_def(definition, loc),
+                {p: job.package_def(x, dep(p)) for p, x in deps.items()},
+                entry_points,
             )
     return Ok(cast("D", result), tuple(job.warnings))
 
