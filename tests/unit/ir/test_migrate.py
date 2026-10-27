@@ -14,6 +14,7 @@ from morphir.ir.v3 import literal as lit3
 from morphir.ir.v3 import package as pkg3
 from morphir.ir.v3 import type as t3
 from morphir.ir.v3 import value as val3
+from morphir.ir.v4 import annotation as ann4
 from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import document as doc4
 from morphir.ir.v4 import incompleteness as inc4
@@ -500,3 +501,29 @@ class TestSpecs:
         assert isinstance(down, Ok)
         up = v3_to_v4(down.value)
         assert up.value == specs()
+
+    def test_v3_specs_upgrade_has_no_annotations(self) -> None:
+        dist = load(FIXTURES / "mck-distributions-0011-specs.json")
+        assert isinstance(dist, v3.Specs)
+        up = v3_to_v4(dist, drop_input_attributes=True)
+        assert up.warnings == ()
+        assert isinstance(up.value, SpecsDistribution)
+        for mod in up.value.specification.modules.values():
+            for tpe in mod.types.values():
+                assert tpe.value.annotations == []
+        assert v4_codec.encode_versioned_distribution(up.value)["formatVersion"] == 4
+
+    def test_annotated_v4_specs_is_refused(self) -> None:
+        marker = ann4.CompactAnnotation(FQName(PKG, IRPath((n("a"),)), n("b")))
+        spec = module_spec()
+        inc = spec.values[n("inc")]
+        annotated = dataclasses.replace(
+            spec,
+            values={
+                n("inc"): Documented(
+                    inc.doc, dataclasses.replace(inc.value, annotations=[marker])
+                )
+            },
+        )
+        result = v4_to_v3(specs(spec=annotated))
+        assert errors(result) == [(d.UNSUPPORTED_V4_DOWNGRADE, "Annotations")]
