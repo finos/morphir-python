@@ -25,6 +25,8 @@ ALL = frozenset(c.CATEGORIES)
         (["uv.lock"], {"python", "native"}),
         (["rust/extension.toml"], {"bundle"}),
         (["tests/fixtures/python/loans/acme/rules.py"], {"python", "native", "bundle"}),
+        (["scripts/extension_bundle.py"], {"python", "bundle"}),
+        ([".gitignore"], {"python", "native"}),
         ([".github/workflows/ci.yml"], ALL),
         ([".config/mise/tasks/test"], ALL),
         (["something/new.txt"], ALL),

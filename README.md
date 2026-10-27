@@ -278,6 +278,8 @@ Publish in this order, each step after maintainer approval:
 1. `native-v<version>`, when the native compiler changed.
 2. `python-v<version>` for a CLI that pins it. Its qualification refuses to
    continue until every platform file of the pinned native version is on PyPI.
+   It then tests the CLI with the published Linux wheel, and refuses if the Rust
+   or native package sources changed after the `native-v` tag of that version.
 3. `extension/python/v<version>`, when the compiler changed. Then update the
    ecosystem pin in finos/morphir (`.config/published-extension-bundles.toml`).
 

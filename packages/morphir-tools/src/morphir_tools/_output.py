@@ -17,6 +17,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
 
+def umask() -> int:
+    """Return the process umask without changing it."""
+    mask = os.umask(0o022)
+    os.umask(mask)
+    return mask
+
+
 class OutputError(Exception):
     """Output cannot be published safely; nothing was written."""
 
@@ -88,8 +95,12 @@ def publish_tree(directory: Path, files: Sequence[tuple[str, str]]) -> None:
     check_destination(directory)
     parent = directory.parent
     parent.mkdir(parents=True, exist_ok=True)
+    # mkdtemp creates 0700; publish with the existing directory's mode, or the
+    # mode an ordinary mkdir would give under the user's umask.
+    mode = directory.stat().st_mode & 0o7777 if directory.exists() else 0o777 & ~umask()
     staging = Path(tempfile.mkdtemp(prefix=f".{directory.name}.", dir=parent))
     try:
+        staging.chmod(mode)
         for relative, text in files:
             target = staging.joinpath(*relative.split("/"))
             target.parent.mkdir(parents=True, exist_ok=True)

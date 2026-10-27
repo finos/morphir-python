@@ -32,7 +32,7 @@ from morphir.ir.v4 import distribution as v4_dist
 from morphir.ir.v4.name import Name as Name4
 from morphir.ir.v4.path import Path as Path4
 
-from ._output import OutputError, publish_tree, validate_artifact_paths
+from ._output import OutputError, publish_tree, umask, validate_artifact_paths
 
 if TYPE_CHECKING:
     from .python import CompilerDiagnostic
@@ -72,6 +72,9 @@ def _read(path: Path) -> str:
     except OSError as error:
         typer.echo(f"error: cannot read {path}: {error.strerror}", err=True)
         raise typer.Exit(1) from None
+    except UnicodeDecodeError:
+        typer.echo(f"error: cannot read {path}: the file is not UTF-8", err=True)
+        raise typer.Exit(1) from None
 
 
 def _write_atomically(target: Path, text: str) -> None:
@@ -80,6 +83,9 @@ def _write_atomically(target: Path, text: str) -> None:
         prefix=f".{target.name}.", suffix=".tmp", dir=directory
     )
     try:
+        # mkstemp creates 0600; keep an existing file's mode, or use the umask.
+        mode = target.stat().st_mode & 0o7777 if target.exists() else 0o666 & ~umask()
+        os.chmod(fd, mode)
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(text)
         Path(temp_name).replace(target)
@@ -292,6 +298,7 @@ def compile_command(
         CompiledV3,
         CompileFailure,
         IrVersion,
+        NativeCompilerError,
         NativeCompilerUnavailable,
         SourceDocument,
         compile_sources,
@@ -311,6 +318,8 @@ def compile_command(
         )
     except (ValueError, NativeCompilerUnavailable) as error:
         raise _fail(str(error)) from None
+    except NativeCompilerError as error:
+        raise _fail(f"internal compiler error: {error}") from None
     if isinstance(result, CompileFailure):
         _report_compiler(result.diagnostics)
         raise typer.Exit(1)
@@ -346,6 +355,7 @@ def generate_command(
     """
     from .python import (  # Loads the compiler on demand.
         GenerationFailure,
+        NativeCompilerError,
         NativeCompilerUnavailable,
         generate_python,
     )
@@ -365,6 +375,8 @@ def generate_command(
         result = generate_python(model)
     except NativeCompilerUnavailable as error:
         raise _fail(str(error)) from None
+    except NativeCompilerError as error:
+        raise _fail(f"internal compiler error: {error}") from None
     if isinstance(result, GenerationFailure):
         _report_compiler(result.diagnostics)
         raise typer.Exit(1)

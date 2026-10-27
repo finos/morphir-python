@@ -1528,3 +1528,12 @@ def module_of_path(dist: LibraryDistribution, path: Path) -> module.Definition:
     entry = dist.definition.modules[path]
     assert isinstance(entry, Public)
     return entry.value
+
+
+@pytest.mark.parametrize("text", [":#int", "morphir/sdk:#int", ":basics#int"])
+def test_fqname_strings_need_package_and_module_paths(text: str) -> None:
+    # The schema's FQNameString pattern requires a segment in each path.
+    with pytest.raises(DiagnosticError):
+        codec.decode_fqname(text)
+    with pytest.raises(DiagnosticError):
+        codec.decode_type(text)

@@ -627,7 +627,7 @@ def decode_path(j: object, loc: Location = ()) -> Path:
     return Path(tuple(decode_name(part, loc) for part in text.split("/")))
 
 
-_FQNAME = re.compile(r"^([^:#]*):([^:#]*)#([^:#/]+)$")
+_FQNAME = re.compile(r"^([^:#]+):([^:#]+)#([^:#/]+)$")
 
 
 def encode_fqname(fqn: FQName, loc: Location = ()) -> str:

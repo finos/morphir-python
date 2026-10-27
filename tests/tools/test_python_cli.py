@@ -414,3 +414,64 @@ class TestIndependence:
             check=True,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
+
+
+class TestOutputPermissions:
+    """Published output follows the user's umask, like an ordinary write."""
+
+    def test_generated_tree_and_compiled_file_are_not_private(
+        self, source: Path, tmp_path: Path
+    ) -> None:
+        previous = os.umask(0o022)
+        try:
+            model = compile_to(source, tmp_path / "m.json")
+            out = tmp_path / "generated"
+            assert run("generate", model, "--output-dir", out).exit_code == 0
+        finally:
+            os.umask(previous)
+        assert model.stat().st_mode & 0o777 == 0o644
+        assert out.stat().st_mode & 0o777 == 0o755
+        assert (out / "acme").stat().st_mode & 0o777 == 0o755
+        assert (out / "acme" / "rules.py").stat().st_mode & 0o777 == 0o644
+
+    def test_an_existing_empty_directory_keeps_its_mode(
+        self, source: Path, tmp_path: Path
+    ) -> None:
+        model = compile_to(source, tmp_path / "m.json")
+        out = tmp_path / "generated"
+        out.mkdir()
+        out.chmod(0o750)
+        assert run("generate", model, "--output-dir", out).exit_code == 0
+        assert out.stat().st_mode & 0o777 == 0o750
+
+
+class TestCleanErrors:
+    def test_a_non_utf8_source_is_reported_without_a_traceback(
+        self, tmp_path: Path
+    ) -> None:
+        file = tmp_path / "latin.py"
+        file.write_bytes("x = 'caf\xe9'\n".encode("latin-1"))
+        result = run("compile", file, "--package", "a/b", "--output", tmp_path / "o")
+        assert result.exit_code == 1
+        assert "not UTF-8" in result.output
+        assert result.exception is None or isinstance(result.exception, SystemExit)
+
+    def test_internal_compiler_errors_are_reported_without_a_traceback(
+        self, source: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from morphir_tools.python import _bridge
+
+        class Broken:
+            @staticmethod
+            def compile(request: str) -> str:
+                return json.dumps(
+                    {"success": False, "diagnostics": [], "internalError": "boom"}
+                )
+
+        monkeypatch.setattr(_bridge, "module", lambda: Broken)
+        result = run(
+            "compile", source, "--package", "a/b", "--output", tmp_path / "o.json"
+        )
+        assert result.exit_code == 1
+        assert "internal compiler error: boom" in result.output
+        assert isinstance(result.exception, SystemExit)

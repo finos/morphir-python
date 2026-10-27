@@ -6,6 +6,22 @@ native="${NATIVE_DIST:-$PWD/dist/native}"
 receipts="${QUALIFICATION_DIR:-$PWD/.dev/qualification}"
 mkdir -p "$receipts"
 shopt -s nullglob
+if [[ ${RELEASE_TAG:-} == python-v* ]]; then
+  # A CLI release ships with the published native compiler, so qualify those bytes,
+  # and refuse if the compiler sources changed after that native release.
+  pin="$(python3 -c 'import sys; sys.path.insert(0, "scripts"); import qualify_native as q; print(q.tools_pin())')"
+  git fetch --quiet --depth=1 origin "refs/tags/native-v$pin:refs/tags/native-v$pin"
+  if ! git diff --quiet "native-v$pin" HEAD -- rust packages/morphir-python-native; then
+    echo "the native compiler changed after native-v$pin; release a new native version first" >&2
+    exit 1
+  fi
+  native="$receipts/published-native"
+  rm -rf "$native"
+  uvx pip download --quiet --no-deps --only-binary=:all: --implementation cp \
+    --python-version 3.14 --abi abi3 --platform manylinux_2_28_x86_64 \
+    --dest "$native" "morphir-python-native==$pin"
+  export SKIP_SDIST_BUILD=1
+fi
 wheels=("$native"/morphir_python_native-*.whl)
 if [[ ${#wheels[@]} -ne 1 ]]; then
   echo "expected exactly one native wheel in $native" >&2

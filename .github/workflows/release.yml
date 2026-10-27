@@ -95,7 +95,9 @@ jobs:
         shell: bash
         run: |
           pipx run --spec 'auditwheel==6.8.2' auditwheel show dist/native/*.whl | tee audit.txt
-          grep -q '${{ matrix.platform }}' audit.txt
+          # The report starts with the file name, so match auditwheel's own verdict.
+          tr '\n' ' ' < audit.txt | tr -s ' ' \
+            | grep -q 'consistent with the following platform tag: "${{ matrix.platform }}"'
 
       - name: Set up Python 3.14
         uses: actions/setup-python@v6

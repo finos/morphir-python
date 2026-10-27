@@ -110,11 +110,14 @@ jobs:
           args: --release --locked --sdist --out ../../dist/native
 
       - name: Audit the Linux baseline and bundled libraries
+        shell: bash
         run: |
           # The build container writes dist/ as root.
           sudo chown -R "$(id -u):$(id -g)" dist
           pipx run --spec 'auditwheel==6.8.2' auditwheel show dist/native/*.whl | tee dist/native/auditwheel.txt
-          grep -q 'manylinux_2_28_x86_64' dist/native/auditwheel.txt
+          # The report starts with the file name, so match auditwheel's own verdict.
+          tr '\n' ' ' < dist/native/auditwheel.txt | tr -s ' ' \
+            | grep -q 'consistent with the following platform tag: "manylinux_2_28_x86_64"'
           sha256sum dist/native/*.whl dist/native/*.tar.gz | tee dist/native/SHA256SUMS
 
       - name: Upload the native distributions

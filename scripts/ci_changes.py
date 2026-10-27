@@ -43,7 +43,8 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (".github/*", CATEGORIES),
     (".config/mise/*", CATEGORIES),
     ("rust/extension.toml", ("bundle",)),
-    ("scripts/extension_bundle.py", ("bundle",)),
+    # Lint and type checks cover every script.
+    ("scripts/extension_bundle.py", ("python", "bundle")),
     ("rust/crates/morphir-python-binding/*", CATEGORIES),
     ("rust/crates/morphir-python-native/*", ("python", "native", "rust")),
     ("rust/*", CATEGORIES),
@@ -68,7 +69,8 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("renovate.json", ()),
     ("skills-lock.json", ()),
     (".beads/*", ()),
-    (".gitignore", ()),
+    # Hatchling uses .gitignore to choose the files in each source archive.
+    (".gitignore", ("python", "native")),
     (".gitattributes", ()),
 )
 
