@@ -61,7 +61,18 @@ from .type_constraints import TypeConstraints
 from .type_def import Definition as TypeDefinition
 from .type_spec import Specification as TypeSpecification
 from .value import Definition as ValueDefinition
-from .value import Pattern, Value, ValueAttributes
+from .value import (
+    ExternalBinding,
+    ExternalBody,
+    IncompleteBody,
+    NativeBody,
+    NativeHint,
+    NativeInfo,
+    Pattern,
+    Value,
+    ValueAttributes,
+    ValueDefinitionBody,
+)
 from .value import Specification as ValueSpecification
 
 __all__ = [
@@ -87,6 +98,8 @@ __all__ = [
     "DraftIncompleteness",
     "EntryPoint",
     "EntryPointKind",
+    "ExternalBinding",
+    "ExternalBody",
     "FQName",
     "Field",
     "FileMeta",
@@ -94,12 +107,16 @@ __all__ = [
     "FloatLiteral",
     "HoleIncompleteness",
     "HoleReason",
+    "IncompleteBody",
     "Incompleteness",
     "IntegerLiteral",
     "LayerManifest",
     "LibraryDistribution",
     "Literal",
     "Name",
+    "NativeBody",
+    "NativeHint",
+    "NativeInfo",
     "PackageInfo",
     "Path",
     "Pattern",
@@ -120,6 +137,7 @@ __all__ = [
     "Value",
     "ValueAttributes",
     "ValueDefinition",
+    "ValueDefinitionBody",
     "ValueSpecification",
     "incompleteness",
     "module",

@@ -166,3 +166,197 @@ class TestIncompleteness:
                 "distribution/modules/app/types/t/IncompleteTypeDefinition",
             )
         ]
+
+
+INPUTS_INT = [(n("a"), INT), (n("b"), INT)]
+X_JSON = {"Variable": {"attributes": {"inferredType": INT_JSON}, "name": "x"}}
+
+
+class TestDefinitionBodies:
+    def test_exported_from_v4(self) -> None:
+        assert v4.ValueDefinitionBody is v.ValueDefinitionBody
+        assert v4.NativeBody is v.NativeBody
+
+    def test_native_body_definitions_0009(self) -> None:
+        body = v.NativeBody(INPUTS_INT, INT, v.NativeInfo(v.Arithmetic()))
+        expected = {
+            "NativeBody": {
+                "inputTypes": {"a": INT_JSON, "b": INT_JSON},
+                "outputType": INT_JSON,
+                "nativeInfo": {"hint": {"Arithmetic": {}}},
+            }
+        }
+        assert codec.encode_value_definition(body) == expected
+        assert codec.decode_value_definition(expected) == body
+
+    @pytest.mark.parametrize(
+        "hint",
+        [
+            v.Comparison(),
+            v.StringOp(),
+            v.CollectionOp(),
+            v.PlatformSpecific("wasm"),
+        ],
+        ids=lambda h: type(h).__name__,
+    )
+    def test_native_hints_round_trip(self, hint: v.NativeHint) -> None:
+        body = v.NativeBody([], INT, v.NativeInfo(hint))
+        assert (
+            codec.decode_value_definition(codec.encode_value_definition(body)) == body
+        )
+
+    def test_platform_specific_names_its_platform_definitions_0030(self) -> None:
+        bad = {
+            "NativeBody": {
+                "inputTypes": {},
+                "outputType": INT_JSON,
+                "nativeInfo": {"hint": {"PlatformSpecific": {}}},
+            }
+        }
+        assert fail_codes(codec.decode_value_definition, bad) == (d.MISSING_MEMBER,)
+
+    def test_external_body_definitions_0007(self) -> None:
+        body = v.ExternalBody(
+            [(n("msg"), STRING)],
+            INT,
+            [v.ExternalBinding("javascript", "console.log")],
+        )
+        expected = {
+            "ExternalBody": {
+                "inputTypes": {"msg": STRING_JSON},
+                "outputType": INT_JSON,
+                "externals": [
+                    {"targetPlatform": "javascript", "externalName": "console.log"}
+                ],
+            }
+        }
+        assert codec.encode_value_definition(body) == expected
+        assert codec.decode_value_definition(expected) == body
+
+    def test_external_body_with_fallback_definitions_0008(self) -> None:
+        body = v.ExternalBody(
+            [(n("x"), INT)],
+            INT,
+            [
+                v.ExternalBinding("erlang", "math:abs"),
+                v.ExternalBinding("javascript", "Math.abs"),
+            ],
+            v.Variable(TYPED, n("x")),
+        )
+        encoded = codec.encode_value_definition(body)
+        assert encoded["ExternalBody"]["body"] == X_JSON
+        assert codec.decode_value_definition(encoded) == body
+
+    def test_duplicate_platform_is_refused(self) -> None:
+        bindings = [v.ExternalBinding("js", "a"), v.ExternalBinding("js", "b")]
+        body = v.ExternalBody([], INT, bindings)
+        assert fail_codes(codec.encode_value_definition, body) == (d.DUPLICATE_MEMBER,)
+        bad = {
+            "ExternalBody": {
+                "inputTypes": {},
+                "outputType": INT_JSON,
+                "externals": [
+                    {"targetPlatform": "js", "externalName": "a"},
+                    {"targetPlatform": "js", "externalName": "b"},
+                ],
+            }
+        }
+        assert fail_codes(codec.decode_value_definition, bad) == (d.DUPLICATE_MEMBER,)
+
+    def test_external_body_needs_a_binding(self) -> None:
+        body = v.ExternalBody([], INT, [])
+        assert fail_codes(codec.encode_value_definition, body) == (d.INVALID_JSON,)
+        bad = {
+            "ExternalBody": {"inputTypes": {}, "outputType": INT_JSON, "externals": []}
+        }
+        assert fail_codes(codec.decode_value_definition, bad) == (d.INVALID_JSON,)
+
+    def test_incomplete_body_definitions_0016(self) -> None:
+        body = v.IncompleteBody(
+            [(n("x"), INT)],
+            inc.HoleIncompleteness(inc.DeletedDuringRefactor("tx-42")),
+            INT,
+        )
+        expected = {
+            "IncompleteBody": {
+                "inputTypes": {"x": INT_JSON},
+                "outputType": INT_JSON,
+                "incompleteness": {
+                    "Hole": {"reason": {"DeletedDuringRefactor": {"tx-id": "tx-42"}}}
+                },
+            }
+        }
+        assert codec.encode_value_definition(body) == expected
+        assert codec.decode_value_definition(expected) == body
+
+    def test_incomplete_body_keeps_partial_value_definitions_0025(self) -> None:
+        body = v.IncompleteBody(
+            [], inc.DraftIncompleteness(), INT, v.Variable(TYPED, n("x"))
+        )
+        encoded = codec.encode_value_definition(body)
+        assert encoded["IncompleteBody"]["partialBody"] == X_JSON
+        assert codec.decode_value_definition(encoded) == body
+        no_output = v.IncompleteBody([], inc.DraftIncompleteness())
+        encoded = codec.encode_value_definition(no_output)
+        assert "outputType" not in encoded["IncompleteBody"]
+        assert codec.decode_value_definition(encoded) == no_output
+
+    def test_let_binding_holds_any_body(self) -> None:
+        native = v.NativeBody([], INT, v.NativeInfo(v.Arithmetic()))
+        let = v.LetDefinition(TYPED, n("f"), native, v.Variable(TYPED, n("f")))
+        assert codec.decode_value(codec.encode_value(let)) == let
+
+    def test_library_mixing_bodies_round_trips(self) -> None:
+        lib = library(
+            values={
+                n("native"): v.NativeBody([], INT, v.NativeInfo(v.Arithmetic())),
+                n("expr"): v.Definition([], INT, v.Unit(TYPED)),
+            }
+        )
+        document = codec.encode_versioned_distribution(lib)
+        assert codec.decode_versioned_distribution(document) == lib
+
+    def test_new_bodies_do_not_downgrade(self) -> None:
+        native = v.NativeBody([], INT, v.NativeInfo(v.Arithmetic()))
+        external = v.ExternalBody([], INT, [v.ExternalBinding("js", "f")])
+        incomplete = v.IncompleteBody([], inc.DraftIncompleteness())
+        let = v.Definition(
+            [], INT, v.LetDefinition(TYPED, n("g"), native, v.Unit(TYPED))
+        )
+        lib = library(
+            values={
+                n("n"): native,
+                n("e"): external,
+                n("i"): incomplete,
+                n("l"): let,
+            }
+        )
+        values = "distribution/modules/app/values"
+        assert downgrade_errors(lib) == [
+            (d.UNSUPPORTED_V4_DOWNGRADE, "NativeBody", f"{values}/n/NativeBody"),
+            (d.UNSUPPORTED_V4_DOWNGRADE, "ExternalBody", f"{values}/e/ExternalBody"),
+            (
+                d.UNSUPPORTED_V4_DOWNGRADE,
+                "IncompleteBody",
+                f"{values}/i/IncompleteBody",
+            ),
+            (
+                d.UNSUPPORTED_V4_DOWNGRADE,
+                "NativeBody",
+                f"{values}/l/body/LetDefinition/definition/NativeBody",
+            ),
+        ]
+
+    def test_input_drop_walks_external_fallback(self) -> None:
+        from morphir.ir.migrate import drop_input_attributes
+
+        inner = v.Definition(
+            [(n("y"), v.ValueAttributes(inferred_type=STRING), INT)],
+            INT,
+            v.Unit(TYPED),
+        )
+        fallback = v.LetDefinition(TYPED, n("g"), inner, v.Unit(TYPED))
+        external = v.ExternalBody([], INT, [v.ExternalBinding("js", "f")], fallback)
+        result = drop_input_attributes(library(values={n("e"): external}))
+        assert [w.location[-1] for w in result.warnings] == ["y"]
+        codec.encode_versioned_distribution(result.value)

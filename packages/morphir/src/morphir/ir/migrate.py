@@ -382,7 +382,32 @@ class _InputDrop:
     def __init__(self) -> None:
         self.warnings: list[Diagnostic] = []
 
-    def definition(self, defn: v4.Definition, loc: Location) -> v4.Definition:
+    def definition(
+        self, defn: v4.ValueDefinitionBody, loc: Location
+    ) -> v4.ValueDefinitionBody:
+        match defn:
+            case v4.Definition():
+                return self.expression(defn, loc)
+            case v4.ExternalBody(inputs, output, externals, fallback):
+                here = (*loc, "ExternalBody", "body")
+                return v4.ExternalBody(
+                    inputs,
+                    output,
+                    externals,
+                    None if fallback is None else self.value(fallback, here),
+                )
+            case v4.IncompleteBody(inputs, incompleteness, output, partial):
+                here = (*loc, "IncompleteBody", "partial_body")
+                return v4.IncompleteBody(
+                    inputs,
+                    incompleteness,
+                    output,
+                    None if partial is None else self.value(partial, here),
+                )
+            case v4.NativeBody():
+                return defn
+
+    def expression(self, defn: v4.Definition, loc: Location) -> v4.Definition:
         inputs: list[tuple[name4.Name, v4.ValueAttributes, t4.Type]] = []
         for n, attrs, tpe in defn.input_types:
             declared = v4.ValueAttributes(inferred_type=tpe)
@@ -919,7 +944,13 @@ class _Downgrade:
             case _:
                 return v3.Unit(a)
 
-    def value_def(self, defn: v4.Definition, loc: Location) -> TypedDefinition3:
+    def value_def(
+        self, defn: v4.ValueDefinitionBody, loc: Location
+    ) -> TypedDefinition3:
+        if not isinstance(defn, v4.Definition):
+            construct = type(defn).__name__
+            self.unsupported(construct, (*loc, construct))
+            return v3.Definition((), t3.Unit(None), v3.Unit(t3.Unit(None)))
         inputs = []
         for n, va, tpe in defn.input_types:
             here = (*loc, "input_types", name4.to_string(n))

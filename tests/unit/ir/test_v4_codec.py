@@ -403,9 +403,11 @@ class TestDecodeFailures:
             codec.decode_versioned_distribution, {"formatVersion": 3}
         ) == (d.UNSUPPORTED_FORMAT_VERSION_MAJOR,)
 
-    def test_other_definition_bodies_are_unknown(self) -> None:
+    def test_unknown_definition_body(self) -> None:
+        other = {"MacroBody": {"inputTypes": {}, "outputType": {"Unit": {}}}}
+        assert fail_codes(codec.decode_value_definition, other) == (d.UNKNOWN_NODE,)
         native = {"NativeBody": {"inputTypes": {}, "outputType": {"Unit": {}}}}
-        assert fail_codes(codec.decode_value_definition, native) == (d.UNKNOWN_NODE,)
+        assert fail_codes(codec.decode_value_definition, native) == (d.MISSING_MEMBER,)
 
     @pytest.mark.parametrize(
         "bad",

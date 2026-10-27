@@ -22,7 +22,7 @@ class Definition:
     types: dict[Name, AccessControlled[Documented[type_def.Definition]]] = field(
         default_factory=dict
     )
-    values: dict[Name, AccessControlled[Documented[value.Definition]]] = field(
+    values: dict[Name, AccessControlled[Documented[value.ValueDefinitionBody]]] = field(
         default_factory=dict
     )
     doc: str | None = None

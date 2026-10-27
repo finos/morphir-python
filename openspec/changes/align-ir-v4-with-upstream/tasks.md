@@ -16,11 +16,11 @@
 
 ## 3. Value-definition bodies (morphir-ukvn.8.14.1)
 
-- [ ] 3.1 Add `NativeHint` kinds, `NativeInfo`, `ExternalBinding`, `NativeBody`, `ExternalBody`, `IncompleteBody` and `ValueDefinitionBody` to `morphir.ir.v4.value`, widen module values and let bindings to `ValueDefinitionBody`, and verify the type checkers pass
-- [ ] 3.2 Encode and decode the three bodies with the kit members, and verify round trips for kit `definitions-0007` to `-0009`, `-0016` and `-0025` in expanded form
-- [ ] 3.3 Refuse duplicate target platforms (`duplicate_member`), an empty `externals` list, and a `PlatformSpecific` hint without `platform` (`missing_member`), and verify one test each
-- [ ] 3.4 Make reverse migration fail with `unsupported_v4_downgrade` for each new body at module level and in a let binding, and verify the locations
-- [ ] 3.5 Make `drop_input_attributes` and the expression-body checks skip the new bodies, which hold bare input types, and verify a Library that mixes bodies encodes
+- [x] 3.1 Add `NativeHint` kinds, `NativeInfo`, `ExternalBinding`, `NativeBody`, `ExternalBody`, `IncompleteBody` and `ValueDefinitionBody` to `morphir.ir.v4.value`, widen module values and let bindings to `ValueDefinitionBody`, and verify the type checkers pass
+- [x] 3.2 Encode and decode the three bodies with the kit members, and verify round trips for kit `definitions-0007` to `-0009`, `-0016` and `-0025` in expanded form
+- [x] 3.3 Refuse duplicate target platforms (`duplicate_member`), an empty `externals` list, and a `PlatformSpecific` hint without `platform` (`missing_member`), and verify one test each
+- [x] 3.4 Make reverse migration fail with `unsupported_v4_downgrade` for each new body at module level and in a let binding, and verify the locations
+- [x] 3.5 Make `drop_input_attributes` and the expression-body checks skip the new bodies, which hold bare input types, and verify a Library that mixes bodies encodes
 
 ## 4. Annotations on specifications (morphir-ukvn.8.14.3)
 

@@ -164,6 +164,17 @@ INCOMPLETENESS_NODES: dict[str, Members] = {
 
 VALUE_DEFINITION_NODES: dict[str, Members] = {
     "ExpressionBody": _m("inputTypes outputType body", ""),
+    "NativeBody": _m("inputTypes outputType nativeInfo", ""),
+    "ExternalBody": _m("inputTypes outputType externals", "body"),
+    "IncompleteBody": _m("inputTypes incompleteness", "outputType partialBody"),
+}
+
+NATIVE_HINT_NODES: dict[str, Members] = {
+    "Arithmetic": _m("", ""),
+    "Comparison": _m("", ""),
+    "StringOp": _m("", ""),
+    "CollectionOp": _m("", ""),
+    "PlatformSpecific": _m("platform", ""),
 }
 
 DISTRIBUTION_NODES: dict[str, Members] = {
@@ -1177,8 +1188,7 @@ def _encode_inputs(
     return _keyed(inputs, _name_key, encode_type, loc, construct)
 
 
-def encode_value_definition(defn: v.Definition, loc: Location = ()) -> Json:
-    """Encode a value definition as ``{"ExpressionBody": {...}}``."""
+def _encode_expression_body(defn: v.Definition, loc: Location) -> Json:
     here = (*loc, "ExpressionBody")
     for i, (name, attrs, tpe) in enumerate(defn.input_types):
         derived = v.ValueAttributes(inferred_type=tpe)
@@ -1205,9 +1215,144 @@ def encode_value_definition(defn: v.Definition, loc: Location = ()) -> Json:
     }
 
 
-def decode_value_definition(j: object, loc: Location = ()) -> v.Definition:
-    """Decode ``{"ExpressionBody": {...}}``; other bodies are not supported."""
-    _, body, here = _node(j, loc, "ValueDefinition", VALUE_DEFINITION_NODES)
+def _encode_native_hint(hint: v.NativeHint) -> Json:
+    if isinstance(hint, v.PlatformSpecific):
+        return _wrap("PlatformSpecific", {"platform": hint.platform})
+    return _wrap(type(hint).__name__, {})
+
+
+def _decode_native_hint(j: object, loc: Location) -> v.NativeHint:
+    tag, body, here = _node(j, loc, "NativeHint", NATIVE_HINT_NODES)
+    match tag:
+        case "Arithmetic":
+            return v.Arithmetic()
+        case "Comparison":
+            return v.Comparison()
+        case "StringOp":
+            return v.StringOp()
+        case "CollectionOp":
+            return v.CollectionOp()
+        case _:
+            return v.PlatformSpecific(
+                _expect_str(body["platform"], (*here, "platform"), tag)
+            )
+
+
+def _encode_externals(bindings: list[v.ExternalBinding], loc: Location) -> list[Json]:
+    if not bindings:
+        raise fail(
+            d.INVALID_JSON,
+            "ExternalBody",
+            loc,
+            "an external body needs at least one platform binding",
+        )
+    seen: set[str] = set()
+    result: list[Json] = []
+    for i, binding in enumerate(bindings):
+        if binding.target_platform in seen:
+            raise fail(
+                d.DUPLICATE_MEMBER,
+                "ExternalBinding",
+                (*loc, i, "targetPlatform"),
+                f"target platform {binding.target_platform!r} is bound more than once",
+            )
+        seen.add(binding.target_platform)
+        result.append(
+            {
+                "targetPlatform": binding.target_platform,
+                "externalName": binding.external_name,
+            }
+        )
+    return result
+
+
+def _decode_externals(j: object, loc: Location) -> list[v.ExternalBinding]:
+    items = _expect_list(j, loc, "ExternalBody")
+    if not items:
+        raise fail(
+            d.INVALID_JSON,
+            "ExternalBody",
+            loc,
+            "an external body needs at least one platform binding",
+        )
+    bindings: list[v.ExternalBinding] = []
+    for i, item in enumerate(items):
+        here = (*loc, i)
+        obj = _expect_object(item, here, "ExternalBinding")
+        _check_members(
+            obj, _m("targetPlatform externalName", ""), here, "ExternalBinding"
+        )
+        bindings.append(
+            v.ExternalBinding(
+                _expect_str(
+                    obj["targetPlatform"], (*here, "targetPlatform"), "ExternalBinding"
+                ),
+                _expect_str(
+                    obj["externalName"], (*here, "externalName"), "ExternalBinding"
+                ),
+            )
+        )
+    # Re-encode to apply the same uniqueness rule as the writer.
+    _encode_externals(bindings, loc)
+    return bindings
+
+
+def encode_value_definition(defn: v.ValueDefinitionBody, loc: Location = ()) -> Json:
+    """Encode a value definition as ``{"<Kind>Body": {...}}``.
+
+    Raises:
+        DiagnosticError: With ``no_v4_spelling`` when an expression-body input
+            carries attributes other than its declared type, ``duplicate_member``
+            when an external body binds a platform twice, and ``invalid_json``
+            when it binds none.
+    """
+    match defn:
+        case v.Definition():
+            return _encode_expression_body(defn, loc)
+        case v.NativeBody(inputs, output, info):
+            here = (*loc, "NativeBody")
+            return _wrap(
+                "NativeBody",
+                {
+                    "inputTypes": _encode_inputs(
+                        inputs, (*here, "inputTypes"), "NativeBody"
+                    ),
+                    "outputType": encode_type(output, (*here, "outputType")),
+                    "nativeInfo": {"hint": _encode_native_hint(info.hint)},
+                },
+            )
+        case v.ExternalBody(inputs, output, externals, fallback):
+            here = (*loc, "ExternalBody")
+            members: dict[str, Json] = {
+                "inputTypes": _encode_inputs(
+                    inputs, (*here, "inputTypes"), "ExternalBody"
+                ),
+                "outputType": encode_type(output, (*here, "outputType")),
+                "externals": _encode_externals(externals, (*here, "externals")),
+            }
+            if fallback is not None:
+                members["body"] = encode_value(fallback, (*here, "body"))
+            return _wrap("ExternalBody", members)
+        case v.IncompleteBody(inputs, incompleteness, output, partial):
+            here = (*loc, "IncompleteBody")
+            members = {
+                "inputTypes": _encode_inputs(
+                    inputs, (*here, "inputTypes"), "IncompleteBody"
+                )
+            }
+            if output is not None:
+                members["outputType"] = encode_type(output, (*here, "outputType"))
+            members["incompleteness"] = encode_incompleteness(
+                incompleteness, (*here, "incompleteness")
+            )
+            if partial is not None:
+                members["partialBody"] = encode_value(partial, (*here, "partialBody"))
+            return _wrap("IncompleteBody", members)
+
+
+def decode_value_definition(j: object, loc: Location = ()) -> v.ValueDefinitionBody:
+    """Decode an expression, native, external or incomplete body."""
+    tag, body, here = _node(j, loc, "ValueDefinition", VALUE_DEFINITION_NODES)
     inputs = _unkeyed(
         body["inputTypes"],
         decode_name,
@@ -1215,11 +1360,45 @@ def decode_value_definition(j: object, loc: Location = ()) -> v.Definition:
         (*here, "inputTypes"),
         "inputTypes",
     )
-    return v.Definition(
-        [(n, v.ValueAttributes(inferred_type=tp), tp) for n, tp in inputs],
-        decode_type(body["outputType"], (*here, "outputType")),
-        decode_value(body["body"], (*here, "body")),
-    )
+
+    def optional_type(key: str) -> t.Type | None:
+        return decode_type(body[key], (*here, key)) if key in body else None
+
+    def optional_value(key: str) -> v.Value | None:
+        return decode_value(body[key], (*here, key)) if key in body else None
+
+    match tag:
+        case "ExpressionBody":
+            return v.Definition(
+                [(n, v.ValueAttributes(inferred_type=tp), tp) for n, tp in inputs],
+                decode_type(body["outputType"], (*here, "outputType")),
+                decode_value(body["body"], (*here, "body")),
+            )
+        case "NativeBody":
+            info_loc = (*here, "nativeInfo")
+            info = _expect_object(body["nativeInfo"], info_loc, "NativeInfo")
+            _check_members(info, _m("hint", ""), info_loc, "NativeInfo")
+            return v.NativeBody(
+                inputs,
+                decode_type(body["outputType"], (*here, "outputType")),
+                v.NativeInfo(_decode_native_hint(info["hint"], (*info_loc, "hint"))),
+            )
+        case "ExternalBody":
+            return v.ExternalBody(
+                inputs,
+                decode_type(body["outputType"], (*here, "outputType")),
+                _decode_externals(body["externals"], (*here, "externals")),
+                optional_value("body"),
+            )
+        case _:
+            return v.IncompleteBody(
+                inputs,
+                decode_incompleteness(
+                    body["incompleteness"], (*here, "incompleteness")
+                ),
+                optional_type("outputType"),
+                optional_value("partialBody"),
+            )
 
 
 def encode_value_specification(spec: v.Specification, loc: Location = ()) -> Json:
