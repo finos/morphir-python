@@ -77,6 +77,14 @@ class CustomConstraint:
 
 @dataclass(frozen=True)
 class TypeConstraints:
+    """Structured constraints on a type.
+
+    Deprecated: the upstream v4 schema keeps ``TypeAttributes.constraints`` as a
+    placeholder with no defined members, so these constraints have no v4 spelling
+    and encoding fails with ``no_v4_spelling``. Keep constraints in
+    ``TypeAttributes.extensions`` until upstream defines them.
+    """
+
     numeric: NumericConstraint | None = None
     string: StringConstraint | None = None
     collection: CollectionConstraint | None = None

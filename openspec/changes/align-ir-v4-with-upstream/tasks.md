@@ -37,10 +37,10 @@
 
 ## 6. Deprecations, docs and integration checks (morphir-ukvn.8.14.5)
 
-- [ ] 6.1 Mark the `Native` and `External` value nodes and `TypeConstraints` as deprecated in docstrings, naming the replacement, and verify a test that they still fail encoding with `no_v4_spelling`
-- [ ] 6.2 Update the codec module docstring's gap list and the README "Morphir IR versions" section for the new constructs and the typed hole reason, and verify the README examples run
-- [ ] 6.3 File a follow-up bead to remove the deprecated constructs and verify it is a child of `morphir-ukvn.8` with label `repo:morphir-python`
-- [ ] 6.4 Run `mise run check` and `mise run test-bdd` and verify lint, both type checkers, tests and coverage of at least 80% pass
+- [x] 6.1 Mark the `Native` and `External` value nodes and `TypeConstraints` as deprecated in docstrings, naming the replacement, and verify a test that they still fail encoding with `no_v4_spelling`
+- [x] 6.2 Update the codec module docstring's gap list and the README "Morphir IR versions" section for the new constructs and the typed hole reason, and verify the README examples run
+- [x] 6.3 File a follow-up bead to remove the deprecated constructs and verify it is a child of `morphir-ukvn.8` with label `repo:morphir-python`
+- [x] 6.4 Run `mise run check` and `mise run test-bdd` and verify lint, both type checkers, tests and coverage of at least 80% pass
 
 ## Workflow follow-up
 

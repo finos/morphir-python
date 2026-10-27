@@ -586,3 +586,55 @@ class TestUnion:
                 "distribution/modules/app/types/t/Union",
             )
         ]
+
+
+class TestDeprecated:
+    @pytest.mark.parametrize(
+        ("cls", "replacement"),
+        [(v.Native, "NativeBody"), (v.External, "ExternalBody")],
+    )
+    def test_value_nodes_name_their_replacement(
+        self, cls: type, replacement: str
+    ) -> None:
+        doc = cls.__doc__ or ""
+        assert "Deprecated" in doc
+        assert replacement in doc
+
+    def test_type_constraints_are_deprecated(self) -> None:
+        from morphir.ir.v4.type_constraints import TypeConstraints
+
+        assert "Deprecated" in (TypeConstraints.__doc__ or "")
+
+
+class TestInputDropCoverage:
+    def test_walks_incomplete_partial_body_and_keeps_native(self) -> None:
+        from morphir.ir.migrate import drop_input_attributes
+
+        inner = v.Definition(
+            [(n("y"), v.ValueAttributes(inferred_type=STRING), INT)],
+            INT,
+            v.Unit(TYPED),
+        )
+        partial = v.LetDefinition(TYPED, n("g"), inner, v.Unit(TYPED))
+        incomplete = v.IncompleteBody([], inc.DraftIncompleteness(), None, partial)
+        native = v.NativeBody([], INT, v.NativeInfo(v.Arithmetic()))
+        lib = library(values={n("i"): incomplete, n("n"): native})
+        result = drop_input_attributes(lib)
+        assert [w.location[-1] for w in result.warnings] == ["y"]
+        mod = result.value.definition.modules[p(n("app"))]
+        assert mod.value.values[n("n")].value.value == native
+
+    def test_application_distribution(self) -> None:
+        from morphir.ir.migrate import drop_input_attributes
+        from morphir.ir.v4.distribution import ApplicationDistribution
+
+        defn = v.Definition(
+            [(n("x"), v.ValueAttributes(inferred_type=STRING), INT)],
+            INT,
+            v.Unit(TYPED),
+        )
+        lib = library(values={n("main"): defn})
+        app = ApplicationDistribution(lib.package, lib.definition)
+        result = drop_input_attributes(app)
+        assert isinstance(result.value, ApplicationDistribution)
+        assert len(result.warnings) == 1

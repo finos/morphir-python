@@ -14,16 +14,20 @@ Every node is written in the schema's expanded form, ``{"Kind": {members}}``, wi
 in `TYPE_NODES`, `VALUE_NODES`, `PATTERN_NODES`, and the other tables below, and
 fails with a located diagnostic on anything else; it does not guess.
 
+The codec covers the value-definition bodies (``ExpressionBody``, ``NativeBody``,
+``ExternalBody``, ``IncompleteBody``), ``IncompleteTypeDefinition`` with typed hole
+reasons, annotations on specifications, and the draft ``Union`` type (from
+``docs/spec/draft/types.md``, not yet in the pinned schema).
+
 Known gaps between the Python v4 model and upstream v4, each handled explicitly:
 
-- ``Native`` and ``External`` value nodes have no spelling (upstream makes them
-  definition bodies); encoding fails with ``no_v4_spelling``.
-- Structured ``TypeConstraints`` have no spelling; encoding fails with
-  ``no_v4_spelling``.
-- Upstream ``Union`` types, ``IncompleteTypeDefinition``, annotations, and the
-  ``NativeBody``, ``ExternalBody``, and ``IncompleteBody`` definition bodies are
-  not in the Python model; decoding fails with ``unknown_node`` or
-  ``unknown_member``.
+- The deprecated Python ``Native`` and ``External`` value nodes have no spelling
+  (upstream makes them definition bodies); encoding fails with ``no_v4_spelling``.
+- Structured ``TypeConstraints`` (deprecated) have no spelling; encoding fails
+  with ``no_v4_spelling``.
+- Only the expanded spelling is read and written. Compact spellings, the legacy
+  spellings readers accept for one release, and the 4.1.0 linked annotations
+  wait for the re-sync when upstream v4 settles.
 - Records are objects keyed by field name (finos decision 0004); duplicate field
   names fail encoding with ``duplicate_member``.
 - ``ExpressionBody.inputTypes`` has no attribute slot: upstream spells an input as

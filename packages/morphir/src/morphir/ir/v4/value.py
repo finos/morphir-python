@@ -285,7 +285,12 @@ class Hole:
 
 @dataclass(frozen=True)
 class Native:
-    """Represents a native reference."""
+    """A native reference as a value node.
+
+    Deprecated: upstream v4 makes native operations definition bodies, not
+    expressions (finos/morphir decision 0008), so this node has no v4 spelling and
+    encoding fails with ``no_v4_spelling``. Use `NativeBody` instead.
+    """
 
     attributes: ValueAttributes
     fqname: FQName
@@ -294,7 +299,12 @@ class Native:
 
 @dataclass(frozen=True)
 class External:
-    """Represents an external reference."""
+    """An external reference as a value node.
+
+    Deprecated: upstream v4 makes external operations definition bodies, not
+    expressions (finos/morphir decision 0008), so this node has no v4 spelling and
+    encoding fails with ``no_v4_spelling``. Use `ExternalBody` instead.
+    """
 
     attributes: ValueAttributes
     external_name: str
