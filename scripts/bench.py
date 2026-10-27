@@ -506,7 +506,7 @@ def main(argv: list[str] | None = None) -> None:
             args.warmup,
             args.repetitions,
             args.process_repetitions,
-        )  # fmt: skip
+        )
         for name, sources in inputs.items()
         for version in ("3", "4")
     ]

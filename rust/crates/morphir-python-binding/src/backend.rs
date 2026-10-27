@@ -47,6 +47,12 @@ pub(crate) fn generate(request: &GenerateRequest) -> Outcome<Vec<Artifact>> {
         .collect()
 }
 
+/// Whether documentation has text. Empty text, which IR migrated from v3 carries,
+/// documents nothing, as the v3 reader already treats it.
+fn documents(doc: &Option<Documentation>) -> bool {
+    doc.as_ref().is_some_and(|doc| !doc.text().is_empty())
+}
+
 fn render_module(
     library: &LibraryContent,
     module_name: &str,
@@ -55,7 +61,7 @@ fn render_module(
     tuple_aliases: &crate::values::TupleAliases,
     signatures: &crate::values::Signatures,
 ) -> Outcome<Artifact> {
-    if module.value.doc.is_some() {
+    if documents(&module.value.doc) {
         return Err(error(
             "PY004",
             "Module documentation is not supported by the Python backend",
@@ -89,7 +95,7 @@ fn render_module(
 
     for (name, definition) in &module.value.types {
         require_public(definition.access)?;
-        if definition.value.doc.is_some() {
+        if documents(&definition.value.doc) {
             return Err(error("PY004", "Type documentation is not supported yet"));
         }
         let python = &type_names[name];
@@ -155,7 +161,7 @@ fn render_module(
     source.push_str(&aliases.join("\n"));
     for (name, definition) in &module.value.values {
         require_public(definition.access)?;
-        if definition.value.doc.is_some() {
+        if documents(&definition.value.doc) {
             return Err(error(
                 "PY004",
                 "Function documentation is not supported yet",

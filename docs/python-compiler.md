@@ -122,6 +122,18 @@ or `GenerationFailure`. A Specs or Application distribution fails with
 `unsupported_distribution`. Convert legacy formats 1 and 2 with
 `morphir-python ir convert` first.
 
+Generation reads both v4 spellings, the compact one the compiler and other
+Morphir tools write and the expanded one the Python codec writes. Two limits
+apply:
+
+- IR v3 integer literals must fit in 64 bits. Compile to v4 for larger integers;
+  v4 keeps them exactly.
+- Generation does not yet accept v4 values that carry attributes. A v4 model
+  that `morphir.ir.migrate.v3_to_v4` made from typed v3 IR keeps the inferred
+  types as attributes, so generation rejects it with `PY004`. Generate from the
+  v3 model instead. Empty documentation, which such a model also carries, is
+  accepted; documentation text is rejected rather than dropped.
+
 The order of the source documents does not change the result. Calls hold no
 shared state, so several threads can compile at the same time; the compiler runs
 without holding Python's global interpreter lock.

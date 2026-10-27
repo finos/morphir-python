@@ -259,3 +259,28 @@ fn classic_names_cannot_silently_change_the_python_model() {
         assert_eq!(compiled.diagnostics[0].code.as_deref(), Some("PY003"));
     }
 }
+
+/// v3 always carries documentation strings, so IR migrated from v3 carries empty v4
+/// documentation. Empty text documents nothing and generates; real text is still
+/// rejected rather than dropped.
+#[test]
+fn v4_empty_documentation_generates_but_text_is_rejected() {
+    let mut ir = compile(a_request("4"));
+    let module = &mut ir["distribution"]["Library"]["def"]["modules"]["domain/models"]["Private"];
+    module["doc"] = json!("");
+    let point = &mut module["types"]["point"]["Public"];
+    let body = point.as_object().unwrap().clone();
+    *point = json!({"doc": ""});
+    point.as_object_mut().unwrap().extend(body);
+    let choose = &mut ir["distribution"]["Library"]["def"]["modules"]["domain/rules"]["Public"]["values"]
+        ["choose"]["Public"];
+    choose["doc"] = json!("");
+    let result = generate(ir.clone());
+    assert!(result.success, "{:?}", result.diagnostics);
+
+    ir["distribution"]["Library"]["def"]["modules"]["domain/models"]["Private"]["types"]["point"]
+        ["Public"]["doc"] = json!("A point.");
+    let rejected = generate(ir);
+    assert!(!rejected.success);
+    assert_eq!(rejected.diagnostics[0].code.as_deref(), Some("PY004"));
+}
