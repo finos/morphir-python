@@ -1,6 +1,6 @@
 [project]
 name = "morphir-python"
-version = "0.0.2"
+version = "0.0.3"
 description = "CLI tools and extensions for Morphir Python"
 readme = "README.md"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ authors = [
     { name = "FINOS", email = "morphir@finos.org" }
 ]
 dependencies = [
-    "morphir>=0.0.1",
+    "morphir>=0.0.2",
     # Exact qualified native compiler; checked again when the compiler first loads.
     "morphir-python-native==0.1.0",
     "typer>=0.15",

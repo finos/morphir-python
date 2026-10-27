@@ -20,15 +20,15 @@ The library and CLI are separate distributions:
 Install just the library and SDK:
 
 ```bash
-pip install morphir==0.0.1
-# or: uv add morphir==0.0.1
+pip install morphir==0.0.2
+# or: uv add morphir==0.0.2
 ```
 
 Install the CLI, which also installs the library:
 
 ```bash
-pip install morphir-python==0.0.2
-# or: uv add morphir-python==0.0.2
+pip install morphir-python==0.0.3
+# or: uv add morphir-python==0.0.3
 ```
 
 Python 3.14 or later is required. The CLI inspects and converts IR, compiles a
@@ -51,10 +51,10 @@ existing virtual environment:
 
 ```bash
 python -m pip uninstall -y morphir-python morphir
-python -m pip install morphir-python==0.0.2
+python -m pip install morphir-python==0.0.3
 ```
 
-Library-only consumers can install `morphir==0.0.1` instead. Imports remain
+Library-only consumers can install `morphir==0.0.2` instead. Imports remain
 `morphir` and `morphir_tools`; the command remains `morphir-python`. The release
 checks exercise the uninstall/reinstall migration from the published old bundle.
 

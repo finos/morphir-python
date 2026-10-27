@@ -1,6 +1,6 @@
 [project]
 name = "morphir"
-version = "0.0.1"
+version = "0.0.2"
 description = "Python port of Morphir - functional domain modeling for the enterprise"
 readme = "README.md"
 license = "Apache-2.0"
