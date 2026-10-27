@@ -1,4 +1,4 @@
-# Morphir Tools
+# Morphir Python
 
 CLI tools and extensions for [Morphir Python](https://github.com/finos/morphir-python).
 
@@ -12,30 +12,32 @@ This package provides:
 ## Installation
 
 ```bash
-pip install morphir-tools
+pip install morphir-python
 ```
 
 Or with uv:
 
 ```bash
-uv add morphir-tools
+uv add morphir-python
 ```
 
-This will also install the `morphir` core library as a dependency.
+The `morphir-python` distribution includes the `morphir` core library and SDK
+runtime alongside the CLI. It does not depend on a separate `morphir` PyPI
+package. Python imports remain `morphir` and `morphir_tools`.
 
 ## Usage
 
-The `morphir-tools` command inspects and converts versioned `morphir-ir.json`
+The `morphir-python` command inspects and converts versioned `morphir-ir.json`
 files. It reads format 3.0.x (what morphir-elm writes), format 3.1.x (which adds
 the v3 `Specs` distribution) and draft IR 4.0.x, reads the legacy formats 1 and 2
 to upgrade them, and uses the `morphir` library for every read, write, and
 migration.
 
 ```bash
-morphir-tools ir inspect morphir-ir.json
-morphir-tools ir convert morphir-ir.json --to v4 -o out.json --package-version 1.2.0
-morphir-tools ir convert v4.json --to v3 -o out.json --drop-source-locations
-morphir-tools ir convert old-format-1.json --to v3 -o out.json
+morphir-python ir inspect morphir-ir.json
+morphir-python ir convert morphir-ir.json --to v4 -o out.json --package-version 1.2.0
+morphir-python ir convert v4.json --to v3 -o out.json --drop-source-locations
+morphir-python ir convert old-format-1.json --to v3 -o out.json
 ```
 
 `inspect` prints the normalized format version, the distribution kind
@@ -56,7 +58,7 @@ format-version rules and the draft v4 status.
 ## Requirements
 
 - Python 3.14+
-- morphir (core library)
+- Core library and SDK included
 
 ## License
 

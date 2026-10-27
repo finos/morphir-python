@@ -1235,7 +1235,7 @@ def _encode_expression_body(defn: v.Definition, loc: Location) -> Json:
                 f"input {encode_name(name, here)!r} carries attributes other than its "
                 "declared type; ExpressionBody.inputTypes has no attribute slot. "
                 "Drop them with morphir.ir.migrate.drop_input_attributes or "
-                "`morphir-tools ir convert --drop-input-attributes`",
+                "`morphir-python ir convert --drop-input-attributes`",
             )
     return {
         "ExpressionBody": {

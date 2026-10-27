@@ -1,10 +1,12 @@
-"""Tests for the morphir-tools package."""
+"""Tests for the morphir-python package."""
+
+from importlib.metadata import distribution, version
 
 import morphir_tools
 
 
 class TestMorphirToolsPackage:
-    """Tests for the morphir-tools package initialization."""
+    """Tests for the morphir-python package initialization."""
 
     def test_version_is_defined(self) -> None:
         """The package should have a version attribute."""
@@ -13,6 +15,24 @@ class TestMorphirToolsPackage:
     def test_version_matches_expected(self, sample_version: str) -> None:
         """The version should match the expected value."""
         assert morphir_tools.__version__ == sample_version
+
+    def test_installed_distribution_name(self) -> None:
+        """The tools import belongs to the morphir-python distribution."""
+        assert version("morphir-python") == morphir_tools.__version__
+
+    def test_installed_console_command(self) -> None:
+        """The published command is named morphir-python."""
+        commands = {
+            entry.name: entry.value
+            for entry in distribution("morphir-python").entry_points
+            if entry.group == "console_scripts"
+        }
+        assert commands == {"morphir-python": "morphir_tools.cli:main"}
+
+    def test_bundle_does_not_require_separate_core(self) -> None:
+        """Installing the bundle must not query PyPI for an unpublished core."""
+        requirements = distribution("morphir-python").requires or []
+        assert not any(item.startswith("morphir") for item in requirements)
 
     def test_version_is_string(self) -> None:
         """The version should be a string."""
