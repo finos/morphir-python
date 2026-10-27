@@ -8,15 +8,15 @@
 
 ## 2. V3 Specs distribution model and codec (morphir-ukvn.8.13.2)
 
-- [ ] 2.1 Copy the kit case distributions-0011 and the morphir-rust `SPECS` document into `tests/fixtures/ir/v3/` and record both in `PROVENANCE.md` (design TST-1); verify the files parse as JSON
-- [ ] 2.2 Write failing codec tests: the fixtures round trip and the kit fixture re-encodes to its canonical JSON; `Specs` at `3`, `"3"`, `"3.0.0"`, `"3.0.1"` fails with `specs_before_3_1`; a `Library` at `"3.1.0"` reads and writes `3`; a module definition in a `Specs` fails with `unknown_member`; an unknown tag names both kinds; verify they fail
-- [ ] 2.3 Add `SPECS_BEFORE_3_1` to `morphir.ir.diagnostics`, the `Specs` dataclass and `Distribution = Library | Specs` to `morphir.ir.v3.distribution`, and export `Specs` from `morphir.ir.v3` (design V3-1)
-- [ ] 2.4 Decode and encode `Specs` in `morphir.ir.v3.codec`: strict own modules, the version check before the body, and the lowest-version writer (design V3-2 to V3-5); verify the codec tests pass with mypy and pyright strict
+- [x] 2.1 Copy the kit case distributions-0011 and the morphir-rust `SPECS` document into `tests/fixtures/ir/v3/` and record both in `PROVENANCE.md` (design TST-1); verify the files parse as JSON
+- [x] 2.2 Write failing codec tests: the fixtures round trip and the kit fixture re-encodes to its canonical JSON; `Specs` at `3`, `"3"`, `"3.0.0"`, `"3.0.1"` fails with `specs_before_3_1`; a `Library` at `"3.1.0"` reads and writes `3`; a module definition in a `Specs` fails with `unknown_member`; an unknown tag names both kinds; verify they fail
+- [x] 2.3 Add `SPECS_BEFORE_3_1` to `morphir.ir.diagnostics`, the `Specs` dataclass and `Distribution = Library | Specs` to `morphir.ir.v3.distribution`, and export `Specs` from `morphir.ir.v3` (design V3-1)
+- [x] 2.4 Decode and encode `Specs` in `morphir.ir.v3.codec`: strict own modules, the version check before the body, and the lowest-version writer (design V3-2 to V3-5); verify the codec tests pass with mypy and pyright strict
 
 ## 3. V3 and v4 Specs migrations (morphir-ukvn.8.13.3)
 
-- [ ] 3.1 Write failing migration tests: a v3 `Specs` migrates to a v4 `Specs`; a compatible v4 `Specs` downgrades with `package_version_dropped`; a v4 `Specs` without member documentation fails with `unsupported_documentation_downgrade`; an `Application` still fails with `unsupported_v4_downgrade`; the fixtures survive v3 to v4 to v3; verify they fail
-- [ ] 3.2 Add `Specs` branches and typed overloads to `v3_to_v4` and `v4_to_v3` without touching the `Library` path or any v4 file (design MIG-1); verify the migration tests and doctests pass
+- [x] 3.1 Write failing migration tests: a v3 `Specs` migrates to a v4 `Specs`; a compatible v4 `Specs` downgrades with `package_version_dropped`; a v4 `Specs` without member documentation fails with `unsupported_documentation_downgrade`; an `Application` still fails with `unsupported_v4_downgrade`; the fixtures survive v3 to v4 to v3; verify they fail
+- [x] 3.2 Add `Specs` branches and typed overloads to `v3_to_v4` and `v4_to_v3` without touching the `Library` path or any v4 file (design MIG-1); verify the migration tests and doctests pass
 
 ## 4. IR interchange CLI and docs for IR 3.1 (morphir-ukvn.8.13.4)
 

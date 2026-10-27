@@ -95,7 +95,7 @@ class TestInspect:
         assert "cannot read" in result.stderr
 
     def test_same_codes_as_library(self, tmp_path: Path) -> None:
-        doc = {"formatVersion": 3, "distribution": ["Specs", [], [], {}]}
+        doc = {"formatVersion": 3, "distribution": ["Application", [], [], {}]}
         result = run("ir", "inspect", write(tmp_path, "x.json", doc))
         assert result.exit_code == 1
         assert d.UNKNOWN_NODE in result.stderr
@@ -148,7 +148,10 @@ class TestConvert:
         assert run("ir", "convert", v4_file, "--to", "v4", "-o", out).exit_code == 0
 
     def test_downgrade_failure_leaves_no_output(self, tmp_path: Path) -> None:
-        doc = {"formatVersion": 4, "distribution": {"Specs": {"packageName": "a"}}}
+        doc = {
+            "formatVersion": 4,
+            "distribution": {"Application": {"packageName": "a", "entryPoints": {}}},
+        }
         out = tmp_path / "out.json"
         result = run(
             "ir", "convert", write(tmp_path, "x.json", doc), "--to", "v3", "-o", out

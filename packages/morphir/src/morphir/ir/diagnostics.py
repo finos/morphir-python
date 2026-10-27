@@ -5,6 +5,8 @@ edit. Codes reuse upstream vocabulary where it exists:
 
 - format-version codes come from the finos/morphir format-version contract
   (``docs/spec/ir/format-version.md``);
+- ``specs_before_3_1`` comes from the finos/morphir v3 specification
+  (``docs/spec/ir/schemas/v3/whats-new.md``, decision record 0018);
 - decoding codes come from the Morphir Compatibility Kit (morphir-rust
   ``ir/diagnostic.rs``);
 - downgrade codes come from the finos CLI and morphir-moonbit
@@ -27,6 +29,9 @@ INVALID_FORMAT_VERSION_SYNTAX = "invalid_format_version_syntax"
 FORMAT_VERSION_OUT_OF_RANGE = "format_version_out_of_range"
 UNSUPPORTED_FORMAT_VERSION_MAJOR = "unsupported_format_version_major"
 UNSUPPORTED_FORMAT_VERSION_MINOR = "unsupported_format_version_minor"
+
+# A v3 Specs distribution declared below 3.1.0 (finos/morphir decision record 0018).
+SPECS_BEFORE_3_1 = "specs_before_3_1"
 
 # Decoding (Morphir Compatibility Kit).
 UNKNOWN_NODE = "unknown_node"

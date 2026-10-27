@@ -133,14 +133,23 @@ v3 spec and kit win, and morphir-rust <code>cd9f7fb</code> is the reference impl
 diagnostic now names both kinds.</p>
 
 <h3 id="mig-1">MIG-1. Typed overloads; specifications reuse the existing mappings</h3>
-<p><code>v3_to_v4</code> and <code>v4_to_v3</code> keep their names and gain <code>@overload</code> signatures, so a
-caller that passes a <code>Library</code> still gets a <code>Library</code> type back:</p>
+<p><code>v3_to_v4</code> and <code>v4_to_v3</code> keep their names and gain one <code>@overload</code> per
+distribution kind, so a caller that passes a <code>Library</code> still gets a <code>Library</code> type back:</p>
 <pre><code class="language-python">@overload
 def v3_to_v4(dist: dist3.Library, *, package_version: str | None = None) -&gt; Ok[dist4.LibraryDistribution]: ...
 @overload
 def v3_to_v4(dist: dist3.Specs, *, package_version: str | None = None) -&gt; Ok[dist4.SpecsDistribution]: ...
+
 @overload
-def v3_to_v4(dist: dist3.Distribution, *, package_version: str | None = None) -&gt; Ok[dist4.LibraryDistribution | dist4.SpecsDistribution]: ...</code></pre>
+def v4_to_v3(dist: dist4.LibraryDistribution, *, drop_source_locations: bool = False) -&gt; MigrationResult[dist3.Library]: ...
+@overload
+def v4_to_v3(dist: dist4.SpecsDistribution, *, drop_source_locations: bool = False) -&gt; MigrationResult[dist3.Specs]: ...
+@overload
+def v4_to_v3(dist: dist4.ApplicationDistribution, *, drop_source_locations: bool = False) -&gt; Err: ...</code></pre>
+<p>There is no catch-all overload for a union argument. <code>Ok</code> is invariant (a frozen dataclass has
+<code>__replace__</code>), so a union overload would overlap the others with an incompatible return type, which
+pyright refuses. mypy and pyright both expand a union argument across the overloads instead, so the CLI, which holds
+<code>Library | Specs</code>, gets <code>Ok[...Library] | Ok[...Specs]</code>.</p>
 <p>A v3 <code>Specs</code> maps its package specification with <code>_package_spec_up</code>, the function that already
 maps dependencies. A v4 <code>Specs</code> maps with <code>_Downgrade.package_spec</code>, so it collects the same
 diagnostics (names, attributes, documentation) and warns <code>package_version_dropped</code> the same way. An

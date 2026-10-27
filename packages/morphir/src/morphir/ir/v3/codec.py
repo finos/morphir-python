@@ -1,13 +1,15 @@
-"""JSON codecs for Morphir IR format 3.0.0.
+"""JSON codecs for Morphir IR format 3 (3.0.0 and 3.1.0).
 
 Each section mirrors one morphir-elm codec module at commit bc99af69
-(``src/Morphir/IR/*/Codec.elm``). As in elm, node codecs take attribute codecs as
+(``src/Morphir/IR/*/Codec.elm``). The ``Specs`` distribution of format 3.1.0,
+which elm does not have, follows the finos/morphir v3 specification
+(``docs/spec/ir/schemas/v3/whats-new.md``) and morphir-rust commit cd9f7fb. As in elm, node codecs take attribute codecs as
 parameters, so untyped fragments such as ``["Literal", {}, ["WholeNumberLiteral",
 42]]`` decode with `decode_unit`. Dictionaries are written sorted by key, as elm's
 ``Dict.toList`` does.
 
-The only intended departure from elm is the ``formatVersion`` reader, which is
-`morphir.ir.format_version` (elm accepts only an integer).
+The only intended departure from elm for 3.0.0 content is the ``formatVersion``
+reader, which is `morphir.ir.format_version` (elm accepts only an integer).
 
 Decoders raise `DiagnosticError` with a location path from the decoded value.
 """
@@ -20,13 +22,20 @@ from typing import Any
 
 from .. import diagnostics as d
 from ..diagnostics import DiagnosticError, Location, fail
-from ..format_version import V3, V3_TABLE, read_document, write_format_version
+from ..format_version import (
+    V3,
+    V3_1,
+    V3_TABLE,
+    FormatVersion,
+    read_document,
+    write_format_version,
+)
 from . import literal as lit
 from . import module, package
 from . import type as t
 from . import value as v
 from .access_controlled import Access, AccessControlled
-from .distribution import Library
+from .distribution import Distribution, Library, Specs
 from .documented import Documented
 from .fqname import FQName
 from .name import Name
@@ -1063,35 +1072,101 @@ _encode_library_def = encode_package_definition(encode_unit, _encode_typed_type)
 _decode_library_def = decode_package_definition(decode_unit, _decode_typed_type)
 
 
-def encode_distribution(dist: Library) -> Json:
-    """Encode a distribution as elm's ``["Library", name, deps, def]``."""
-    return [
-        "Library",
-        encode_path(dist.package_name),
-        _sorted_pairs(dist.dependencies, encode_path, _encode_dependency),
-        _encode_library_def(dist.definition),
-    ]
+_encode_specs_def = encode_package_specification(encode_unit)
+_SPECS_MODULE_MEMBERS = frozenset({"types", "values", "doc"})
 
 
-def decode_distribution(j: object, loc: Location = ()) -> Library:
-    """Decode a distribution; only the ``Library`` tag exists in format 3.0.0."""
+def _decode_specs_module(j: object, loc: Location = ()) -> module.Specification[None]:
+    """Decode one of a Specs distribution's own modules, refusing other members.
+
+    The elm-faithful module-specification decoder ignores unknown members, so a
+    module definition would read as a broken specification. As in morphir-rust
+    ``SpecsModuleEntry``, only ``types``, ``values`` and ``doc`` are accepted here.
+    """
+    obj = _expect_object(j, loc, "ModuleSpecification")
+    for key in obj:
+        if key not in _SPECS_MODULE_MEMBERS:
+            raise fail(
+                d.UNKNOWN_MEMBER,
+                "ModuleSpecification",
+                (*loc, key),
+                "a v3 Specs distribution holds module specifications, not "
+                f"definitions: unexpected member {key!r}",
+            )
+    return _decode_dependency_module(obj, loc)
+
+
+_decode_dependency_module = decode_module_specification(decode_unit)
+
+
+def _decode_specs_def(j: object, loc: Location = ()) -> package.Specification[None]:
+    obj = _expect_object(j, loc, "PackageSpecification")
+    return package.Specification(
+        _pair_list_to_dict(
+            decode_path,
+            _decode_specs_module,
+            _field(obj, "modules", loc, "PackageSpecification"),
+            (*loc, "modules"),
+            "Modules",
+        )
+    )
+
+
+def encode_distribution(dist: Distribution) -> Json:
+    """Encode a distribution as ``[kind, name, deps, def or spec]``.
+
+    A `Library` is elm's ``["Library", name, deps, def]``; a `Specs` is
+    ``["Specs", name, deps, spec]``.
+    """
+    match dist:
+        case Library():
+            return [
+                "Library",
+                encode_path(dist.package_name),
+                _sorted_pairs(dist.dependencies, encode_path, _encode_dependency),
+                _encode_library_def(dist.definition),
+            ]
+        case Specs():
+            return [
+                "Specs",
+                encode_path(dist.package_name),
+                _sorted_pairs(dist.dependencies, encode_path, _encode_dependency),
+                _encode_specs_def(dist.specification),
+            ]
+
+
+def decode_distribution(j: object, loc: Location = ()) -> Distribution:
+    """Decode a ``Library`` or, from format 3.1.0, a ``Specs`` distribution.
+
+    This decoder does not see ``formatVersion``; `decode_versioned_distribution`
+    refuses a ``Specs`` declared below 3.1.0.
+    """
     tag, items = _tag(j, loc, "Distribution")
-    if tag != "Library":
+    if tag not in ("Library", "Specs"):
         raise fail(
             d.UNKNOWN_NODE,
             "Distribution",
             (*loc, 0),
-            f"unknown distribution kind {tag!r}; format 3.0.0 has only Library",
+            f"unknown distribution kind {tag!r}; format 3 has Library and, "
+            "from 3.1.0, Specs",
         )
 
     def at(i: int) -> tuple[object, Location]:
         return _index(items, i, loc, tag), (*loc, i)
 
+    package_name = decode_path(*at(1))
+    dependencies = _pair_list_to_dict(
+        decode_path, _decode_dependency, *at(2), "Dependencies"
+    )
+    if tag == "Specs":
+        return Specs(
+            package_name=package_name,
+            specification=_decode_specs_def(*at(3)),
+            dependencies=dependencies,
+        )
     return Library(
-        package_name=decode_path(*at(1)),
-        dependencies=_pair_list_to_dict(
-            decode_path, _decode_dependency, *at(2), "Dependencies"
-        ),
+        package_name=package_name,
+        dependencies=dependencies,
         definition=_decode_library_def(*at(3)),
     )
 
@@ -1099,19 +1174,34 @@ def decode_distribution(j: object, loc: Location = ()) -> Library:
 # --- FormatVersion ---
 
 
-def encode_versioned_distribution(dist: Library) -> dict[str, Json]:
-    """Encode ``{"formatVersion": 3, "distribution": ...}``, version first."""
+def format_version_of(dist: Distribution) -> FormatVersion:
+    """Return the lowest release that expresses ``dist``.
+
+    A `Library` needs only 3.0.0; a `Specs` needs 3.1.0, the release that added
+    it (finos/morphir decision record 0018).
+    """
+    return V3_1 if isinstance(dist, Specs) else V3
+
+
+def encode_versioned_distribution(dist: Distribution) -> dict[str, Json]:
+    """Encode ``{"formatVersion": ..., "distribution": ...}``, version first.
+
+    The version is the lowest one that fits the content: ``3`` for a `Library`,
+    ``"3.1.0"`` for a `Specs`, whatever version the input declared.
+    """
     return {
-        "formatVersion": write_format_version(V3),
+        "formatVersion": write_format_version(format_version_of(dist)),
         "distribution": encode_distribution(dist),
     }
 
 
-def decode_versioned_distribution(document: str | object) -> Library:
+def decode_versioned_distribution(document: str | object) -> Distribution:
     """Decode a format-3 ``morphir-ir.json`` document.
 
     The format version is read with the shared permissive reader and must be in
-    ``[3.0.0,3.2.0)``; ``4`` fails with ``unsupported_format_version_major``.
+    ``[3.0.0,3.2.0)``; ``4`` fails with ``unsupported_format_version_major``. A
+    ``Specs`` distribution declared below 3.1.0 fails with ``specs_before_3_1``
+    before its body is decoded.
 
     Args:
         document: JSON text or an already-decoded JSON value.
@@ -1119,11 +1209,20 @@ def decode_versioned_distribution(document: str | object) -> Library:
     Raises:
         DiagnosticError: On a format-version or decoding failure.
     """
-    _, root = read_document(document, V3_TABLE)
+    version, root = read_document(document, V3_TABLE)
     obj = _expect_object(root, (), "document")
-    return decode_distribution(
-        _field(obj, "distribution", (), "document"), ("distribution",)
-    )
+    distribution = _field(obj, "distribution", (), "document")
+    loc: Location = ("distribution",)
+    tag, _ = _tag(distribution, loc, "Distribution")
+    if tag == "Specs" and version < V3_1:
+        raise fail(
+            d.SPECS_BEFORE_3_1,
+            "Specs",
+            ("formatVersion",),
+            f"a v3 Specs distribution needs formatVersion {V3_1} or later, "
+            f"found {obj['formatVersion']!r}",
+        )
+    return decode_distribution(distribution, loc)
 
 
 __all__ = [
@@ -1172,4 +1271,5 @@ __all__ = [
     "encode_value_definition",
     "encode_value_specification",
     "encode_versioned_distribution",
+    "format_version_of",
 ]
