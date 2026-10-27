@@ -53,6 +53,7 @@ from typing import Any
 from .. import diagnostics as d
 from ..diagnostics import DiagnosticError, Location, fail
 from ..format_version import V4, V4_TABLE, read_document, write_format_version
+from . import annotation as ann
 from . import document as doc
 from . import incompleteness as inc
 from . import literal as lit
@@ -139,10 +140,12 @@ PATTERN_NODES: dict[str, Members] = {
 }
 
 TYPE_SPECIFICATION_NODES: dict[str, Members] = {
-    "TypeAliasSpecification": _m("typeParams typeExp", ""),
-    "OpaqueTypeSpecification": _m("", "typeParams"),
-    "CustomTypeSpecification": _m("typeParams constructors", ""),
-    "DerivedTypeSpecification": _m("typeParams baseType fromBaseType toBaseType", ""),
+    "TypeAliasSpecification": _m("typeParams typeExp", "annotations"),
+    "OpaqueTypeSpecification": _m("", "annotations typeParams"),
+    "CustomTypeSpecification": _m("typeParams constructors", "annotations"),
+    "DerivedTypeSpecification": _m(
+        "typeParams baseType fromBaseType toBaseType", "annotations"
+    ),
 }
 
 TYPE_DEFINITION_NODES: dict[str, Members] = {
@@ -1402,18 +1405,113 @@ def decode_value_definition(j: object, loc: Location = ()) -> v.ValueDefinitionB
 
 
 def encode_value_specification(spec: v.Specification, loc: Location = ()) -> Json:
-    return {
-        "inputs": _encode_inputs(spec.inputs, (*loc, "inputs"), "ValueSpecification"),
-        "output": encode_type(spec.output, (*loc, "output")),
-    }
+    return _with_annotations(
+        spec.annotations,
+        loc,
+        {
+            "inputs": _encode_inputs(
+                spec.inputs, (*loc, "inputs"), "ValueSpecification"
+            ),
+            "output": encode_type(spec.output, (*loc, "output")),
+        },
+    )
 
 
 def decode_value_specification(j: object, loc: Location = ()) -> v.Specification:
     obj = _expect_object(j, loc, "ValueSpecification")
-    _check_members(obj, _m("inputs output", ""), loc, "ValueSpecification")
+    _check_members(obj, _m("inputs output", "annotations"), loc, "ValueSpecification")
     return v.Specification(
         _unkeyed(obj["inputs"], decode_name, decode_type, (*loc, "inputs"), "inputs"),
         decode_type(obj["output"], (*loc, "output")),
+        _decode_annotations(obj, loc),
+    )
+
+
+# --- Annotations ---
+
+
+def encode_annotation(item: ann.Annotation, loc: Location = ()) -> Json:
+    """Encode an annotation in the form it was written in."""
+    match item:
+        case ann.CompactAnnotation(name, text):
+            fqn = encode_fqname(name, loc)
+            return fqn if text is None else f"{fqn}:{text}"
+        case ann.StructuredAnnotation(name, arguments):
+            members: dict[str, Json] = {"name": encode_fqname(name, loc)}
+            if arguments:
+                members["arguments"] = [
+                    _encode_annotation_argument(x, (*loc, "arguments", i))
+                    for i, x in enumerate(arguments)
+                ]
+            return members
+
+
+def _encode_annotation_argument(arg: ann.AnnotationArgument, loc: Location) -> Json:
+    match arg:
+        case ann.PositionalArgument(value):
+            return encode_value(value, loc)
+        case ann.NamedArgument(name, value):
+            return {
+                "name": encode_name(name, loc),
+                "value": encode_value(value, (*loc, "value")),
+            }
+
+
+def decode_annotation(j: object, loc: Location = ()) -> ann.Annotation:
+    """Decode a compact string or a structured annotation object.
+
+    In the compact form the free text starts after the first colon after ``#``.
+    """
+    if isinstance(j, str):
+        hash_at = j.find("#")
+        colon_at = j.find(":", hash_at) if hash_at >= 0 else -1
+        if colon_at < 0:
+            return ann.CompactAnnotation(decode_fqname(j, loc))
+        return ann.CompactAnnotation(
+            decode_fqname(j[:colon_at], loc), j[colon_at + 1 :]
+        )
+    obj = _expect_object(j, loc, "Annotation")
+    _check_members(obj, _m("name", "arguments"), loc, "Annotation")
+    arguments = (
+        _decode_list(
+            _decode_annotation_argument,
+            obj["arguments"],
+            (*loc, "arguments"),
+            "Annotation",
+        )
+        if "arguments" in obj
+        else []
+    )
+    return ann.StructuredAnnotation(decode_fqname(obj["name"], loc), arguments)
+
+
+def _decode_annotation_argument(j: object, loc: Location) -> ann.AnnotationArgument:
+    if isinstance(j, dict) and set(j) == {"name", "value"}:
+        return ann.NamedArgument(
+            decode_name(j["name"], (*loc, "name")),
+            decode_value(j["value"], (*loc, "value")),
+        )
+    return ann.PositionalArgument(decode_value(j, loc))
+
+
+def _with_annotations(
+    annotations: list[ann.Annotation], loc: Location, members: dict[str, Json]
+) -> dict[str, Json]:
+    """Put a non-empty ``annotations`` member first, as the kit writes it."""
+    if not annotations:
+        return members
+    encoded = [
+        encode_annotation(x, (*loc, "annotations", i))
+        for i, x in enumerate(annotations)
+    ]
+    return {"annotations": encoded, **members}
+
+
+def _decode_annotations(obj: dict[str, object], loc: Location) -> list[ann.Annotation]:
+    if "annotations" not in obj:
+        return []
+    return _decode_list(
+        decode_annotation, obj["annotations"], (*loc, "annotations"), "annotations"
     )
 
 
@@ -1459,6 +1557,12 @@ def _decode_constructors(j: object, loc: Location) -> ts.Constructors:
 
 
 def encode_type_specification(spec: ts.Specification, loc: Location = ()) -> Json:
+    tag = type(spec).__name__
+    encoded = _encode_type_specification(spec, loc)
+    return _wrap(tag, _with_annotations(spec.annotations, (*loc, tag), encoded[tag]))
+
+
+def _encode_type_specification(spec: ts.Specification, loc: Location) -> Json:
     params = _encode_params(spec.type_params, loc)
     match spec:
         case ts.TypeAliasSpecification(_, tpe):
@@ -1498,17 +1602,19 @@ def decode_type_specification(j: object, loc: Location = ()) -> ts.Specification
         if "typeParams" in body
         else []
     )
+    annotations = _decode_annotations(body, here)
     match tag:
         case "TypeAliasSpecification":
             return ts.TypeAliasSpecification(
-                params, decode_type(body["typeExp"], (*here, "typeExp"))
+                params, decode_type(body["typeExp"], (*here, "typeExp")), annotations
             )
         case "OpaqueTypeSpecification":
-            return ts.OpaqueTypeSpecification(params)
+            return ts.OpaqueTypeSpecification(params, annotations)
         case "CustomTypeSpecification":
             return ts.CustomTypeSpecification(
                 params,
                 _decode_constructors(body["constructors"], (*here, "constructors")),
+                annotations,
             )
         case _:
             return ts.DerivedTypeSpecification(
@@ -1518,6 +1624,7 @@ def decode_type_specification(j: object, loc: Location = ()) -> ts.Specification
                     decode_fqname(body["fromBaseType"], here),
                     decode_fqname(body["toBaseType"], here),
                 ),
+                annotations,
             )
 
 
@@ -1667,22 +1774,28 @@ def _decode_doc(obj: dict[str, object], loc: Location) -> str | None:
 
 
 def encode_module_specification(spec: module.Specification, loc: Location = ()) -> Json:
-    return _with_doc(
-        {
-            "types": _keyed(
-                spec.types, _name_key, _enc_type_spec, (*loc, "types"), "types"
-            ),
-            "values": _keyed(
-                spec.values, _name_key, _enc_value_spec, (*loc, "values"), "values"
-            ),
-        },
-        spec.doc,
+    return _with_annotations(
+        spec.annotations,
+        loc,
+        _with_doc(
+            {
+                "types": _keyed(
+                    spec.types, _name_key, _enc_type_spec, (*loc, "types"), "types"
+                ),
+                "values": _keyed(
+                    spec.values, _name_key, _enc_value_spec, (*loc, "values"), "values"
+                ),
+            },
+            spec.doc,
+        ),
     )
 
 
 def decode_module_specification(j: object, loc: Location = ()) -> module.Specification:
     obj = _expect_object(j, loc, "ModuleSpecification")
-    _check_members(obj, _m("", "types values doc"), loc, "ModuleSpecification")
+    _check_members(
+        obj, _m("", "annotations types values doc"), loc, "ModuleSpecification"
+    )
     return module.Specification(
         types=dict(
             _unkeyed(
@@ -1703,6 +1816,7 @@ def decode_module_specification(j: object, loc: Location = ()) -> module.Specifi
             )
         ),
         doc=_decode_doc(obj, loc),
+        annotations=_decode_annotations(obj, loc),
     )
 
 

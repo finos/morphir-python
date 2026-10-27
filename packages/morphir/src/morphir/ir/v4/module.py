@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 from . import type_def, type_spec, value
 from .access_controlled import AccessControlled
+from .annotation import Annotation
 from .documented import Documented
 from .name import Name
 from .path import Path
@@ -15,6 +16,7 @@ class Specification:
     types: dict[Name, Documented[type_spec.Specification]] = field(default_factory=dict)
     values: dict[Name, Documented[value.Specification]] = field(default_factory=dict)
     doc: str | None = None
+    annotations: list[Annotation] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

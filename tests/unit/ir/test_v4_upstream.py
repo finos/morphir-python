@@ -12,13 +12,19 @@ from morphir.ir import diagnostics as d
 from morphir.ir import v4
 from morphir.ir.diagnostics import DiagnosticError
 from morphir.ir.migrate import Err, v4_to_v3
+from morphir.ir.v4 import annotation as ann
 from morphir.ir.v4 import codec, module, package
 from morphir.ir.v4 import incompleteness as inc
 from morphir.ir.v4 import type as t
 from morphir.ir.v4 import type_def as td
+from morphir.ir.v4 import type_spec as ts
 from morphir.ir.v4 import value as v
 from morphir.ir.v4.access_controlled import Public
-from morphir.ir.v4.distribution import LibraryDistribution, PackageInfo
+from morphir.ir.v4.distribution import (
+    LibraryDistribution,
+    PackageInfo,
+    SpecsDistribution,
+)
 from morphir.ir.v4.documented import Documented
 from morphir.ir.v4.fqname import FQName
 from morphir.ir.v4.name import Name
@@ -360,3 +366,176 @@ class TestDefinitionBodies:
         result = drop_input_attributes(library(values={n("e"): external}))
         assert [w.location[-1] for w in result.warnings] == ["y"]
         codec.encode_versioned_distribution(result.value)
+
+
+ANNOTATIONS = p(n("annotations"))
+ORG = p(n("my", "org"), n("project"))
+
+
+def anno(local: str) -> FQName:
+    return FQName(ORG, ANNOTATIONS, n(local))
+
+
+def lit_string(text: str) -> v.Value:
+    from morphir.ir.v4 import literal
+
+    return v.LiteralValue(v.ValueAttributes(), literal.StringLiteral(text))
+
+
+class TestAnnotations:
+    def test_exported_from_v4(self) -> None:
+        assert v4.Annotation is ann.Annotation
+
+    def test_type_specification_annotations_definitions_0020(self) -> None:
+        spec = ts.TypeAliasSpecification(
+            [],
+            STRING,
+            [
+                ann.CompactAnnotation(anno("deprecated"), "Use user-v2 instead"),
+                ann.StructuredAnnotation(
+                    anno("since"),
+                    [
+                        ann.PositionalArgument(lit_string("1.2.0")),
+                        ann.NamedArgument(n("reason"), lit_string("renamed")),
+                    ],
+                ),
+                ann.StructuredAnnotation(anno("internal")),
+            ],
+        )
+        string_literal = {"literal": {"StringLiteral": "1.2.0"}}
+        expected = {
+            "TypeAliasSpecification": {
+                "annotations": [
+                    "my-org/project:annotations#deprecated:Use user-v2 instead",
+                    {
+                        "name": "my-org/project:annotations#since",
+                        "arguments": [
+                            {"Literal": string_literal},
+                            {
+                                "name": "reason",
+                                "value": {
+                                    "Literal": {"literal": {"StringLiteral": "renamed"}}
+                                },
+                            },
+                        ],
+                    },
+                    {"name": "my-org/project:annotations#internal"},
+                ],
+                "typeParams": [],
+                "typeExp": STRING_JSON,
+            }
+        }
+        encoded = codec.encode_type_specification(spec)
+        assert encoded == expected
+        assert next(iter(encoded["TypeAliasSpecification"])) == "annotations"
+        assert codec.decode_type_specification(expected) == spec
+
+    def test_empty_arguments_read_as_structured(self) -> None:
+        j = {
+            "OpaqueTypeSpecification": {
+                "annotations": [
+                    {"name": "my-org/project:annotations#internal", "arguments": []}
+                ]
+            }
+        }
+        spec = codec.decode_type_specification(j)
+        assert spec == ts.OpaqueTypeSpecification(
+            [], [ann.StructuredAnnotation(anno("internal"))]
+        )
+
+    def test_compact_text_starts_after_first_colon_after_hash(self) -> None:
+        j = {
+            "OpaqueTypeSpecification": {
+                "annotations": ["my-org/project:annotations#version:1.0.0:rc"]
+            }
+        }
+        spec = codec.decode_type_specification(j)
+        assert spec.annotations == [ann.CompactAnnotation(anno("version"), "1.0.0:rc")]
+
+    def test_value_specification_definitions_0021(self) -> None:
+        spec = v.Specification(
+            [(n("x"), INT)], INT, [ann.CompactAnnotation(anno("pure"))]
+        )
+        expected = {
+            "annotations": ["my-org/project:annotations#pure"],
+            "inputs": {"x": INT_JSON},
+            "output": INT_JSON,
+        }
+        assert codec.encode_value_specification(spec) == expected
+        assert codec.decode_value_specification(expected) == spec
+
+    def test_module_specification_definitions_0022(self) -> None:
+        spec = module.Specification(
+            doc="The domain module",
+            annotations=[ann.CompactAnnotation(anno("stable"))],
+        )
+        expected = {
+            "annotations": ["my-org/project:annotations#stable"],
+            "types": {},
+            "values": {},
+            "doc": "The domain module",
+        }
+        encoded = codec.encode_module_specification(spec)
+        assert encoded == expected
+        assert list(encoded) == ["annotations", "types", "values", "doc"]
+        assert codec.decode_module_specification(expected) == spec
+
+    def test_no_annotations_writes_no_member(self) -> None:
+        spec = ts.OpaqueTypeSpecification([])
+        assert codec.encode_type_specification(spec) == {
+            "OpaqueTypeSpecification": {"typeParams": []}
+        }
+
+    def test_definition_carries_no_annotations_definitions_0023(self) -> None:
+        bad = {
+            "TypeAliasDefinition": {
+                "annotations": [],
+                "typeParams": [],
+                "typeExp": STRING_JSON,
+            }
+        }
+        assert fail_codes(codec.decode_type_definition, bad) == (d.UNKNOWN_MEMBER,)
+
+    def test_annotations_do_not_downgrade(self) -> None:
+        spec = module.Specification(
+            types={
+                n("t"): Documented(
+                    "doc",
+                    ts.OpaqueTypeSpecification(
+                        [], [ann.CompactAnnotation(anno("internal"))]
+                    ),
+                )
+            },
+            values={
+                n("f"): Documented(
+                    "doc",
+                    v.Specification([], INT, [ann.CompactAnnotation(anno("pure"))]),
+                )
+            },
+            annotations=[ann.CompactAnnotation(anno("stable"))],
+        )
+        lib = library()
+        lib = LibraryDistribution(
+            lib.package,
+            lib.definition,
+            {p(n("dep")): package.Specification({p(n("m")): spec})},
+        )
+        deps = "distribution/dependencies/dep/m"
+        assert downgrade_errors(lib) == [
+            (d.UNSUPPORTED_V4_DOWNGRADE, "Annotations", f"{deps}/annotations"),
+            (d.UNSUPPORTED_V4_DOWNGRADE, "Annotations", f"{deps}/types/t/annotations"),
+            (
+                d.UNSUPPORTED_V4_DOWNGRADE,
+                "Annotations",
+                f"{deps}/values/f/annotations",
+            ),
+        ]
+
+    def test_specs_distribution_with_annotations_round_trips(self) -> None:
+        spec = module.Specification(annotations=[ann.CompactAnnotation(anno("x"))])
+        specs = SpecsDistribution(
+            PackageInfo(p(n("my"), n("pkg"))),
+            package.Specification({p(n("m")): spec}),
+        )
+        document = codec.encode_versioned_distribution(specs)
+        assert codec.decode_versioned_distribution(document) == specs

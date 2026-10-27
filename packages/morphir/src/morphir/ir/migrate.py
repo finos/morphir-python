@@ -44,6 +44,7 @@ from .v3 import path as path3
 from .v3 import type as t3
 from .v3 import value as v3
 from .v4 import access_controlled as ac4
+from .v4 import annotation as ann4
 from .v4 import distribution as dist4
 from .v4 import documented as doc4
 from .v4 import fqname as fq4
@@ -733,9 +734,14 @@ class _Downgrade:
     def params(self, params: list[name4.Name], loc: Location) -> tuple[name3.Name, ...]:
         return tuple(self.name(p, loc) for p in params)
 
+    def annotations(self, items: list[ann4.Annotation], loc: Location) -> None:
+        if items:
+            self.unsupported("Annotations", (*loc, "annotations"))
+
     def type_spec(
         self, spec: ts4.Specification, loc: Location
     ) -> t3.Specification[None]:
+        self.annotations(spec.annotations, loc)
         params = self.params(spec.type_params, loc)
         match spec:
             case ts4.TypeAliasSpecification(_, tpe):
@@ -970,6 +976,7 @@ class _Downgrade:
     def value_spec(
         self, spec: v4.Specification, loc: Location
     ) -> v3.Specification[None]:
+        self.annotations(spec.annotations, loc)
         return v3.Specification(
             tuple(
                 (self.name(n, loc), self.type(tp, (*loc, "inputs", name4.to_string(n))))
@@ -983,6 +990,7 @@ class _Downgrade:
     def module_spec(
         self, spec: mod4.Specification, loc: Location
     ) -> mod3.Specification[None]:
+        self.annotations(spec.annotations, loc)
         types = {}
         for n, x in spec.types.items():
             here = (*loc, "types", name4.to_string(n))

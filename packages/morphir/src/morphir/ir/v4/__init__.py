@@ -4,8 +4,16 @@ IR v4 is not frozen in finos/morphir. The JSON codec in `morphir.ir.v4.codec` is
 draft pinned to finos/morphir commit efa36060.
 """
 
-from . import incompleteness, module, package
+from . import annotation, incompleteness, module, package
 from .access_controlled import AccessControlled
+from .annotation import (
+    Annotation,
+    AnnotationArgument,
+    CompactAnnotation,
+    NamedArgument,
+    PositionalArgument,
+    StructuredAnnotation,
+)
 from .decorations import (
     DecorationFormat,
     DecorationValuesFile,
@@ -77,9 +85,12 @@ from .value import Specification as ValueSpecification
 
 __all__ = [
     "AccessControlled",
+    "Annotation",
+    "AnnotationArgument",
     "ApplicationDistribution",
     "BoolLiteral",
     "CharLiteral",
+    "CompactAnnotation",
     "DecimalLiteral",
     "DecorationFormat",
     "DecorationValuesFile",
@@ -114,6 +125,7 @@ __all__ = [
     "LibraryDistribution",
     "Literal",
     "Name",
+    "NamedArgument",
     "NativeBody",
     "NativeHint",
     "NativeInfo",
@@ -121,12 +133,14 @@ __all__ = [
     "Path",
     "Pattern",
     "PointerRef",
+    "PositionalArgument",
     "QName",
     "Ref",
     "SchemaRef",
     "SourceRange",
     "SpecsDistribution",
     "StringLiteral",
+    "StructuredAnnotation",
     "Type",
     "TypeAttributes",
     "TypeConstraints",
@@ -139,6 +153,7 @@ __all__ = [
     "ValueDefinition",
     "ValueDefinitionBody",
     "ValueSpecification",
+    "annotation",
     "incompleteness",
     "module",
     "package",

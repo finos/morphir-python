@@ -24,10 +24,10 @@
 
 ## 4. Annotations on specifications (morphir-ukvn.8.14.3)
 
-- [ ] 4.1 Add `morphir.ir.v4.annotation` with `CompactAnnotation`, `StructuredAnnotation`, `PositionalArgument`, `NamedArgument` and `Annotation`, and an `annotations` field (empty default, last) on module, type and value specifications; verify existing positional constructors still work
-- [ ] 4.2 Encode and decode annotations (written first, only when non-empty; `arguments` omitted when empty; compact text after the first colon after `#`), and verify kit `definitions-0020` to `-0022` round trip and that `"arguments": []` reads as an argument-less structured annotation
-- [ ] 4.3 Verify that a type definition with `annotations` fails decoding with `unknown_member` (kit `definitions-0023`)
-- [ ] 4.4 Make reverse migration fail with `unsupported_v4_downgrade` for annotations on a specification in a v4 dependency, and verify the location
+- [x] 4.1 Add `morphir.ir.v4.annotation` with `CompactAnnotation`, `StructuredAnnotation`, `PositionalArgument`, `NamedArgument` and `Annotation`, and an `annotations` field (empty default, last) on module, type and value specifications; verify existing positional constructors still work
+- [x] 4.2 Encode and decode annotations (written first, only when non-empty; `arguments` omitted when empty; compact text after the first colon after `#`), and verify kit `definitions-0020` to `-0022` round trip and that `"arguments": []` reads as an argument-less structured annotation
+- [x] 4.3 Verify that a type definition with `annotations` fails decoding with `unknown_member` (kit `definitions-0023`)
+- [x] 4.4 Make reverse migration fail with `unsupported_v4_downgrade` for annotations on a specification in a v4 dependency, and verify the location
 
 ## 5. Union type expression (morphir-ukvn.8.14.4)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 from typing import List as TList
 from typing import Tuple as TTuple
 
@@ -10,6 +10,9 @@ from .incompleteness import HoleReason, Incompleteness
 from .literal import Literal
 from .name import Name
 from .type import Type
+
+if TYPE_CHECKING:
+    from .annotation import Annotation
 
 
 @dataclass(frozen=True)
@@ -327,10 +330,11 @@ Value = (
 
 @dataclass(frozen=True)
 class Specification:
-    """Value specification."""
+    """Value specification: the signature of a value, and its annotations."""
 
     inputs: TList[TTuple[Name, Type]]
     output: Type
+    annotations: TList[Annotation] = field(default_factory=lambda: [])
 
 
 @dataclass(frozen=True)
