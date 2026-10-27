@@ -201,7 +201,9 @@ def rust_free_path(venv: Path) -> str:
     """Return a PATH holding the virtual environment and system tools only."""
     entries = [str(venv / ("Scripts" if os.name == "nt" else "bin"))]
     for entry in os.environ.get("PATH", "").split(os.pathsep):
-        tools = (shutil.which(tool, path=entry) for tool in ("cargo", "rustc"))
+        tools = (
+            shutil.which(tool, path=entry) for tool in ("cargo", "rustc", "rustup")
+        )
         managed = any(word in entry for word in ("cargo", "rustup", "mise"))
         if entry and not managed and all(found is None for found in tools):
             entries.append(entry)
@@ -267,11 +269,18 @@ assert find_spec("morphir_tools") is None
 """
 
 
+def venv_python(directory: Path, system: str = os.name) -> Path:
+    """Return the interpreter path inside a virtual environment."""
+    if system == "nt":
+        return directory / "Scripts" / "python.exe"
+    return directory / "bin" / "python"
+
+
 def _venv(directory: Path) -> Path:
     subprocess.run(
         ["uv", "venv", "--quiet", "--python", "3.14", str(directory)], check=True
     )
-    return directory / ("Scripts" if os.name == "nt" else "bin") / "python"
+    return venv_python(directory)
 
 
 def _script(python: Path, name: str) -> str:

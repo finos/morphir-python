@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import zipfile
 from typing import TYPE_CHECKING
 
@@ -93,3 +94,20 @@ def test_rust_free_path_excludes_cargo(tmp_path: Path) -> None:
     import shutil
 
     assert shutil.which("cargo", path=path) is None
+
+
+def test_venv_python_names_the_interpreter_on_each_system(tmp_path: Path) -> None:
+    assert q.venv_python(tmp_path, "nt") == tmp_path / "Scripts" / "python.exe"
+    assert q.venv_python(tmp_path, "posix") == tmp_path / "bin" / "python"
+
+
+def test_rust_free_path_drops_directories_holding_only_rustup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    rustup = tools / "rustup"
+    rustup.write_text("#!/bin/sh\n")
+    rustup.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tools}{os.pathsep}/usr/bin")
+    assert str(tools) not in q.rust_free_path(tmp_path / "venv").split(os.pathsep)

@@ -94,6 +94,8 @@ jobs:
         if: matrix.manylinux != ''
         shell: bash
         run: |
+          # The build container writes dist/ as root.
+          sudo chown -R "$(id -u):$(id -g)" dist
           pipx run --spec 'auditwheel==6.8.2' auditwheel show dist/native/*.whl | tee audit.txt
           # The report starts with the file name, so match auditwheel's own verdict.
           tr '\n' ' ' < audit.txt | tr -s ' ' \
