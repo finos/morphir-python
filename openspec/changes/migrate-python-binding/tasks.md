@@ -45,7 +45,7 @@ Implement against `design.html` and the three delta specs. Follow TDD within eac
 ## 7. Remove the old provider and prepare ecosystem cutover (morphir-ukvn.1.6.7)
 
 - [x] 7.1 Prepare a coordinated morphir-rust feature branch removing the crate, workspace membership and Python release/CI registrations; move compiler-owned tests here and replace former-directory fixture includes with independent host fixtures or a pinned replacement provider; verify affected workspace tests, CI selector tests and no references that require the deleted directory.
-- [ ] 7.2 Prepare finos/morphir provider/discovery, provenance, integration fixture and pin updates as required by the current registry implementation; verify the isolated extension install selects the bundle built here and offline ecosystem CLI round trips pass without the old Python crate.
+- [x] 7.2 Prepare finos/morphir provider/discovery, provenance, integration fixture and pin updates as required by the current registry implementation; verify the isolated extension install selects the bundle built here and offline ecosystem CLI round trips pass without the old Python crate.
 - [ ] 7.3 Run final repository quality gates, installed Python API/CLI proofs and standalone Rust/native/WASM proofs for the coordinated revisions; verify recorded model equivalence, artifact digests and target-repository checks, and preserve unrelated sibling-checkout work.
 - [ ] 7.4 Record reviewable commit ranges, qualification receipts, rollback steps and outstanding A2/release dependencies in beads; verify all implementation task evidence is linked and the epic remains open until approved publication and live provider cutover have actually satisfied its acceptance conditions.
 
