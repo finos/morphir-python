@@ -70,3 +70,6 @@ yarn-error.log*
 
 # Beads runtime lock at repo root (bd creates this; do not commit)
 .beads.gate.lock
+
+# behave writes the pretty formatter to this file when its output is piped
+pretty.output
