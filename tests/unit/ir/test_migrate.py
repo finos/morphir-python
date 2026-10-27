@@ -16,6 +16,7 @@ from morphir.ir.v3 import type as t3
 from morphir.ir.v3 import value as val3
 from morphir.ir.v4 import codec as v4_codec
 from morphir.ir.v4 import document as doc4
+from morphir.ir.v4 import incompleteness as inc4
 from morphir.ir.v4 import literal as lit4
 from morphir.ir.v4 import module as mod4
 from morphir.ir.v4 import package as pkg4
@@ -166,7 +167,7 @@ class TestReverse:
     @pytest.mark.parametrize(
         "node",
         [
-            v4.Hole(TYPED, None, None),
+            v4.Hole(TYPED, inc4.DeletedDuringRefactor("tx"), None),
             v4.Native(TYPED, FQName(PKG, IRPath(()), n("f")), None),
             v4.External(TYPED, "f", "js"),
             v4.LiteralValue(TYPED, lit4.DocumentLiteral(doc4.DocNull())),
@@ -226,7 +227,9 @@ class TestReverse:
 
     def test_every_failure_is_collected_in_one_pass(self) -> None:
         body = v4.Apply(
-            TYPED, v4.Hole(TYPED, None, None), v4.Unit(v4.ValueAttributes())
+            TYPED,
+            v4.Hole(TYPED, inc4.DeletedDuringRefactor("tx"), None),
+            v4.Unit(v4.ValueAttributes()),
         )
         found = errors(v4_to_v3(library(body, value_doc=None)))
         assert {code for code, _ in found} == {

@@ -542,7 +542,7 @@ def _drop_input_attributes[D: dist4.Distribution](dist: D) -> Ok[D]:
             result = dist4.ApplicationDistribution(
                 package, job.package_def(definition, loc), deps, entry_points
             )
-    return Ok(cast(D, result), tuple(job.warnings))
+    return Ok(cast("D", result), tuple(job.warnings))
 
 
 # --- v4 -> v3 ---
@@ -736,6 +736,11 @@ class _Downgrade:
                 return t3.CustomTypeDefinition(
                     params, self.access(ctors, self.ctors(ctors.value, loc))
                 )
+            case td4.IncompleteTypeDefinition():
+                self.unsupported(
+                    "IncompleteTypeDefinition", (*loc, "IncompleteTypeDefinition")
+                )
+                return t3.TypeAliasDefinition(params, t3.Unit(None))
 
     # Values
 

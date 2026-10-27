@@ -54,6 +54,7 @@ from .. import diagnostics as d
 from ..diagnostics import DiagnosticError, Location, fail
 from ..format_version import V4, V4_TABLE, read_document, write_format_version
 from . import document as doc
+from . import incompleteness as inc
 from . import literal as lit
 from . import module, package
 from . import type as t
@@ -147,6 +148,18 @@ TYPE_SPECIFICATION_NODES: dict[str, Members] = {
 TYPE_DEFINITION_NODES: dict[str, Members] = {
     "TypeAliasDefinition": _m("typeParams typeExp", ""),
     "CustomTypeDefinition": _m("typeParams constructors", "access"),
+    "IncompleteTypeDefinition": _m("typeParams incompleteness", "partialTypeExp"),
+}
+
+HOLE_REASON_NODES: dict[str, Members] = {
+    "UnresolvedReference": _m("target", ""),
+    "DeletedDuringRefactor": _m("tx-id", ""),
+    "TypeMismatch": _m("expected found", ""),
+}
+
+INCOMPLETENESS_NODES: dict[str, Members] = {
+    "Hole": _m("reason", "partialBody"),
+    "Draft": _m("", ""),
 }
 
 VALUE_DEFINITION_NODES: dict[str, Members] = {
@@ -982,7 +995,9 @@ def encode_value(val: v.Value, loc: Location = ()) -> Json:
         case v.Unit(_):
             return node("Unit", {})
         case v.Hole(_, reason, expected_type):
-            members: dict[str, Json] = {"reason": reason}
+            members: dict[str, Json] = {
+                "reason": encode_hole_reason(reason, (*here, "reason"))
+            }
             if expected_type is not None:
                 members["expectedType"] = encode_type(
                     expected_type, (*here, "expectedType")
@@ -1085,11 +1100,75 @@ def decode_value(j: object, loc: Location = ()) -> v.Value:
         case _:
             return v.Hole(
                 attrs,
-                body["reason"],
+                decode_hole_reason(body["reason"], (*here, "reason")),
                 decode_type(body["expectedType"], (*here, "expectedType"))
                 if "expectedType" in body
                 else None,
             )
+
+
+# --- Hole reasons and incompleteness ---
+
+
+def encode_hole_reason(reason: inc.HoleReason, loc: Location = ()) -> Json:
+    """Encode a hole reason as ``{"Kind": {members}}``."""
+    match reason:
+        case inc.UnresolvedReference(target):
+            return _wrap(
+                "UnresolvedReference",
+                {"target": encode_fqname(target, (*loc, "UnresolvedReference"))},
+            )
+        case inc.DeletedDuringRefactor(tx_id):
+            return _wrap("DeletedDuringRefactor", {"tx-id": tx_id})
+        case inc.TypeMismatch(expected, found):
+            return _wrap("TypeMismatch", {"expected": expected, "found": found})
+
+
+def decode_hole_reason(j: object, loc: Location = ()) -> inc.HoleReason:
+    """Decode a hole reason; ``Draft`` is an incompleteness, not a reason."""
+    tag, body, here = _node(j, loc, "HoleReason", HOLE_REASON_NODES)
+    match tag:
+        case "UnresolvedReference":
+            return inc.UnresolvedReference(
+                decode_fqname(body["target"], (*here, "target"))
+            )
+        case "DeletedDuringRefactor":
+            return inc.DeletedDuringRefactor(
+                _expect_str(body["tx-id"], (*here, "tx-id"), tag)
+            )
+        case _:
+            return inc.TypeMismatch(
+                _expect_str(body["expected"], (*here, "expected"), tag),
+                _expect_str(body["found"], (*here, "found"), tag),
+            )
+
+
+def encode_incompleteness(item: inc.Incompleteness, loc: Location = ()) -> Json:
+    """Encode an incompleteness as ``{"Hole": {...}}`` or ``{"Draft": {}}``."""
+    match item:
+        case inc.HoleIncompleteness(reason, partial):
+            here = (*loc, "Hole")
+            members: dict[str, Json] = {
+                "reason": encode_hole_reason(reason, (*here, "reason"))
+            }
+            if partial is not None:
+                members["partialBody"] = encode_type(partial, (*here, "partialBody"))
+            return _wrap("Hole", members)
+        case inc.DraftIncompleteness():
+            return _wrap("Draft", {})
+
+
+def decode_incompleteness(j: object, loc: Location = ()) -> inc.Incompleteness:
+    """Decode ``{"Hole": {...}}`` or ``{"Draft": {}}``."""
+    tag, body, here = _node(j, loc, "Incompleteness", INCOMPLETENESS_NODES)
+    if tag == "Draft":
+        return inc.DraftIncompleteness()
+    return inc.HoleIncompleteness(
+        decode_hole_reason(body["reason"], (*here, "reason")),
+        decode_type(body["partialBody"], (*here, "partialBody"))
+        if "partialBody" in body
+        else None,
+    )
 
 
 def _encode_inputs(
@@ -1282,6 +1361,19 @@ def encode_type_definition(defn: td.Definition, loc: Location = ()) -> Json:
                     "constructors": _encode_constructors(ctors.value, here),
                 },
             )
+        case td.IncompleteTypeDefinition(_, incompleteness, partial):
+            here = (*loc, "IncompleteTypeDefinition")
+            members: dict[str, Json] = {
+                "typeParams": params,
+                "incompleteness": encode_incompleteness(
+                    incompleteness, (*here, "incompleteness")
+                ),
+            }
+            if partial is not None:
+                members["partialTypeExp"] = encode_type(
+                    partial, (*here, "partialTypeExp")
+                )
+            return _wrap("IncompleteTypeDefinition", members)
 
 
 def decode_type_definition(j: object, loc: Location = ()) -> td.Definition:
@@ -1290,6 +1382,14 @@ def decode_type_definition(j: object, loc: Location = ()) -> td.Definition:
     if tag == "TypeAliasDefinition":
         return td.TypeAliasDefinition(
             params, decode_type(body["typeExp"], (*here, "typeExp"))
+        )
+    if tag == "IncompleteTypeDefinition":
+        return td.IncompleteTypeDefinition(
+            params,
+            decode_incompleteness(body["incompleteness"], (*here, "incompleteness")),
+            decode_type(body["partialTypeExp"], (*here, "partialTypeExp"))
+            if "partialTypeExp" in body
+            else None,
         )
     access = body.get("access", "Public")
     if access not in ACCESS_TAGS:
@@ -1713,6 +1813,8 @@ __all__ = [
     "FINOS_MORPHIR_PIN",
     "decode_distribution",
     "decode_fqname",
+    "decode_hole_reason",
+    "decode_incompleteness",
     "decode_literal",
     "decode_name",
     "decode_path",
@@ -1722,6 +1824,8 @@ __all__ = [
     "decode_versioned_distribution",
     "encode_distribution",
     "encode_fqname",
+    "encode_hole_reason",
+    "encode_incompleteness",
     "encode_literal",
     "encode_name",
     "encode_path",

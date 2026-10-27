@@ -6,6 +6,7 @@ from typing import List as TList
 from typing import Tuple as TTuple
 
 from .fqname import FQName
+from .incompleteness import HoleReason
 from .literal import Literal
 from .name import Name
 from .type import Type
@@ -266,10 +267,16 @@ class Unit:
 
 @dataclass(frozen=True)
 class Hole:
-    """Represents a hole in the AST."""
+    """A hole in an expression: a part that is missing, with the reason why.
+
+    Attributes:
+        attributes: The value attributes.
+        reason: Why the hole exists.
+        expected_type: The type the missing part should have, if known.
+    """
 
     attributes: ValueAttributes
-    reason: Any
+    reason: HoleReason
     expected_type: Type | None
 
 

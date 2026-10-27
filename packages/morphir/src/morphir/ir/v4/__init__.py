@@ -4,7 +4,7 @@ IR v4 is not frozen in finos/morphir. The JSON codec in `morphir.ir.v4.codec` is
 draft pinned to finos/morphir commit efa36060.
 """
 
-from . import module, package
+from . import incompleteness, module, package
 from .access_controlled import AccessControlled
 from .decorations import (
     DecorationFormat,
@@ -33,6 +33,15 @@ from .document import (
 )
 from .documented import Documented
 from .fqname import FQName
+from .incompleteness import (
+    DeletedDuringRefactor,
+    DraftIncompleteness,
+    HoleIncompleteness,
+    HoleReason,
+    Incompleteness,
+    TypeMismatch,
+    UnresolvedReference,
+)
 from .literal import (
     BoolLiteral,
     CharLiteral,
@@ -64,6 +73,7 @@ __all__ = [
     "DecorationFormat",
     "DecorationValuesFile",
     "DefRef",
+    "DeletedDuringRefactor",
     "Distribution",
     "DocArray",
     "DocBool",
@@ -74,6 +84,7 @@ __all__ = [
     "DocString",
     "Document",
     "Documented",
+    "DraftIncompleteness",
     "EntryPoint",
     "EntryPointKind",
     "FQName",
@@ -81,6 +92,9 @@ __all__ = [
     "FileMeta",
     "FileWithDefs",
     "FloatLiteral",
+    "HoleIncompleteness",
+    "HoleReason",
+    "Incompleteness",
     "IntegerLiteral",
     "LayerManifest",
     "LibraryDistribution",
@@ -100,11 +114,14 @@ __all__ = [
     "TypeAttributes",
     "TypeConstraints",
     "TypeDefinition",
+    "TypeMismatch",
     "TypeSpecification",
+    "UnresolvedReference",
     "Value",
     "ValueAttributes",
     "ValueDefinition",
     "ValueSpecification",
+    "incompleteness",
     "module",
     "package",
 ]

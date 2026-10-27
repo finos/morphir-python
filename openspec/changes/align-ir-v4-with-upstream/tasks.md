@@ -9,10 +9,10 @@
 
 ## 2. Typed hole reasons, incompleteness and incomplete type definitions (morphir-ukvn.8.14.2)
 
-- [ ] 2.1 Add `morphir.ir.v4.incompleteness` with `UnresolvedReference`, `DeletedDuringRefactor`, `TypeMismatch`, `HoleReason`, `HoleIncompleteness`, `DraftIncompleteness` and `Incompleteness`, re-exported from `morphir.ir.v4`; verify construction and import-identity tests
-- [ ] 2.2 Type `Hole.reason` as `HoleReason`, encode and decode reasons with their kit members, and verify that `{"Draft": {}}` as a reason fails with `unknown_node` and a non-object reason fails with a structured error
-- [ ] 2.3 Add `type_def.IncompleteTypeDefinition(type_params, incompleteness, partial_type_exp)` and its codec spelling, and verify round trips for kit `definitions-0014`, `-0015` and `-0024` in expanded form
-- [ ] 2.4 Make reverse migration fail with `unsupported_v4_downgrade` for an incomplete type definition and verify the construct name and location
+- [x] 2.1 Add `morphir.ir.v4.incompleteness` with `UnresolvedReference`, `DeletedDuringRefactor`, `TypeMismatch`, `HoleReason`, `HoleIncompleteness`, `DraftIncompleteness` and `Incompleteness`, re-exported from `morphir.ir.v4`; verify construction and import-identity tests
+- [x] 2.2 Type `Hole.reason` as `HoleReason`, encode and decode reasons with their kit members, and verify that `{"Draft": {}}` as a reason fails with `unknown_node` and a non-object reason fails with a structured error
+- [x] 2.3 Add `type_def.IncompleteTypeDefinition(type_params, incompleteness, partial_type_exp)` and its codec spelling, and verify round trips for kit `definitions-0014`, `-0015` and `-0024` in expanded form
+- [x] 2.4 Make reverse migration fail with `unsupported_v4_downgrade` for an incomplete type definition and verify the construct name and location
 
 ## 3. Value-definition bodies (morphir-ukvn.8.14.1)
 
