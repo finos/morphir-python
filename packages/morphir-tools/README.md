@@ -21,9 +21,10 @@ Or with uv:
 uv add morphir-python
 ```
 
-The `morphir-python` distribution includes the `morphir` core library and SDK
-runtime alongside the CLI. It does not depend on a separate `morphir` PyPI
-package. Python imports remain `morphir` and `morphir_tools`.
+The `morphir-python` distribution contains the CLI and depends on the separate
+`morphir` library/SDK distribution. Python imports remain `morphir` and
+`morphir_tools`. Version 0.0.1 was a bundle; for migration to CLI-only 0.0.2, see
+the [repository installation guide](../../README.md#migrating-from-the-bundled-001-release).
 
 ## Usage
 
@@ -58,7 +59,7 @@ format-version rules and the draft v4 status.
 ## Requirements
 
 - Python 3.14+
-- Core library and SDK included
+- `morphir>=0.0.1` (installed as a dependency)
 
 ## License
 

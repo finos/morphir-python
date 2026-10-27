@@ -9,24 +9,47 @@ Morphir enables you to write business logic once and use it across multiple plat
 
 ## Installation
 
-Install the library, Morphir SDK runtime, and CLI together:
+The library and CLI are separate distributions:
+
+| PyPI distribution | Contents | Python import / command |
+|-------------------|----------|-------------------------|
+| [`morphir`](https://pypi.org/project/morphir/) | Core library, IR models, and SDK runtime; no third-party runtime dependencies | `import morphir` |
+| [`morphir-python`](https://pypi.org/project/morphir-python/) | CLI and tool integrations; depends on `morphir` | `import morphir_tools`; `morphir-python` |
+
+Install just the library and SDK:
 
 ```bash
-pip install morphir-python
+pip install morphir==0.0.1
+# or: uv add morphir==0.0.1
 ```
 
-Or with uv:
+Install the CLI, which also installs the library:
 
 ```bash
-uv add morphir-python
+pip install morphir-python==0.0.2
+# or: uv add morphir-python==0.0.2
 ```
 
-| PyPI distribution | Python imports | Command |
-|-------------------|----------------|---------|
-| [`morphir-python`](https://pypi.org/project/morphir-python/) | `morphir`, `morphir_tools` | `morphir-python` |
+Python 3.14 or later is required. The CLI currently provides IR inspection and
+conversion. It is also the intended home for future MEP extension-protocol CLI
+integration and possible WASM build tooling; those features are not implemented
+by this packaging change.
 
-The distribution includes the core library and tools. It does not require a
-separate `morphir` package from PyPI.
+### Migrating from the bundled 0.0.1 release
+
+`morphir-python==0.0.1` bundled both namespaces. Starting with `0.0.2`, library
+files belong to the separate `morphir` distribution. Use a fresh virtual
+environment, or remove both old package owners before reinstalling in your
+existing virtual environment:
+
+```bash
+python -m pip uninstall -y morphir-python morphir
+python -m pip install morphir-python==0.0.2
+```
+
+Library-only consumers can install `morphir==0.0.1` instead. Imports remain
+`morphir` and `morphir_tools`; the command remains `morphir-python`. The release
+checks exercise the uninstall/reinstall migration from the published old bundle.
 
 ## Quick Start
 
@@ -148,52 +171,71 @@ mise run check
 
 ## Releases
 
-The initial PyPI release is `morphir-python==0.0.1`, containing both the `morphir`
-library and the `morphir-python` CLI. Python 3.14 or later is required. The root
-`pyproject.toml` defines the public distribution. The library workspace under
-`packages/morphir/` remains independent of CLI dependencies for development; it
-is included in the bundle rather than published separately by this workflow.
+The repository root is a development workspace. Public package metadata is in
+`packages/morphir/pyproject.toml` and `packages/morphir-tools/pyproject.toml`.
+Versions are independent: the first library release is `morphir==0.0.1`, and the
+first CLI-only release is `morphir-python==0.0.2`. The already published bundled
+CLI `0.0.1` and its `python-v0.0.1` tag remain unchanged.
 
-Publishing uses [PyPI trusted publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
-without a stored PyPI token. Configure the `morphir-python` project on PyPI with:
+### Trusted publisher configuration
 
-| Publisher field | Value |
-|-----------------|-------|
-| Owner | `finos` |
-| Repository | `morphir-python` |
-| Workflow filename | `release.yml` |
-| Environment | `pypi` |
+Configure a [trusted publisher](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
+for **each** PyPI project. Use a pending publisher if a project has no release yet.
+Both publishers use this repository and the same workflow/environment identity:
 
-The GitHub `pypi` environment permits release tags matching `v*` or `python-v*`.
-After maintainer approval, push a tag such as `python-v0.0.1` whose version matches
-root package metadata and the runtime `__version__` values. Refresh `uv.lock`
-when changing versions. A new tag records the corrected source without moving
-the earlier failed `v0.0.1` tag.
+| Field | Library / SDK | CLI |
+|-------|---------------|-----|
+| PyPI project | `morphir` | `morphir-python` |
+| Repository owner | `finos` | `finos` |
+| Repository name | `morphir-python` | `morphir-python` |
+| Workflow filename | `release.yml` | `release.yml` |
+| Environment | `pypi` | `pypi` |
+| Tag example | `morphir-v0.0.1` | `python-v0.0.2` |
 
-The release workflow runs the same lint, format, type, coverage and BDD checks as
-PR CI. It builds the bundle once, validates wheel and source metadata and license
-files, verifies that every library and CLI source file is in the wheel, installs
-only that wheel in an isolated environment, checks imports and the CLI, then
-scans the locked runtime dependency versions with `pip-audit` and `pip-licenses`.
-Known vulnerabilities, audit failures, unknown licenses and licenses outside the
-Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause and ISC allowlist block publication.
-The allowlist also accepts corresponding legacy license classifiers. The CVE
-scan queries third-party dependencies, excluding the first-party bundle being
-released. These checks use package metadata and known vulnerability advisories;
-they do not replace a source-code license or security review. Scan reports are
-retained as workflow artifacts.
+On GitHub, the `pypi` environment permits both `morphir-v*` and `python-v*` tag
+patterns. No stored PyPI token is needed. Only the selected publishing job
+receives `id-token: write`; a manual workflow run qualifies artifacts without
+publishing. Bare `v*` tags are not used for new releases.
 
-Only the publishing job receives `id-token: write`. It publishes the checked
-artifacts, then a separate job creates the GitHub release. The workflow's manual
-**Run workflow** action runs qualification without publishing. To qualify locally:
+### Qualification and publication
 
-```bash
-mise run install
-mise run check
-mise run coverage
-mise run build
-RELEASE_TAG=python-v0.0.1 mise run release-check
-```
+1. Update the selected package's metadata and runtime `__version__`. Update the
+   CLI's minimum library dependency when its API requirements change, and run
+   `uv lock`.
+2. Run `mise run install`, `mise run check`, `mise run coverage`, `mise run build`
+   and `mise run release-check`. Without a tag, this qualifies both distributions.
+3. After maintainer approval, tag the candidate with the selected package prefix
+   and exact version, then push that tag. To release the initial library:
+
+   ```bash
+   git tag -a morphir-v0.0.1 -m 'Release morphir library and SDK 0.0.1'
+   git push origin morphir-v0.0.1
+   ```
+
+4. Publish the library before any CLI that needs it. A later `python-v0.0.2` tag
+   publishes only the CLI. Its qualification requires the published library wheel
+   to have the same SHA256 digest as the core artifact used in testing. If core
+   sources or metadata change, bump and publish the core version first.
+5. Verify the selected PyPI files and a clean installation. The workflow creates
+   a GitHub release containing only the selected package's artifacts. Never move
+   an existing release tag or overwrite an existing PyPI version.
+
+Release and PR CI run lint, formatting, type, coverage and BDD checks before
+building both candidates. Artifact checks enforce exact names/versions, complete source inclusion,
+separate namespace ownership, Apache license files, no core runtime dependencies
+or console scripts, and the CLI's versioned core dependency. Isolated installs
+exercise the library/SDK without CLI dependencies, CLI behavior, and migration
+from the old bundle. PR qualification checks both runtime environments; a tagged
+release scans only its selected package, and the migration check runs for CLI
+qualification. CVE and license checks cover locked installed runtime versions;
+the core has no third-party dependencies. Scan reports are retained as
+workflow artifacts. Scans use metadata/advisories and do not replace source-code
+security or license review.
+
+For targeted qualification, `RELEASE_TAG=morphir-v0.0.1 mise run release-check`
+validates the library tag. `RELEASE_TAG=python-v0.0.2 mise run release-check` also
+checks the published core dependency. The latter must wait until the library is
+published. Unknown tags or a tag/version mismatch block publication.
 
 ## Project Principles
 
