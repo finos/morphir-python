@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>add-ir-v3-support: design</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>.
+  Styles and scripts are files in docs/templates/assets/, referenced and not embedded. In a copy, change the
+  "assets/" prefix of each href and src to the relative path from the copy to that directory, for example
+  "../../docs/templates/assets/" from .dev/beads-specs/. See AGENTS.md, "Specs and plans are HTML documents".
+  Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
+  list them in nav.toc.
+-->
+<link rel="stylesheet" href="../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../docs/templates/assets/agent-document.js"></script>
+</head>
+<body>
+<main>
+<h1>add-ir-v3-support: design</h1>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.8</code> · 2026-10-27 · draft, revision 2</p>
+
+<nav class="toc" aria-label="Contents">
+<ul>
+<li><a href="#context">Context</a></li>
+<li><a href="#sources">Sources and pins</a></li>
+<li><a href="#goals">Goals and non-goals</a></li>
+<li><a href="#author-calls">Author calls</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#mapping">Migration mapping</a></li>
+<li><a href="#diagnostics">Diagnostic codes</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration plan</a></li>
+<li><a href="#open-questions">Open questions</a></li>
+</ul>
+</nav>
+
+<h2 id="context">Context</h2>
+<p>See <code>proposal.md</code> for motivation. Today <code>packages/morphir/src/morphir/ir/</code> holds a v4-shaped model: Library, Specs, and Application distributions; <code>PackageInfo(name, version: str)</code>; <code>ValueAttributes(source, inferred_type, extensions)</code>; <code>TypeAttributes(source, constraints, extensions)</code>; and <code>Hole</code>, <code>Native</code>, and <code>External</code> as value nodes. <code>morphir/ir/json.py</code> is a placeholder encoder with a generic dataclass fallback and no decoder, so the repo cannot read any IR JSON yet.</p>
+<p>morphir-elm pins <code>currentFormatVersion = 3</code>. Its decoder reads <code>formatVersion</code> with <code>Decode.int</code>, accepts 3 and 1 (through <code>CodecV1</code>), and rejects everything else, including 2 and any string. Upstream, finos/morphir has since published a format-version contract with string releases, a support table, and stable diagnostic codes, and has minted IR 3.1.0, which adds a v3 <code>Specs</code> distribution and v3 document trees. IR v4 is still being stabilized and its sources disagree with each other.</p>
+
+<h2 id="sources">Sources and pins</h2>
+<p>Implementation and fixtures cite these commits. Re-syncing to newer upstream commits is a separate change.</p>
+<table>
+<thead><tr><th>Repository</th><th>Commit</th><th>Used for</th></tr></thead>
+<tbody>
+<tr><td>finos/morphir-elm</td><td><code>bc99af69</code> (2026-08-13)</td><td>Normative v3 types and codecs; format-3 fixtures</td></tr>
+<tr><td>finos/morphir</td><td><code>efa36060</code> (2026-10-25)</td><td>Format-version contract; draft v4 JSON profile; v3 examples; decisions 0016–0018</td></tr>
+<tr><td>finos/morphir-moonbit</td><td><code>bd3adc52</code> (2026-10-26)</td><td>Prior art for v3↔v4 mapping and downgrade diagnostic codes</td></tr>
+<tr><td>finos/morphir-rust</td><td><code>1fdff47b</code> (2026-10-22)</td><td>Prior art for forward migration and kit diagnostic codes</td></tr>
+</tbody>
+</table>
+<p>Evidence used in the decisions below:</p>
+<ul>
+<li>morphir-elm <code>src/Morphir/IR/FormatVersion.elm</code> (<code>currentFormatVersion = 3</code>) and <code>src/Morphir/IR/FormatVersion/Codec.elm</code> (<code>Decode.field "formatVersion" Decode.int</code>; accepts 3 and 1; error text "Please regenerate it!").</li>
+<li>morphir-elm <code>src/Morphir/IR/Distribution.elm</code>: <code>Library PackageName (Dict PackageName (Package.Specification ())) (Package.Definition () (Type ()))</code>. Type attributes are unit; value attributes are a type; there is no package version.</li>
+<li>morphir-elm <code>src/Morphir/IR/Distribution/Codec.elm</code>: only the <code>"Library"</code> tag decodes; any other fails with "Unknown value type".</li>
+<li>finos/morphir <code>docs/spec/ir/format-version.md</code>: accepted spellings, normalization, canonical writing, support tables, and the diagnostic code table.</li>
+<li>finos/morphir <code>kb/bundles/morphir/morphir-ir/decisions/0018-ir-3-1-adds-specs-and-v3-document-trees.md</code>: IR 3.1.0, lowest-version writers, reference table <code>[3.0.0,3.2.0),[4.0.0,4.1.0)</code>, and the follow-up issue for this repo, finos/morphir-python#28.</li>
+<li>finos/morphir <code>kb/bundles/morphir/morphir-ir/ir-v4-stabilization.md</code>: v4 has four disagreeing sources; the Morphir Compatibility Kit at <code>spec/ir/mck/</code> is the tiebreak; open vocabulary decisions; the finos CLI refuses v4→v3 with <code>unsupported_v4_downgrade</code>; bead <code>morphir-diwy</code> owns downgrade rules.</li>
+<li>finos/morphir <code>kb/bundles/morphir/morphir-ir/decisions/0017-package-release-versions-belong-to-distribution-bindings.md</code> and <code>docs/spec/ir/schemas/v4/index.md</code>: a v4 Library is <code>{"Library": {"packageName", "dependencies", "def"}}</code> with no release version.</li>
+<li>finos/morphir <code>decisions/0008-hole-is-an-expression-native-and-external-are-definition-bodies.md</code>, <code>0013-document-literal-is-in-v4-with-a-raw-payload.md</code>, and <code>0014-scope-of-v4-0-0-for-design-only-features.md</code> (layered decorations are out of v4.0.0).</li>
+<li>morphir-moonbit <code>pkgs/morphir-ir/README.md</code>: "Elm is the canonical encoding authority for v1–v3. V4 follows finos/morphir's specification."</li>
+<li>morphir-moonbit <code>pkgs/morphir-ir/migration/v3/migration.mbt</code>: <code>to_current</code> and <code>from_current</code>, with codes <code>unsupported_v4_downgrade</code>, <code>unsupported_attributes_downgrade</code>, <code>missing_inferred_type</code>, <code>unsupported_documentation_downgrade</code>, and <code>unsupported_attributes_migration</code>.</li>
+<li>morphir-moonbit <code>pkgs/morphir-ir/version/version.mbt</code>: exact-release parser and support check.</li>
+<li>morphir-rust <code>crates/morphir-core/src/migration/classic_to_v4.rs</code> and <code>crates/morphir-common/src/ir_transport/migration.rs</code>: forward-only classic→v4, writing <code>formatVersion</code> 4. <code>crates/morphir-core/src/ir/diagnostic.rs</code>: the kit's diagnostic codes. <code>crates/morphir-core/src/ir/classic/</code>: the classic (v3) model.</li>
+</ul>
+<p>morphir-rust's <code>crates/morphir-python-binding</code> is a Python-source frontend that emits IR v3 or v4. It is not an IR library for Python callers and does not change this design.</p>
+
+<h2 id="goals">Goals and non-goals</h2>
+<p><strong>Goals:</strong> first-class v3 (format 3.0.0) and v4 Python IR; morphir-elm-compatible format-3 JSON; a draft v4 JSON codec; permissive format-version reading with upstream diagnostic codes; v3→v4 forward migration; v4→v3 reverse migration with structured failures; a Typer CLI for inspect and convert.</p>
+<p><strong>Non-goals:</strong> IR formats 1 and 2; IR 3.1.0 (v3 Specs and v3 document trees); v4 document trees and YAML; realigning the Python v4 model with every upstream v4 decision; Morphir Compatibility Kit adapter integration; changing morphir-elm or finos/morphir; silent data loss on downgrade.</p>
+
+<h2 id="author-calls">Author calls</h2>
+<p>Confirmed by the change author (2026-10-27). These are not agent defaults.</p>
+<ul>
+<li><strong>Separate capability <code>ir/format-version</code>.</strong> Keep version recognition, normalization, support-table checks, and diagnostics in their own capability and package surface (<code>morphir.ir.format_version</code>), shared by the v3 codec, the draft v4 codec, and the CLI. Do not fold that contract into <code>ir/v3</code> alone.</li>
+<li><strong>Separate task group and bead for the draft v4 JSON codec (<code>morphir-ukvn.8.11</code>).</strong> Land draft v4 encode/decode as its own sequenced work item between v4 package layout and migrations, so the draft interchange gap stays visible and pin-able. Do not bury it inside the layout or migrate groups.</li>
+</ul>
+
+<h2 id="decisions">Decisions</h2>
+
+<h3 id="fv-1">FV-1. Permissive format-version reading, canonical writing</h3>
+<p>A shared reader in <code>morphir.ir.format_version</code> accepts a JSON integer <code>N</code>, a string <code>"N"</code>, and a string <code>"N.minor.patch"</code>, and normalizes each to an exact release. Component rules follow the finos contract: base-10 ASCII digits, no leading zeros, unsigned 32-bit range. Python <code>bool</code> is a subclass of <code>int</code>, so the reader rejects <code>True</code> and <code>False</code> explicitly. Duplicate root members are detected with an <code>object_pairs_hook</code>, because <code>json.loads</code> otherwise keeps the last one silently.</p>
+<p>This diverges on purpose. morphir-elm accepts only an integer, so it would reject <code>"3.0.0"</code>; the finos contract rejects <code>"3"</code> with <code>invalid_format_version_syntax</code>. The project accepts both so that migration work can read files written by older and newer tools. The divergence is stated in the package documentation.</p>
+<p>Writers follow the finos contract: <code>formatVersion</code> first, integer <code>N</code> for <code>N.0.0</code>, exact string otherwise. A v3 writer therefore emits <code>3</code>, which morphir-elm can read.</p>
+<p>The support table is <code>[3.0.0,3.1.0),[4.0.0,4.1.0)</code>. It is narrower than the finos reference table because this change does not implement IR 3.1.0; a <code>"3.1.0"</code> file fails with <code>unsupported_format_version_minor</code>, as decision 0018 expects of a 3.0.0 reader. Integers 1 and 2 are recognized and fail with <code>unsupported_format_version_major</code>. Each version-specific entry point applies its own family table, so the v3 decoder refuses 4.0.0 with <code>unsupported_format_version_major</code>.</p>
+<p>Rejected: elm's integer-only reader (it blocks reading files from contract-conforming writers) and a fully strict finos reader (it blocks <code>"3"</code>, which some tools write).</p>
+
+<pre><code class="language-python">read_format_version(3)        # FormatVersion(3, 0, 0)
+read_format_version("3")      # FormatVersion(3, 0, 0), divergence from the finos contract
+read_format_version("3.0.0")  # FormatVersion(3, 0, 0), divergence from morphir-elm
+read_format_version(True)     # invalid_format_version_type
+read_format_version("3.1.0")  # unsupported_format_version_minor under this change's table
+</code></pre>
+
+<h3 id="elm-1">ELM-1. morphir-elm is normative for v3 content</h3>
+<p>The v3 model and JSON shapes follow morphir-elm at the pinned commit. The finos/morphir v3 schema (<code>website/static/schemas/morphir-ir-v3.json</code>, documented in <code>docs/spec/ir/schemas/v3/</code>) was derived from elm. Where it disagrees with elm about 3.0.0 content, elm wins. Example: the finos schema now admits a <code>Specs</code> distribution and string versions for 3.1.0, but elm format 3 has only <code>Library</code>. morphir-moonbit records the same rule. The only intended departure from elm is FV-1, which concerns the version field and not content.</p>
+<p>Port checklist, in dependency order; each Python codec mirrors one elm module:</p>
+<ul>
+<li><code>src/Morphir/Codec.elm</code> (<code>encodeUnit</code>, <code>decodeUnit</code>)</li>
+<li><code>src/Morphir/IR/Name/Codec.elm</code>, <code>Path/Codec.elm</code>, <code>QName/Codec.elm</code>, <code>FQName/Codec.elm</code></li>
+<li><code>src/Morphir/IR/AccessControlled/Codec.elm</code>, <code>Documented/Codec.elm</code>, <code>Literal/Codec.elm</code></li>
+<li><code>src/Morphir/IR/Type/Codec.elm</code> (types, fields, specifications including <code>DerivedTypeSpecification</code>, definitions)</li>
+<li><code>src/Morphir/IR/Value/Codec.elm</code> (values, patterns, specifications, definitions)</li>
+<li><code>src/Morphir/IR/Module/Codec.elm</code>, <code>Package/Codec.elm</code>, <code>Distribution/Codec.elm</code> (<code>Library</code> only)</li>
+<li><code>src/Morphir/IR/FormatVersion/Codec.elm</code> (envelope; version reading replaced by FV-1)</li>
+</ul>
+<p>As in elm, node codecs take attribute codecs as parameters. The distribution codec fixes type attributes to unit and value attributes to a v3 type. Generic node codecs also let callers read untyped node fragments, such as the kit's <code>["Literal", {}, ["WholeNumberLiteral", 42]]</code> (finos/morphir <code>spec/ir/mck/versions.feature</code>, case versions-0001), without weakening the Library contract.</p>
+<p>The CLI-only <code>Distribution.Component</code> codec and <code>CodecV1</code> modules are not ported.</p>
+
+<h3 id="pkg-1">PKG-1. Versioned packages and import identity</h3>
+<p>Format-3 types and codecs live in <code>morphir.ir.v3</code>, with modules <code>name</code>, <code>path</code>, <code>qname</code>, <code>fqname</code>, <code>access_controlled</code>, <code>documented</code>, <code>literal</code>, <code>type</code>, <code>value</code>, <code>module</code>, <code>package</code>, <code>distribution</code>, and <code>codec</code>. The v3 classes are distinct from the v4 classes, so a type checker catches cross-version mixing. Migrations convert names and paths explicitly.</p>
+<p>The current modules move to <code>morphir.ir.v4</code>: <code>access_controlled</code>, <code>decorations</code>, <code>distribution</code>, <code>document</code>, <code>documented</code>, <code>fqname</code>, <code>json</code>, <code>literal</code>, <code>meta</code>, <code>module</code>, <code>name</code>, <code>package</code>, <code>path</code>, <code>qname</code>, <code>ref</code>, <code>type_constraints</code>, <code>type_def</code>, <code>type_spec</code>, <code>type</code>, and <code>value</code>, plus the new draft <code>codec</code>. Each old path (for example <code>morphir.ir.name</code>, which tests import today) becomes a shim that re-exports from <code>morphir.ir.v4</code>, and <code>morphir.ir</code> keeps its <code>__all__</code>. A test asserts <code>morphir.ir.Name is morphir.ir.v4.Name</code>.</p>
+
+<pre><code class="language-python">from morphir.ir import v3, v4
+from morphir.ir.format_version import read_format_version
+from morphir.ir.migrate import v3_to_v4, v4_to_v3
+import morphir.ir as ir  # still v4; ir.Name is v4.Name
+</code></pre>
+
+<h3 id="v4-1">V4-1. Draft v4 JSON codec</h3>
+<p>Review blocker B1 was that v4 cannot be read at all, so a v4 convert command had nothing to call. This change adds <code>morphir.ir.v4.codec</code> with <code>encode_versioned_distribution</code> and <code>decode_versioned_distribution</code>.</p>
+<p>Envelope (B2): the codec uses the finos v4 JSON profile envelope, which is the part of v4 with a settled contract. <code>formatVersion</code> comes first and follows FV-1. The distribution is an object wrapped by its kind, for example <code>{"Library": {"packageName", "dependencies", "def"}}</code>. Rejected: a Python-only v4 envelope, and a <code>formatVersion: 4</code> stamp on the format-3 tagged-array shape. The finos stabilization note records that a BDD fixture made the second mistake.</p>
+<p>Node spellings follow the canonical forms that the finos schema and kit cases carry at the pinned commit, with the decisions 0004–0014 applied. The stabilization note lists live contradictions, including value-node member names, attributes on value nodes, and Rust's <code>attrs</code> against the schema's <code>attributes</code>. Where the kit has no active case, the codec uses the schema spelling and records the choice in a module-level table so a later re-sync is mechanical. The reader accepts only spellings it recognizes and fails on anything else with a located diagnostic; it does not guess.</p>
+<p>Python model gaps against upstream v4 are handled explicitly, not by reshaping the model in this change:</p>
+<ul>
+<li><code>Native</code> and <code>External</code> are value nodes in Python, but decision 0008 makes them definition bodies. Encoding them fails with a structured error naming the construct. Realignment is follow-up work.</li>
+<li>Upstream v4 has <code>Union</code> types, <code>IncompleteTypeDefinition</code>, and annotations, which the Python model lacks. The decoder fails on them with <code>unknown_node</code> or <code>unknown_member</code>.</li>
+<li>Upstream v4 Records spell fields as an object keyed by name (decision 0004). The Python model keeps an ordered list, so duplicate field names fail encoding with <code>duplicate_member</code>.</li>
+<li>Decorations files (<code>decorations.py</code>) are not part of the distribution; decision 0014 keeps layered decorations out of v4.0.0. They are outside the codec and outside migration.</li>
+</ul>
+<p>Every v4 doc page, docstring, and CLI report that touches v4 says "draft" and names the pinned finos/morphir commit.</p>
+
+<h3 id="ver-1">VER-1. Package release version</h3>
+<p>Neither format 3 nor upstream v4 JSON has a package release version (decision 0017 puts versions in distribution bindings), but Python <code>PackageInfo.version</code> is a required <code>str</code>. The field becomes <code>str | None = None</code>.</p>
+<ul>
+<li>Upgrade: <code>v3_to_v4(dist, *, package_version: str | None = None)</code> and the CLI flag <code>--package-version</code>. Without either, the version is absent. Nothing is invented.</li>
+<li>Downgrade: the version is dropped and the warning <code>package_version_dropped</code> is returned. This is the one explicit exception to "no dropping of IR content", and it is allowed because the version is packaging metadata, not IR semantics.</li>
+<li>The v4 codec does not write the version, because the profile has no member for it, and it decodes it as absent. This loss is documented.</li>
+</ul>
+
+<h3 id="mig-1">MIG-1. Migrations live in morphir.ir.migrate</h3>
+<p>Pure functions <code>v3_to_v4</code> and <code>v4_to_v3</code> return <code>Ok(value, warnings)</code> or <code>Err(diagnostics)</code>. Each diagnostic is a frozen dataclass with <code>code</code>, <code>construct</code>, <code>location</code> (a tuple path such as <code>("modules", "rentals", "values", "request", "body")</code>), and <code>message</code>. A reverse migration collects every failure it finds in one pass, so users fix all problems at once. The CLI and library share these functions.</p>
+<p><code>v4_to_v3</code> takes <code>drop_source_locations: bool = False</code>. This is the only opt-in loss. Constraints, extensions, and type-attribute sources are never dropped, because they can change meaning or carry data a consumer depends on.</p>
+
+<h3 id="cli-1">CLI-1. morphir-tools interchange commands with Typer</h3>
+<p><code>morphir-tools</code> is a stub today. The CLI uses <a href="https://typer.tiangolo.com/">Typer</a> with a minimum version pinned on <code>morphir-tools</code> only; core <code>morphir</code> stays dependency-free. The console script is <code>morphir-tools</code>, with an <code>ir</code> command group:</p>
+<pre><code class="language-bash">morphir-tools ir inspect morphir-ir.json
+morphir-tools ir convert morphir-ir.json --to v4 -o out.json [--package-version 1.2.0]
+morphir-tools ir convert v4.json --to v3 -o out.json [--drop-source-locations]
+</code></pre>
+<p><code>inspect</code> reads the version, decodes the file with the matching codec, and prints the normalized version, distribution kind, and package name; for v4 it also prints the draft notice. There is no separate <code>load</code> command, because loading is a library operation. <code>convert</code> writes to a temporary file in the target directory and renames it only on success, so a failed convert leaves no output file. Diagnostics go to stderr as <code>code at location: message</code>. Exit codes: 0 for success, including success with warnings; 1 for a diagnostic failure; 2 for a usage error, which is Typer's default.</p>
+<p>The CLI does not mirror elm's version acceptance. Elm reads format 1; this change rejects 1, 2, and 3.1.x with the FV-1 diagnostics and says that they are follow-up work.</p>
+
+<h3 id="tst-1">TST-1. Golden fixtures from real format-3 output</h3>
+<p>Fixtures must be format 3 written by morphir-elm or published by finos/morphir as v3 examples. Do not use the rentals example, which is format 2. Candidates:</p>
+<ul>
+<li>morphir-elm <code>tests-integration/cli/test-ir-files/*-ir.json</code> (base, listType, multilevelModules, simpleTypeTree, simpleValueTree, tupleType; 99 B to 11 KB)</li>
+<li>morphir-elm <code>tests-integration/reference-model/morphir-ir.json</code> for broad coverage</li>
+<li>finos/morphir <code>website/static/ir/examples/v3/greeting-example.json</code> and <code>rule-set-example.json</code></li>
+</ul>
+<p>Copy them under <code>tests/fixtures/ir/v3/</code> with a <code>PROVENANCE.md</code> that records the source repository, commit, path, and Apache-2.0 attribution. Tests assert decode→encode semantic equality, the v3→v4→v3 round trip, and v4 encode→decode for the migrated result. Hand-built small fixtures cover the draft v4 codec. morphir-elm is never a runtime or test-time dependency.</p>
+
+<h2 id="mapping">Migration mapping</h2>
+<p>This follows morphir-moonbit <code>migration/v3/migration.mbt</code>, adjusted for the Python v4 model.</p>
+<table>
+<thead><tr><th>v3 (elm 3.0.0)</th><th>v4 (Python)</th><th>Reverse rule</th></tr></thead>
+<tbody>
+<tr><td><code>Library name deps def</code></td><td><code>LibraryDistribution(PackageInfo(name, version), def, deps)</code></td><td>Version dropped with <code>package_version_dropped</code></td></tr>
+<tr><td>(none in 3.0.0)</td><td><code>SpecsDistribution</code>, <code>ApplicationDistribution</code></td><td>Fail <code>unsupported_v4_downgrade</code>; Specs becomes possible with IR 3.1.0</td></tr>
+<tr><td>Type attribute <code>()</code></td><td><code>TypeAttributes()</code></td><td>Any source, constraints, or extensions: fail <code>unsupported_attributes_downgrade</code></td></tr>
+<tr><td>Value or pattern attribute <code>Type ()</code></td><td><code>ValueAttributes(inferred_type=t)</code></td><td><code>inferred_type</code> missing: fail <code>missing_inferred_type</code>. Extensions: fail. Source: fail unless <code>drop_source_locations</code></td></tr>
+<tr><td>Value definition <code>inputTypes (name, va, type)</code></td><td><code>input_types (Name, ValueAttributes, Type)</code></td><td>Same as value attributes; the Python v4 model keeps the per-input attribute, so there is no forward failure here, unlike moonbit's <code>unsupported_attributes_migration</code></td></tr>
+<tr><td><code>WholeNumberLiteral</code></td><td><code>IntegerLiteral</code></td><td>Inverse</td></tr>
+<tr><td>(none)</td><td><code>DocumentLiteral</code>, <code>Hole</code>, <code>Native</code>, <code>External</code></td><td>Fail <code>unsupported_v4_downgrade</code> with the construct name</td></tr>
+<tr><td><code>Documented { doc : String }</code></td><td><code>Documented(doc: str | None)</code></td><td><code>None</code>: fail <code>unsupported_documentation_downgrade</code>. Module <code>doc</code> stays optional on both sides</td></tr>
+<tr><td>Names as lowercase word lists</td><td><code>Name</code> word tuple</td><td>Classic↔canonical conversion per finos decision 0001; a name with no classic form fails with <code>invalid_name</code></td></tr>
+<tr><td>Record fields (ordered list)</td><td><code>Record.fields</code> (ordered list)</td><td>Order kept</td></tr>
+</tbody>
+</table>
+
+<h2 id="diagnostics">Diagnostic codes</h2>
+<p>The codes reuse upstream vocabulary so users and other bindings see the same names. Upstream is still settling downgrade rules under finos bead <code>morphir-diwy</code>, and kit case versions-0002 (writing a Hole to v3) is still pending. The migration codes may therefore be renamed upstream. The codes are string constants in one module so a rename is a single edit plus a changelog entry.</p>
+<table>
+<thead><tr><th>Code</th><th>Origin</th><th>Used for</th></tr></thead>
+<tbody>
+<tr><td><code>missing_format_version</code>, <code>duplicate_format_version</code>, <code>invalid_format_version_type</code>, <code>invalid_format_version_syntax</code>, <code>format_version_out_of_range</code>, <code>unsupported_format_version_major</code>, <code>unsupported_format_version_minor</code></td><td>finos <code>docs/spec/ir/format-version.md</code> (stable)</td><td>FV-1</td></tr>
+<tr><td><code>unknown_node</code>, <code>unknown_member</code>, <code>missing_member</code>, <code>duplicate_member</code>, <code>invalid_name</code>, <code>invalid_literal</code>, <code>invalid_json</code></td><td>Kit codes in morphir-rust <code>ir/diagnostic.rs</code></td><td>v3 and v4 decoding</td></tr>
+<tr><td><code>unsupported_v4_downgrade</code></td><td>finos CLI and kit versions-0002; moonbit</td><td>v4-only distribution kinds and nodes</td></tr>
+<tr><td><code>unsupported_attributes_downgrade</code>, <code>missing_inferred_type</code>, <code>unsupported_documentation_downgrade</code></td><td>moonbit <code>migration/v3/migration.mbt</code> (not yet in the kit)</td><td>Reverse migration</td></tr>
+<tr><td><code>package_version_dropped</code>, <code>source_location_dropped</code></td><td>Python-local warnings</td><td>VER-1, MIG-1</td></tr>
+</tbody>
+</table>
+
+<h2 id="risks">Risks and trade-offs</h2>
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>Upstream v4 spellings change after the pin</td><td>Label v4 as draft everywhere; keep spellings in one table; re-sync in a follow-up change against kit cases</td></tr>
+<tr><td>The Python v4 model differs from upstream v4 (Native and External, Union, annotations, incomplete definitions)</td><td>Fail explicitly in the codec; track the model realignment as follow-up work and do not silently map it</td></tr>
+<tr><td>Permissive version reading accepts files that other readers reject</td><td>Writers are canonical, so this package never produces such files; document the divergence</td></tr>
+<tr><td>Strict reverse migration fails often, for example on documentation that is <code>None</code></td><td>Collect every failure in one pass; follow moonbit for ecosystem consistency; revisit after <code>morphir-diwy</code> settles</td></tr>
+<tr><td>Moving modules to <code>morphir.ir.v4</code> breaks imports</td><td>Shims at every old submodule path; identity test; README note</td></tr>
+<tr><td>Making <code>PackageInfo.version</code> optional breaks strict type checks in callers</td><td>The default keeps constructors working; record the change in the changelog</td></tr>
+<tr><td>IR 3.1.0 files appear in the wild</td><td>They are refused with <code>unsupported_format_version_minor</code> and a pointer to finos/morphir-python#28</td></tr>
+<tr><td>Scope grows into formats 1 and 2</td><td>The specs refuse them; <code>CodecV1</code> is a follow-up change</td></tr>
+</tbody>
+</table>
+
+<h2 id="migration">Migration plan</h2>
+<p>Land in this order: the format-version reader; the v3 model and codecs; the v4 relocation with shims and the optional package version; the draft v4 codec; migrations; the Typer CLI; fixtures and docs. Publish as a minor version while <code>morphir</code> is 0.x. Rollback is a revert of the PR series. Consumers do not need to rewrite IR on disk until they run convert.</p>
+
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li>Should reverse migration map documentation that is <code>None</code> to <code>""</code> behind an opt-in flag, as it does for source locations? This design follows moonbit and fails. Revisit when <code>morphir-diwy</code> publishes rules.</li>
+<li>Should the reader also accept <code>"N.minor"</code> two-component strings? Not accepted now; add them only if real files need them.</li>
+<li>When the kit gains a write-refusal role (versions-0002), should this package add a kit adapter? That is out of scope here.</li>
+<li>Adopting IR 3.1.0 (v3 Specs, which would let v4 Specs downgrade) is tracked by finos/morphir-python#28.</li>
+</ul>
+
+</main>
+</body>
+</html>
