@@ -28,7 +28,7 @@ The tools MUST NOT parse IR JSON with ad-hoc CLI code; reading, decoding, encodi
 - **THEN** the tool reports the same diagnostic codes the library returns
 
 ### Requirement: Convert between v3 and v4
-The `ir convert` command SHALL convert format 3.0.0 to v4 and v4 to format 3.0.0 through the library migrations. It SHALL accept an optional package version for upgrades and an opt-in flag to drop source locations on downgrade. Success writes the target file; failure exits non-zero, prints each diagnostic, and leaves no output file. (bead: morphir-ukvn.8)
+The `ir convert` command SHALL convert format 3.0.0 to v4 and v4 to format 3.0.0 through the library migrations. It SHALL accept an optional package version and an opt-in flag to drop per-input attributes for upgrades, and an opt-in flag to drop source locations on downgrade. Success writes the target file; failure exits non-zero, prints each diagnostic, and leaves no output file. (bead: morphir-ukvn.8)
 
 #### Scenario: Upgrade v3 file to v4
 - **WHEN** the user converts a valid format-3 Library file to v4
@@ -41,6 +41,14 @@ The `ir convert` command SHALL convert format 3.0.0 to v4 and v4 to format 3.0.0
 #### Scenario: Downgrade warnings are printed
 - **WHEN** a downgrade succeeds with dropped information
 - **THEN** the tool prints each warning code and still exits 0
+
+#### Scenario: Upgrade with input attributes needs opt-in
+- **WHEN** the user converts the morphir-elm reference model to v4 without `--drop-input-attributes`
+- **THEN** the tool exits non-zero with `no_v4_spelling`, names the flag, and does not create the output file
+
+#### Scenario: Upgrade drops input attributes on request
+- **WHEN** the user converts the same file with `--drop-input-attributes`
+- **THEN** the tool writes a `formatVersion` 4 file, prints each `input_attributes_dropped` warning, and exits 0
 
 ### Requirement: Scope excludes formats 1, 2, and 3.1
 For this change, the tools MUST reject formats 1, 2, and 3.1.x rather than load or convert them. This differs from morphir-elm, which still reads format 1. (bead: morphir-ukvn.8)

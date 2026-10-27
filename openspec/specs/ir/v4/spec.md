@@ -42,8 +42,8 @@ The library SHALL encode and decode v4 versioned distributions as `formatVersion
 - **THEN** decoding fails with a structured error that names the node and its location, and does not guess
 
 #### Scenario: Construct with no draft spelling
-- **WHEN** a caller encodes a v4 value that has no spelling in the pinned v4 JSON profile, such as the Python `Native` or `External` value nodes
-- **THEN** encoding fails with a structured error naming the construct rather than dropping it
+- **WHEN** a caller encodes a v4 value that has no spelling in the pinned v4 JSON profile, such as the deprecated Python `Native` or `External` value nodes, structured type constraints, or a value-definition input whose attributes differ from its declared type
+- **THEN** encoding fails with `no_v4_spelling` naming the construct rather than dropping it
 
 ### Requirement: Draft status is explicit
 Documentation for the v4 model and codec SHALL state that IR v4 is a draft upstream, name the pinned finos/morphir commit, and state that spellings may change in later minor releases of this package. (bead: morphir-ukvn.8)
@@ -51,3 +51,62 @@ Documentation for the v4 model and codec SHALL state that IR v4 is a draft upstr
 #### Scenario: Draft notice is present
 - **WHEN** a user reads the v4 codec documentation
 - **THEN** it identifies v4 as draft and names the pinned upstream commit
+
+### Requirement: Value definitions have upstream bodies
+A v4 value definition, at module level or in a let binding, SHALL be one of four bodies: an expression body, a native body with a native hint, an external body with one or more platform bindings and an optional fallback expression, or an incomplete body with an incompleteness and an optional partial expression. Native, external and incomplete bodies MUST hold bare input types. (bead: morphir-ukvn.8.14)
+
+#### Scenario: Native body round trips
+- **WHEN** a module value with a native body and an `Arithmetic` hint is encoded and decoded
+- **THEN** the JSON is `{"NativeBody": {"inputTypes": ..., "outputType": ..., "nativeInfo": {"hint": {"Arithmetic": {}}}}}` and the decoded value equals the original
+
+#### Scenario: External platforms are unique
+- **WHEN** an external body names the same target platform twice
+- **THEN** encoding and decoding fail with `duplicate_member`
+
+#### Scenario: External body needs a binding
+- **WHEN** an external body has no platform binding
+- **THEN** encoding and decoding fail with a structured error
+
+#### Scenario: Platform-specific hint names its platform
+- **WHEN** a native body's `PlatformSpecific` hint has no `platform` member
+- **THEN** decoding fails with `missing_member`
+
+### Requirement: Incomplete definitions and typed hole reasons
+The v4 model SHALL represent an incompleteness as a hole with a typed reason (`UnresolvedReference`, `DeletedDuringRefactor` or `TypeMismatch`) and an optional partial type, or as a draft. A type definition MAY be incomplete, with type parameters, an incompleteness and an optional partial type expression. A `Hole` value SHALL carry a typed reason. (bead: morphir-ukvn.8.14)
+
+#### Scenario: Incomplete type definition round trips
+- **WHEN** an incomplete type definition whose hole reason is a type mismatch is encoded and decoded
+- **THEN** the JSON is `{"IncompleteTypeDefinition": {"typeParams": [...], "incompleteness": {"Hole": {"reason": {"TypeMismatch": {"expected": ..., "found": ...}}}}}}` and the decoded definition equals the original
+
+#### Scenario: Draft is not a hole reason
+- **WHEN** a hole reason is spelled `{"Draft": {}}`
+- **THEN** decoding fails with `unknown_node`
+
+### Requirement: Specifications carry annotations
+Module, type and value specifications SHALL carry an ordered list of annotations. An annotation SHALL be either compact (a name and optional free text) or structured (a name and positional or named value arguments). The codec SHALL write `annotations` only when the list is non-empty and SHALL omit an empty `arguments` member. Definitions MUST NOT carry annotations. (bead: morphir-ukvn.8.14)
+
+#### Scenario: Compact and structured annotations round trip
+- **WHEN** a type alias specification with a compact annotation with text, a structured annotation with one positional and one named argument, and a structured annotation without arguments is encoded and decoded
+- **THEN** the compact annotation is written as `"pkg:mod#name:text"`, the argument-less structured annotation as `{"name": ...}`, and the decoded specification equals the original
+
+#### Scenario: Definitions refuse annotations
+- **WHEN** a type definition carries an `annotations` member
+- **THEN** decoding fails with `unknown_member`
+
+### Requirement: Union type expression
+The v4 model SHALL represent an untagged union as a type expression with attributes and an ordered list of two or more alternatives. The codec SHALL preserve alternative order, duplicates and nesting, and MUST refuse a union with fewer than two alternatives. (bead: morphir-ukvn.8.14)
+
+#### Scenario: Union round trips
+- **WHEN** a union of `String` and `Int` is encoded and decoded
+- **THEN** the JSON is `{"Union": {"alternatives": [..., ...]}}` and the decoded type equals the original
+
+#### Scenario: Singleton union is refused
+- **WHEN** a union has one alternative
+- **THEN** encoding and decoding fail with a structured error
+
+### Requirement: Python-only v4 constructs are deprecated
+The Python `Native` and `External` value nodes and the structured type constraints SHALL stay constructible for compatibility, SHALL be documented as deprecated because upstream v4 has no spelling for them, and MUST keep failing encoding with `no_v4_spelling`. (bead: morphir-ukvn.8.14)
+
+#### Scenario: Deprecated value node still refuses to encode
+- **WHEN** a caller encodes a value that contains a Python `Native` value node
+- **THEN** encoding fails with `no_v4_spelling`, and the documentation directs the caller to a native definition body
