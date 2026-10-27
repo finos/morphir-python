@@ -3,9 +3,6 @@
 set -euo pipefail
 
 echo "Syncing dependencies..."
-uv sync --all-groups
-
-echo "Installing workspace packages in editable mode..."
-uv pip install -e packages/morphir -e packages/morphir-tools
+uv sync --frozen --all-packages --all-groups
 
 echo "Install complete!"

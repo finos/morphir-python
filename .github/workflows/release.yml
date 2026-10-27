@@ -4,46 +4,30 @@ on:
   push:
     tags:
       - 'v*'
+  # Qualification only. Publishing requires a tag push.
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build packages
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Build morphir package
-        run: uv build packages/morphir
-
-      - name: Build morphir-tools package
-        run: uv build packages/morphir-tools
-
-      - name: Upload morphir dist
-        uses: actions/upload-artifact@v6
-        with:
-          name: morphir-dist
-          path: packages/morphir/dist/
-
-      - name: Upload morphir-tools dist
-        uses: actions/upload-artifact@v6
-        with:
-          name: morphir-tools-dist
-          path: packages/morphir-tools/dist/
+  qualify:
+    name: Qualify release
+    uses: ./.github/workflows/ci.yml
+    with:
+      release-tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
   publish-morphir:
     name: Publish morphir to PyPI
-    needs: build
+    if: github.event_name == 'push' && github.repository == 'finos/morphir-python'
+    needs: qualify
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     environment:
       name: pypi
       url: https://pypi.org/project/morphir/
@@ -59,8 +43,10 @@ jobs:
 
   publish-morphir-tools:
     name: Publish morphir-tools to PyPI
-    needs: [build, publish-morphir]
+    needs: [qualify, publish-morphir]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     environment:
       name: pypi
       url: https://pypi.org/project/morphir-tools/
@@ -78,6 +64,8 @@ jobs:
     name: Create GitHub Release
     needs: [publish-morphir, publish-morphir-tools]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -85,6 +73,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v7
         with:
+          pattern: '*-dist'
           path: dist/
           merge-multiple: true
 
