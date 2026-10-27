@@ -5,7 +5,10 @@ on:
     tags:
       - 'morphir-v*'
       - 'python-v*'
-  # Qualification only. Publishing requires a tag push.
+      - 'native-v*'
+      - 'extension/python/v*'
+  # Qualification only, including every native wheel platform. Publishing
+  # requires a tag push.
   workflow_dispatch:
 
 permissions:
@@ -21,6 +24,240 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       release-tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
+  # Every advertised platform builds its own wheel once; the same job installs
+  # that exact wheel, with the qualified core and tools wheels, into a clean
+  # environment without Rust before uploading it.
+  native-wheels:
+    name: Native wheel (${{ matrix.platform }})
+    needs: qualify
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/native-v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Qualification already built and tested this wheel; reuse its bytes.
+          - platform: manylinux_2_28_x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            manylinux: '2_28'
+            reuse: native-linux-x86_64
+          - platform: manylinux_2_28_aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            manylinux: '2_28'
+          - platform: macosx_11_0_arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            manylinux: ''
+          - platform: macosx_10_12_x86_64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            manylinux: ''
+          - platform: win_amd64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            manylinux: ''
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Reuse the qualification wheel
+        if: matrix.reuse
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ matrix.reuse }}
+          path: dist/reused/
+
+      - name: Keep only the reused wheel
+        if: matrix.reuse
+        shell: bash
+        run: mkdir -p dist/native && cp dist/reused/*.whl dist/native/
+
+      - name: Build the wheel
+        if: ${{ !matrix.reuse }}
+        uses: PyO3/maturin-action@v1
+        env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'aarch64-apple-darwin' && '11.0' || '10.12' }}
+        with:
+          working-directory: packages/morphir-python-native
+          maturin-version: '1.15.0'
+          rust-toolchain: '1.98.1'
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux || 'off' }}
+          args: --release --locked --out ../../dist/native
+
+      - name: Audit the Linux baseline and bundled libraries
+        if: matrix.manylinux != ''
+        shell: bash
+        run: |
+          pipx run --spec 'auditwheel==6.8.2' auditwheel show dist/native/*.whl | tee audit.txt
+          grep -q '${{ matrix.platform }}' audit.txt
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Download the qualified core and tools wheels
+        uses: actions/download-artifact@v7
+        with:
+          pattern: morphir*-dist
+          path: dist/pure/
+          merge-multiple: true
+
+      - name: Install the exact wheels without Rust and exercise them
+        shell: bash
+        run: |
+          wheel="$(ls dist/native/*.whl)"
+          [[ "$wheel" == *"-cp314-abi3-${{ matrix.platform }}.whl" ]]
+          python scripts/qualify_native.py wheel "$wheel"
+          python scripts/qualify_native.py install \
+            dist/pure/morphir-*.whl "$wheel" dist/pure/morphir_python-*.whl
+
+      - name: Upload the qualified wheel
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-wheel-${{ matrix.platform }}
+          path: dist/native/*.whl
+          if-no-files-found: error
+
+  native-candidates:
+    name: Verify native release candidates
+    needs: [qualify, native-wheels]
+    if: needs.native-wheels.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download the qualified platform wheels
+        uses: actions/download-artifact@v7
+        with:
+          pattern: native-wheel-*
+          path: dist/candidates/
+          merge-multiple: true
+
+      - name: Download the qualified source archive
+        uses: actions/download-artifact@v7
+        with:
+          name: native-linux-x86_64
+          path: dist/ci-native/
+
+      - name: Add the source archive
+        run: cp dist/ci-native/*.tar.gz dist/candidates/
+
+      - name: Refuse missing, extra or mismatched candidates
+        run: |
+          tag="${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+          if [[ -z "$tag" ]]; then
+            tag="native-v$(python3 -c 'import tomllib; print(tomllib.load(open("rust/crates/morphir-python-native/Cargo.toml","rb"))["package"]["version"])')"
+          fi
+          python3 scripts/release_candidates.py native dist/candidates --tag "$tag"
+
+      - name: Upload the release set
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-release
+          path: dist/candidates/
+          if-no-files-found: error
+
+  publish-native:
+    name: Publish morphir-python-native to PyPI
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/native-v')
+    needs: native-candidates
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/morphir-python-native/
+    steps:
+      - name: Download the verified release set
+        uses: actions/download-artifact@v7
+        with:
+          name: native-release
+          path: dist/
+
+      - name: Check the bytes against the receipt
+        run: |
+          cd dist
+          sha256sum --check SHA256SUMS
+          rm SHA256SUMS
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  extension-candidate:
+    name: Verify the extension bundle candidate
+    needs: qualify
+    if: startsWith(github.ref, 'refs/tags/extension/python/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download the qualified bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: morphir-python-extension-bundle
+          path: dist/bundle-check/
+
+      - name: Refuse a bundle that is not from this tag's commit
+        run: |
+          bundle=dist/bundle-check/.morphir/build/extensions/python
+          python3 scripts/release_candidates.py bundle "$bundle" \
+            --tag "${{ github.ref_name }}" --commit "$GITHUB_SHA"
+          mkdir -p dist/bundle
+          version="${GITHUB_REF_NAME#extension/python/v}"
+          # Release assets keep morphir-rust's descriptor name.
+          cp "$bundle/morphir-python-binding-$version.wasm" \
+             "$bundle/morphir-python-binding-$version.wasm.sha256" dist/bundle/
+          cp "$bundle/release.json" "dist/bundle/morphir-python-binding-$version.release.json"
+          cp dist/bundle-check/.dev/qualification/bundle*.json dist/bundle/
+
+      - name: Upload the release set
+        uses: actions/upload-artifact@v6
+        with:
+          name: extension-release
+          path: dist/bundle/
+          if-no-files-found: error
+
+  publish-extension:
+    name: Publish the morphir-python extension bundle
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/extension/python/v')
+    needs: extension-candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    environment:
+      name: extension-release
+      url: https://github.com/finos/morphir-python/releases
+    steps:
+      - name: Download the verified bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: extension-release
+          path: dist/
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          prerelease: true
 
   publish-morphir:
     name: Publish morphir library and SDK to PyPI
@@ -45,6 +282,7 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  # Qualification refuses a python-v tag until the pinned native release is on PyPI.
   publish-morphir-python:
     name: Publish morphir-python to PyPI
     if: >-

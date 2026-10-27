@@ -5,7 +5,7 @@ set -euo pipefail
 release_dir="$(pwd)/.dev/release-check"
 mkdir -p "$release_dir"
 uv lock --check
-python scripts/check_distributions.py
+python -m scripts.check_distributions
 uvx --from twine==7.0.0 twine check --strict \
   packages/morphir/dist/* packages/morphir-tools/dist/*
 uv export --frozen --all-packages --no-default-groups --no-emit-workspace \

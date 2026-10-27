@@ -14,7 +14,8 @@ The library and CLI are separate distributions:
 | PyPI distribution | Contents | Python import / command |
 |-------------------|----------|-------------------------|
 | [`morphir`](https://pypi.org/project/morphir/) | Core library, IR models, and SDK runtime; no third-party runtime dependencies | `import morphir` |
-| [`morphir-python`](https://pypi.org/project/morphir-python/) | CLI and tool integrations; depends on `morphir` | `import morphir_tools`; `morphir-python` |
+| [`morphir-python`](https://pypi.org/project/morphir-python/) | CLI, Python compiler API and tool integrations; depends on `morphir` and one exact `morphir-python-native` | `import morphir_tools`; `morphir-python` |
+| [`morphir-python-native`](https://pypi.org/project/morphir-python-native/) | Private native compiler wheels, installed automatically by `morphir-python` | none (private) |
 
 Install just the library and SDK:
 
@@ -30,10 +31,16 @@ pip install morphir-python==0.0.2
 # or: uv add morphir-python==0.0.2
 ```
 
-Python 3.14 or later is required. The CLI currently provides IR inspection and
-conversion. It is also the intended home for future MEP extension-protocol CLI
-integration and possible WASM build tooling; those features are not implemented
-by this packaging change.
+Python 3.14 or later is required. The CLI inspects and converts IR, compiles a
+supported subset of Python to Morphir IR, and generates Python from Morphir IR.
+The compiler runs in process from prebuilt wheels; you do not need Rust. See the
+[Python compiler guide](docs/python-compiler.md) for the API, the CLI commands and
+the supported subset.
+
+The same compiler is the Rust crate
+[`morphir-python-binding`](rust/crates/morphir-python-binding/README.md) and the
+`morphir-python` Morphir extension. This repository builds and releases both; see
+the [extension guide](docs/python-extension.md).
 
 ### Migrating from the bundled 0.0.1 release
 
@@ -167,6 +174,12 @@ mise run check
 | `mise run check` | Run all checks |
 | `mise run build` | Build packages |
 | `mise run release-check` | Validate built packages and scan runtime dependencies for vulnerabilities and licenses |
+| `mise run rust:check` | Format, lint and test the Rust workspace and build the WASM guest |
+| `mise run rust:consumer` | Build an independent Cargo consumer of the current commit |
+| `mise run native:build` | Build the native wheel and source archive into `dist/native` |
+| `mise run native:qualify` | Qualify the native archive and a clean install without Rust |
+| `mise run extension:bundle` | Build the MEP extension bundle and check it offline in a Morphir host |
+| `mise run bench` | Measure native, bridge, API and CLI compile and generate times |
 | `mise run clean` | Clean build artifacts |
 
 ## Releases
@@ -231,6 +244,45 @@ qualification. CVE and license checks cover locked installed runtime versions;
 the core has no third-party dependencies. Scan reports are retained as
 workflow artifacts. Scans use metadata/advisories and do not replace source-code
 security or license review.
+
+### Native compiler and extension bundle releases
+
+Two more tag families release the compiler. Their versions come from the Rust
+crates and are independent of the Python package versions:
+
+| Tag | Releases | Version source | Publishes to |
+|-----|----------|----------------|--------------|
+| `native-v<version>` | `morphir-python-native` wheels and source archive | `rust/crates/morphir-python-native/Cargo.toml` | PyPI, `pypi` environment |
+| `extension/python/v<version>` | `morphir-python` MEP extension bundle | `rust/crates/morphir-python-binding/Cargo.toml` | GitHub release, `extension-release` environment |
+
+Add a trusted publisher for the PyPI project `morphir-python-native` with the
+same repository, workflow and `pypi` environment, and allow `native-v*` tags in
+that environment. Create an `extension-release` environment that allows
+`extension/python/v*` tags and requires a maintainer review.
+
+A `native-v` tag builds one wheel for each qualified platform (Linux glibc
+x86_64 and aarch64, macOS arm64 and x86_64, Windows x86_64) and installs each
+exact wheel with the core and CLI wheels into a clean environment without Rust.
+The Linux x86_64 wheel and the source archive are the ones CI already tested.
+Publication downloads the set that `scripts/release_candidates.py` accepted and
+checks it against its `SHA256SUMS` receipt. A missing, failed, skipped, extra or
+mismatched candidate stops the release. A manual run of `release.yml` qualifies
+every platform without publishing.
+
+An `extension/python/v` tag publishes the bundle that CI built from that tag's
+commit and checked in the pinned Morphir CLI. Its `release.json` must name that
+commit and its WASM digest.
+
+Publish in this order, each step after maintainer approval:
+
+1. `native-v<version>`, when the native compiler changed.
+2. `python-v<version>` for a CLI that pins it. Its qualification refuses to
+   continue until every platform file of the pinned native version is on PyPI.
+3. `extension/python/v<version>`, when the compiler changed. Then update the
+   ecosystem pin in finos/morphir (`.config/published-extension-bundles.toml`).
+
+Never delete or overwrite a published version or an older bundle; select an
+earlier version through the pins to roll back.
 
 For targeted qualification, `RELEASE_TAG=morphir-v0.0.1 mise run release-check`
 validates the library tag. `RELEASE_TAG=python-v0.0.2 mise run release-check` also

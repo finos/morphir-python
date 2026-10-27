@@ -102,3 +102,19 @@ def test_archives_reject_the_other_packages_namespace(
             )
     with pytest.raises(ValueError, match="Unexpected bundled namespace"):
         validate_archive(package, path)
+
+
+def test_cli_release_requires_the_complete_published_native_release() -> None:
+    from scripts.check_distributions import (
+        native_candidates_for,
+        require_published_native,
+    )
+
+    complete = set(native_candidates_for("0.1.0"))
+    require_published_native("0.1.0", complete | {"extra.whl"})
+    with pytest.raises(ValueError, match="win_amd64"):
+        require_published_native(
+            "0.1.0", {name for name in complete if "win_amd64" not in name}
+        )
+    with pytest.raises(ValueError, match="before this CLI"):
+        require_published_native("0.1.0", set())
