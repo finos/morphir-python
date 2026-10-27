@@ -32,9 +32,9 @@ Implement against `design.html` and the three delta specs. Follow TDD within eac
 
 ## 5. Qualify scoped CI and independently owned extension bundles (morphir-ukvn.1.6.5)
 
-- [ ] 5.1 Add mise tasks and scoped Python, Rust/native and bundle checks following the current common-layout contract; verify selector tests for documentation-only, native-only, compiler, shared dependency and workflow changes, plus aggregate failure/cancellation/missing-result handling.
-- [ ] 5.2 Build one compatible artifact per target/ABI and reuse it for clean-install tests; verify no consumer rebuilds its input and preserve existing lint/typecheck/coverage/BDD/release checks, with runtime and cache observations recorded rather than estimated savings.
-- [ ] 5.3 Build and package the WASM extension here with the canonical `morphir extension bundle` command against pinned tools; verify claims, checksums, source provenance and initialization/compile/generate/recompile through an isolated offline MEP host for both IR versions.
+- [x] 5.1 Add mise tasks and scoped Python, Rust/native and bundle checks following the current common-layout contract; verify selector tests for documentation-only, native-only, compiler, shared dependency and workflow changes, plus aggregate failure/cancellation/missing-result handling.
+- [x] 5.2 Build one compatible artifact per target/ABI and reuse it for clean-install tests; verify no consumer rebuilds its input and preserve existing lint/typecheck/coverage/BDD/release checks, with runtime and cache observations recorded rather than estimated savings.
+- [x] 5.3 Build and package the WASM extension here with the canonical `morphir extension bundle` command against pinned tools; verify claims, checksums, source provenance and initialization/compile/generate/recompile through an isolated offline MEP host for both IR versions.
 - [ ] 5.4 Add nonpublishing release qualification for the advertised wheel platforms, source archive and extension bundle, independent version/tag validation and exact-artifact promotion inputs; verify workflow syntax and refusal of failed/skipped/missing/mismatched candidate evidence, then document the approval and native-before-tools publication order.
 
 ## 6. Measure native and Python integration costs (morphir-ukvn.1.6.6)
