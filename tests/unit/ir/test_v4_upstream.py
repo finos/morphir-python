@@ -539,3 +539,50 @@ class TestAnnotations:
         )
         document = codec.encode_versioned_distribution(specs)
         assert codec.decode_versioned_distribution(document) == specs
+
+
+class TestUnion:
+    def test_exported_from_v4(self) -> None:
+        assert t.Union in v4.Type.__args__  # type: ignore[attr-defined]
+
+    def test_union_round_trips(self) -> None:
+        union = t.Union(TA, [STRING, INT])
+        expected = {"Union": {"alternatives": [STRING_JSON, INT_JSON]}}
+        assert codec.encode_type(union) == expected
+        assert codec.decode_type(expected) == union
+
+    def test_order_duplicates_nesting_and_attributes_are_kept(self) -> None:
+        attrs = t.TypeAttributes(source=t.SourceLocation(1, 1, 1, 9))
+        union = t.Union(attrs, [INT, t.Union(TA, [STRING, INT]), INT])
+        encoded = codec.encode_type(union)
+        assert "attributes" in encoded["Union"]
+        assert codec.decode_type(encoded) == union
+
+    @pytest.mark.parametrize("alternatives", [[], [INT]], ids=["empty", "singleton"])
+    def test_fewer_than_two_alternatives_are_refused(
+        self, alternatives: list[t.Type]
+    ) -> None:
+        union = t.Union(TA, alternatives)
+        assert fail_codes(codec.encode_type, union) == (d.INVALID_JSON,)
+        bad = {"Union": {"alternatives": [codec.encode_type(x) for x in alternatives]}}
+        assert fail_codes(codec.decode_type, bad) == (d.INVALID_JSON,)
+
+    def test_map_attributes_keeps_order_and_duplicates(self) -> None:
+        union = t.Union(TA, [INT, STRING, INT])
+        src = t.TypeAttributes(source=t.SourceLocation(1, 1, 1, 1))
+        mapped = t.map_attributes(union, lambda _: src)
+        assert isinstance(mapped, t.Union)
+        assert mapped.attributes == src
+        assert [type(x).__name__ for x in mapped.alternatives] == ["Reference"] * 3
+        assert all(x.attributes == src for x in mapped.alternatives)
+
+    def test_union_does_not_downgrade(self) -> None:
+        defn = td.TypeAliasDefinition([], t.Union(TA, [STRING, INT]))
+        errors = downgrade_errors(library(types={n("t"): defn}))
+        assert errors == [
+            (
+                d.UNSUPPORTED_V4_DOWNGRADE,
+                "Union",
+                "distribution/modules/app/types/t/Union",
+            )
+        ]

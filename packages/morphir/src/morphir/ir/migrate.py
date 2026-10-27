@@ -713,6 +713,9 @@ class _Downgrade:
                 )
             case t4.Unit(_):
                 return t3.Unit(None)
+            case t4.Union():
+                self.unsupported("Union", here)
+                return t3.Unit(None)
 
     def fields(
         self, fields: list[t4.Field], loc: Location

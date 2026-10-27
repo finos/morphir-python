@@ -31,9 +31,9 @@
 
 ## 5. Union type expression (morphir-ukvn.8.14.4)
 
-- [ ] 5.1 Add `type.Union(attributes, alternatives)` to the `Type` union and `map_attributes`, and verify a substitution-style attribute map keeps order and duplicates
-- [ ] 5.2 Encode and decode `{"Union": {"attributes"?, "alternatives": [...]}}`, refuse fewer than two alternatives both ways, and verify round trips including a nested union
-- [ ] 5.3 Make reverse migration fail with `unsupported_v4_downgrade` for a union and verify the location
+- [x] 5.1 Add `type.Union(attributes, alternatives)` to the `Type` union and `map_attributes`, and verify a substitution-style attribute map keeps order and duplicates
+- [x] 5.2 Encode and decode `{"Union": {"attributes"?, "alternatives": [...]}}`, refuse fewer than two alternatives both ways, and verify round trips including a nested union
+- [x] 5.3 Make reverse migration fail with `unsupported_v4_downgrade` for a union and verify the location
 
 ## 6. Deprecations, docs and integration checks (morphir-ukvn.8.14.5)
 

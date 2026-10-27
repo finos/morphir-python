@@ -358,9 +358,10 @@ class TestRoundTrip:
 
 class TestDecodeFailures:
     def test_unknown_node(self) -> None:
-        err = pytest.raises(DiagnosticError, codec.decode_type, {"Union": {}}).value
+        bad = {"Intersection": {}}
+        err = pytest.raises(DiagnosticError, codec.decode_type, bad).value
         assert err.codes == (d.UNKNOWN_NODE,)
-        assert err.diagnostics[0].location == ("Union",)
+        assert err.diagnostics[0].location == ("Intersection",)
 
     def test_compact_spelling_is_not_guessed(self) -> None:
         assert fail_codes(codec.decode_type, "morphir/SDK:basics#int") == (

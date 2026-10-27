@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any
+from typing import Union as TUnion
 
 from .fqname import FQName
 from .name import Name
@@ -72,7 +73,26 @@ class Unit:
     attributes: TypeAttributes
 
 
-Type = Union[Variable, Reference, Tuple, Record, ExtensibleRecord, Function, Unit]
+@dataclass(frozen=True)
+class Union:
+    """An untagged union: values of at least one of the alternative types.
+
+    Draft v4 type expression (finos/morphir ``docs/spec/draft/types.md``). It
+    introduces no constructor or tag. Alternative order, duplicates and nesting
+    are content and are kept.
+
+    Attributes:
+        attributes: The type attributes.
+        alternatives: Two or more alternative types.
+    """
+
+    attributes: TypeAttributes
+    alternatives: list[Type] = field(default_factory=list)
+
+
+Type = TUnion[
+    Variable, Reference, Tuple, Record, ExtensibleRecord, Function, Unit, Union
+]
 
 
 @dataclass(frozen=True)
@@ -114,5 +134,7 @@ def map_attributes(tpe: Type, f: Any) -> Type:
             map_attributes(tpe.argument_type, f),
             map_attributes(tpe.return_type, f),
         )
+    elif isinstance(tpe, Union):
+        return Union(new_ta, [map_attributes(a, f) for a in tpe.alternatives])
     else:
         return Unit(new_ta)

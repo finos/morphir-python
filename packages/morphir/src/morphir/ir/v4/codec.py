@@ -104,6 +104,7 @@ TYPE_NODES: dict[str, Members] = {
     "ExtensibleRecord": _m("variable fields"),
     "Function": _m("parameterType returnType"),
     "Unit": _m(),
+    "Union": _m("alternatives"),
 }
 
 VALUE_NODES: dict[str, Members] = {
@@ -613,6 +614,27 @@ def encode_type(tpe: t.Type, loc: Location = ()) -> Json:
             )
         case t.Unit(_):
             return node("Unit", {})
+        case t.Union(_, alternatives):
+            _check_alternatives(len(alternatives), (*here, "alternatives"))
+            return node(
+                "Union",
+                {
+                    "alternatives": [
+                        encode_type(x, (*here, "alternatives", i))
+                        for i, x in enumerate(alternatives)
+                    ]
+                },
+            )
+
+
+def _check_alternatives(count: int, loc: Location) -> None:
+    if count < 2:
+        raise fail(
+            d.INVALID_JSON,
+            "Union",
+            loc,
+            f"a union needs two or more alternatives, found {count}",
+        )
 
 
 def _encode_type_fields(fields: list[t.Field], loc: Location) -> dict[str, Json]:
@@ -667,6 +689,12 @@ def decode_type(j: object, loc: Location = ()) -> t.Type:
                 decode_type(body["parameterType"], (*here, "parameterType")),
                 decode_type(body["returnType"], (*here, "returnType")),
             )
+        case "Union":
+            alternatives = _decode_list(
+                decode_type, body["alternatives"], (*here, "alternatives"), "Union"
+            )
+            _check_alternatives(len(alternatives), (*here, "alternatives"))
+            return t.Union(attrs, alternatives)
         case _:
             return t.Unit(attrs)
 
