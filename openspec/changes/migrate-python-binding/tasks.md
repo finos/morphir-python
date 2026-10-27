@@ -4,10 +4,10 @@ Implement against `design.html` and the three delta specs. Follow TDD within eac
 
 ## 1. Move and qualify the standalone Rust compiler (morphir-ukvn.1.6.1)
 
-- [ ] 1.1 Select and record the current upstream morphir-rust source revision, reconcile changes since inspected `f4298d0`, and inventory the crate, fixture consumers, release selectors and parent CLI provider references; verify the recorded file inventory and existing binding tests against that revision.
-- [ ] 1.2 Move the compiler, examples, fixtures, acceptance tests and support documentation into `rust/crates/morphir-python-binding`; add the Rust workspace and lockfile using resolvable published core/SDK versions or one documented exact git revision; verify `cargo metadata --locked` and absence of sibling-checkout dependencies.
-- [ ] 1.3 Preserve the native Rust API, MEP identity, Ruff pins and current v3/v4 subset; verify migrated unit/integration, Gherkin acceptance and doc tests, Cargo formatting/clippy, and a release WASM build without CPython linking.
-- [ ] 1.4 Add the documented external Rust usage example and build prerequisites; verify an independent temporary Cargo consumer can compile and generate through the declared dependency without morphir-rust source paths or Python development libraries.
+- [x] 1.1 Select and record the current upstream morphir-rust source revision, reconcile changes since inspected `f4298d0`, and inventory the crate, fixture consumers, release selectors and parent CLI provider references; verify the recorded file inventory and existing binding tests against that revision.
+- [x] 1.2 Move the compiler, examples, fixtures, acceptance tests and support documentation into `rust/crates/morphir-python-binding`; add the Rust workspace and lockfile using resolvable published core/SDK versions or one documented exact git revision; verify `cargo metadata --locked` and absence of sibling-checkout dependencies.
+- [x] 1.3 Preserve the native Rust API, MEP identity, Ruff pins and current v3/v4 subset; verify migrated unit/integration, Gherkin acceptance and doc tests, Cargo formatting/clippy, and a release WASM build without CPython linking.
+- [x] 1.4 Add the documented external Rust usage example and build prerequisites; verify an independent temporary Cargo consumer can compile and generate through the declared dependency without morphir-rust source paths or Python development libraries.
 
 ## 2. Expose the compiler through a typed in-process Python API (morphir-ukvn.1.6.2)
 
