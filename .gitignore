@@ -64,3 +64,9 @@ yarn-error.log*
 
 # mise
 .mise.local.toml
+
+# Local agent working copies (specs/plans rendered from beads)
+.dev/
+
+# Beads runtime lock at repo root (bd creates this; do not commit)
+.beads.gate.lock
