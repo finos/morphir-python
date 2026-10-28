@@ -895,8 +895,11 @@ def _encode_type(tpe: t.Type, loc: Location) -> Json:
     def node(tag: str, members: dict[str, Json]) -> Json:
         if _compact(attrs):
             match tag:
-                case "Variable":
+                case "Variable" if _TYPE_VARIABLE_STRING.fullmatch(members["name"]):
                     return members["name"]
+                case "Variable":
+                    # The bare string grammar is lowercase only; keep the tag.
+                    return {"Variable": members["name"]}
                 case "Reference" if "args" in members:
                     return {"Reference": [members["fqname"], *members["args"]]}
                 case "Reference":

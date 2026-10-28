@@ -283,3 +283,16 @@ def test_a_documented_node_that_is_not_an_object_is_refused() -> None:
     with pytest.raises(DiagnosticError) as error:
         run(Documented("text", "not an object"), ())
     assert error.value.codes == (d.NO_V4_SPELLING,)
+
+
+@pytest.mark.parametrize("words", [("u", "s", "d"), ("item", "u", "s", "d"), ("123",)])
+def test_a_variable_outside_the_bare_string_grammar_keeps_its_tag(
+    words: tuple[str, ...],
+) -> None:
+    # The schema's bare type-variable string is lowercase only; other valid
+    # names need {"Variable": name} to read back.
+    tpe = t.Variable(NO_TYPE, Name(words))
+    encoded = codec.encode_type(tpe)
+    assert isinstance(encoded, dict)
+    assert set(encoded) == {"Variable"}
+    assert codec.decode_type(encoded) == tpe
