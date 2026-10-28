@@ -1,0 +1,366 @@
+{
+ "formatVersion": 4,
+ "distribution": {
+  "Library": {
+   "packageName": "acme/example",
+   "dependencies": {},
+   "def": {
+    "modules": {
+     "models": {
+      "Public": {
+       "types": {
+        "address": {
+         "Public": {
+          "TypeAliasDefinition": {
+           "typeParams": [],
+           "typeExp": {
+            "Record": {
+             "fields": {
+              "street": {
+               "Reference": {
+                "fqname": "morphir/SDK:string#string"
+               }
+              },
+              "zip-code": {
+               "Reference": {
+                "fqname": "morphir/SDK:basics#int"
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        },
+        "application": {
+         "Public": {
+          "TypeAliasDefinition": {
+           "typeParams": [],
+           "typeExp": {
+            "Record": {
+             "fields": {
+              "decision": {
+               "Reference": {
+                "fqname": "acme/example:models#decision"
+               }
+              },
+              "verified": {
+               "Reference": {
+                "fqname": "morphir/SDK:basics#bool"
+               }
+              },
+              "coordinates": {
+               "Tuple": {
+                "elements": [
+                 {
+                  "Reference": {
+                   "fqname": "morphir/SDK:basics#float"
+                  }
+                 },
+                 {
+                  "Reference": {
+                   "fqname": "morphir/SDK:basics#float"
+                  }
+                 }
+                ]
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        },
+        "decision": {
+         "Public": {
+          "CustomTypeDefinition": {
+           "typeParams": [],
+           "access": "Public",
+           "constructors": {
+            "pending": [],
+            "approved": [
+             [
+              "amount",
+              {
+               "Reference": {
+                "fqname": "morphir/SDK:basics#float"
+               }
+              }
+             ],
+             [
+              "address",
+              {
+               "Reference": {
+                "fqname": "acme/example:models#address"
+               }
+              }
+             ]
+            ]
+           }
+          }
+         }
+        },
+        "labeled-point": {
+         "Public": {
+          "TypeAliasDefinition": {
+           "typeParams": [],
+           "typeExp": {
+            "Tuple": {
+             "elements": [
+              {
+               "Reference": {
+                "fqname": "acme/example:models#point"
+               }
+              },
+              {
+               "Reference": {
+                "fqname": "morphir/SDK:string#string"
+               }
+              }
+             ]
+            }
+           }
+          }
+         }
+        },
+        "point": {
+         "Public": {
+          "TypeAliasDefinition": {
+           "typeParams": [],
+           "typeExp": {
+            "Tuple": {
+             "elements": [
+              {
+               "Reference": {
+                "fqname": "morphir/SDK:basics#float"
+               }
+              },
+              {
+               "Reference": {
+                "fqname": "morphir/SDK:basics#float"
+               }
+              }
+             ]
+            }
+           }
+          }
+         }
+        }
+       },
+       "values": {
+        "located": {
+         "Public": {
+          "ExpressionBody": {
+           "inputTypes": {
+            "flag": {
+             "Reference": {
+              "fqname": "morphir/SDK:basics#bool"
+             }
+            },
+            "location": {
+             "Reference": {
+              "fqname": "acme/example:models#point"
+             }
+            }
+           },
+           "outputType": {
+            "Reference": {
+             "fqname": "acme/example:models#labeled-point"
+            }
+           },
+           "body": {
+            "IfThenElse": {
+             "condition": {
+              "Variable": {
+               "name": "flag"
+              }
+             },
+             "then": {
+              "Tuple": {
+               "elements": [
+                {
+                 "Variable": {
+                  "name": "location"
+                 }
+                },
+                {
+                 "Literal": {
+                  "literal": {
+                   "StringLiteral": "known"
+                  }
+                 }
+                }
+               ]
+              }
+             },
+             "else": {
+              "Tuple": {
+               "elements": [
+                {
+                 "Tuple": {
+                  "elements": [
+                   {
+                    "Literal": {
+                     "literal": {
+                      "FloatLiteral": 0.0
+                     }
+                    }
+                   },
+                   {
+                    "Literal": {
+                     "literal": {
+                      "FloatLiteral": 0.0
+                     }
+                    }
+                   }
+                  ]
+                 }
+                },
+                {
+                 "Literal": {
+                  "literal": {
+                   "StringLiteral": "unknown"
+                  }
+                 }
+                }
+               ]
+              }
+             }
+            }
+           }
+          }
+         }
+        },
+        "make-point": {
+         "Public": {
+          "ExpressionBody": {
+           "inputTypes": {
+            "x": {
+             "Reference": {
+              "fqname": "morphir/SDK:basics#float"
+             }
+            },
+            "y": {
+             "Reference": {
+              "fqname": "morphir/SDK:basics#float"
+             }
+            }
+           },
+           "outputType": {
+            "Reference": {
+             "fqname": "acme/example:models#point"
+            }
+           },
+           "body": {
+            "Tuple": {
+             "elements": [
+              {
+               "Variable": {
+                "name": "x"
+               }
+              },
+              {
+               "Variable": {
+                "name": "y"
+               }
+              }
+             ]
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "rules": {
+      "Public": {
+       "types": {},
+       "values": {
+        "origin": {
+         "Public": {
+          "ExpressionBody": {
+           "inputTypes": {},
+           "outputType": {
+            "Reference": {
+             "fqname": "acme/example:models#point"
+            }
+           },
+           "body": {
+            "Tuple": {
+             "elements": [
+              {
+               "Literal": {
+                "literal": {
+                 "FloatLiteral": 0.0
+                }
+               }
+              },
+              {
+               "Literal": {
+                "literal": {
+                 "FloatLiteral": 0.0
+                }
+               }
+              }
+             ]
+            }
+           }
+          }
+         }
+        },
+        "select-decision": {
+         "Public": {
+          "ExpressionBody": {
+           "inputTypes": {
+            "flag": {
+             "Reference": {
+              "fqname": "morphir/SDK:basics#bool"
+             }
+            },
+            "first": {
+             "Reference": {
+              "fqname": "acme/example:models#decision"
+             }
+            },
+            "second": {
+             "Reference": {
+              "fqname": "acme/example:models#decision"
+             }
+            }
+           },
+           "outputType": {
+            "Reference": {
+             "fqname": "acme/example:models#decision"
+            }
+           },
+           "body": {
+            "IfThenElse": {
+             "condition": {
+              "Variable": {
+               "name": "flag"
+              }
+             },
+             "then": {
+              "Variable": {
+               "name": "first"
+              }
+             },
+             "else": {
+              "Variable": {
+               "name": "second"
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

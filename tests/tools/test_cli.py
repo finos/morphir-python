@@ -326,3 +326,53 @@ class TestLegacy:
         result = run("ir", "inspect", write(tmp_path, "x.json", doc))
         assert result.exit_code == 1
         assert d.INVALID_FORMAT_VERSION_SYNTAX in result.stderr
+
+
+class TestConvertSpelling:
+    """``ir convert --to v4`` writes the compact spelling unless asked otherwise."""
+
+    def test_default_is_compact_and_inspects(self, tmp_path: Path) -> None:
+        out = tmp_path / "compact.json"
+        assert run("ir", "convert", VALUE_TREE, "--to", "v4", "-o", out).exit_code == 0
+        text = out.read_text()
+        assert '{"Reference":{"fqname"' not in text
+        assert '"morphir/SDK:basics#int"' in text
+        inspected = run("ir", "inspect", out)
+        assert inspected.exit_code == 0
+        assert "format: 4.0.0" in inspected.output
+
+    def test_expanded_on_request_decodes_to_the_same_model(
+        self, tmp_path: Path
+    ) -> None:
+        from morphir.ir.v4 import codec
+
+        compact, expanded = tmp_path / "c.json", tmp_path / "e.json"
+        assert (
+            run("ir", "convert", VALUE_TREE, "--to", "v4", "-o", compact).exit_code == 0
+        )
+        result = run(
+            "ir", "convert", VALUE_TREE, "--to", "v4",
+            "--v4-spelling", "expanded", "-o", expanded,
+        )  # fmt: skip
+        assert result.exit_code == 0, result.output
+        assert '{"Reference":{"fqname"' in expanded.read_text()
+        assert codec.decode_versioned_distribution(
+            compact.read_text()
+        ) == codec.decode_versioned_distribution(expanded.read_text())
+
+    def test_unknown_spelling_is_a_usage_error(self, tmp_path: Path) -> None:
+        result = run(
+            "ir", "convert", VALUE_TREE, "--to", "v4",
+            "--v4-spelling", "short", "-o", tmp_path / "x.json",
+        )  # fmt: skip
+        assert result.exit_code == 2
+        assert not (tmp_path / "x.json").exists()
+
+    def test_spelling_does_not_change_v3_output(
+        self, v4_file: Path, tmp_path: Path
+    ) -> None:
+        plain, spelled = tmp_path / "p.json", tmp_path / "s.json"
+        assert run("ir", "convert", v4_file, "--to", "v3", "-o", plain).exit_code == 0
+        args = ["--to", "v3", "--v4-spelling", "expanded", "-o", spelled]
+        assert run("ir", "convert", v4_file, *args).exit_code == 0
+        assert plain.read_text() == spelled.read_text()

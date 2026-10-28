@@ -104,7 +104,8 @@ class TestIndependentlyAuthoredIr:
             )["ir"]
         )
         expanded = v4_codec.encode_versioned_distribution(
-            direct.distribution  # type: ignore[arg-type]
+            direct.distribution,  # type: ignore[arg-type]
+            spelling=v4_codec.Spelling.EXPANDED,
         )
         assert native != expanded
         assert v4_codec.decode_versioned_distribution(native) == direct.distribution
