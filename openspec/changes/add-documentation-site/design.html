@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>add-documentation-site</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>.
+  Styles and scripts are files in docs/templates/assets/, referenced and not embedded. In a copy, change the
+  "assets/" prefix of each href and src to the relative path from the copy to that directory, for example
+  "../../docs/templates/assets/" from .dev/beads-specs/. See AGENTS.md, "Specs and plans are HTML documents".
+  Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
+  list them in nav.toc.
+-->
+<link rel="stylesheet" href="../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../docs/templates/assets/agent-document.js"></script>
+</head>
+<body>
+<main>
+<h1>add-documentation-site</h1>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.9</code> · 2026-10-27 · Proposed</p>
+
+<nav class="toc" aria-label="Contents">
+<ul>
+<li><a href="#context">Context and evidence</a></li>
+<li><a href="#goals">Goals and boundaries</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#assurance">Checks and publication</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration and rollback</a></li>
+</ul>
+</nav>
+
+<section id="context-section">
+<h2 id="context">Context and evidence</h2>
+<p>See <a href="proposal.md">the proposal</a> for motivation. The compiler and extension already exist. This design adds a public guide around their present contracts, with executable evidence for the instructions readers follow.</p>
+<table>
+<thead><tr><th>Observed source</th><th>Consequence</th></tr></thead>
+<tbody>
+<tr><td><a href="../../../docs/python-compiler.md">Python compiler guide</a> and <a href="../../../tests/tools/test_python_docs.py">its tests</a></td><td>Reuse the typed API example and fresh-interpreter/type-checking coverage. The current test assumes one page and fixed stdout; expand it for named examples and assertions.</td></tr>
+<tr><td><a href="../../../docs/python-extension.md">Extension guide</a> and <a href="../../../rust/extension.toml">bundle pins</a></td><td>The Python artifact is an Extism guest. Existing host qualification and bundle metadata are the starting evidence for finos/morphir.</td></tr>
+<tr><td><a href="https://github.com/finos/morphir-moonbit/blob/bd3adc52e6b8f6368fdaee50f76535799732f8d6/docs/WRITING_FOR_THE_SITE.md">MoonBit site authoring guide</a></td><td>Follow its user journeys, tested examples and checked links. Use Telescope rather than copy its custom MoonBit renderer.</td></tr>
+<tr><td><a href="https://github.com/finos/morphir-moonbit/blob/bd3adc52e6b8f6368fdaee50f76535799732f8d6/apps/morphir/docs/extension.md">MoonBit extension adapters</a></td><td>Core-WASM process and native-process support do not qualify an Extism guest. The portable path uses an IR v4 model envelope and has explicit codec/provenance constraints.</td></tr>
+<tr><td><a href="https://github.com/moonrockz/telescope/blob/615d75c/docs/cli.md">Telescope CLI</a> and <a href="https://github.com/moonrockz/telescope/blob/615d75c/docs/release/0.2.1.md">0.2.1 release evidence</a></td><td>A stock native CLI builds Markdown/HTML, checks links, and embeds CSS and browser controls. Its API adapter consumes MoonBit metadata, not Python signatures.</td></tr>
+<tr><td><a href="../../../scripts/ci_changes.py">CI selector</a> and <a href="../../../.github/workflows/ci.yml">CI workflow</a></td><td>Most docs currently select no work. Unknown paths, workflow changes and full runs select all categories. Add explicit docs ownership without weakening aggregate failure handling.</td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="goals-section">
+<h2 id="goals">Goals and boundaries</h2>
+<p>Readers should install the right package, complete a small model round trip, use the IR/SDK library directly, and understand which host can run the extension. A contributor should preview the same site that CI checks and publishes. The contracts are in <a href="specs/docs/site/spec.md">docs/site</a>, <a href="specs/docs/examples/spec.md">docs/examples</a> and <a href="specs/docs/cli-integration/spec.md">docs/cli-integration</a>.</p>
+<p>The initial site uses one documentation tree with explicit release and development labels. It does not introduce an evaluator, a browser Python runtime, a benchmark claim about Rust performance, or a new extension adapter. Full historical version trees can follow when releases need them. The user selected current-support documentation; the MoonBit Extism proposal is separate and does not gate this site.</p>
+</section>
+
+<section id="decisions-section">
+<h2 id="decisions">Decisions</h2>
+<h3 id="site-1">SITE-1. Consume the published Telescope CLI</h3>
+<p>Start with Telescope <code>0.2.1</code>. Pin the release archive and expected SHA-256 in repository-owned setup metadata for Linux x64 CI and macOS arm64 local use. Verify the binary version after installation. These targets have published qualification; document other platforms as unqualified. Telescope is build tooling, outside the Python runtime dependency graph. A stock binary requires no MoonBit compiler or neighboring checkout.</p>
+<p>Use <code>site/site.json</code>, <code>site/pages/</code> for the landing page, existing <code>docs/</code> for guides and <code>site/assets/</code> for repository assets. Explicit discovery/exclusions must keep templates, planning documents, OpenSpec changes and generated output out of navigation and search. Proposed mise tasks are <code>site:setup</code>, <code>site:build</code>, <code>site:check</code>, <code>site:serve</code> and <code>docs:test</code>. Setup should install only the tools each command needs.</p>
+<pre><code class="language-json">{
+  "schema_version": 1,
+  "title": "Morphir Python",
+  "description": "Python models, Morphir IR and language tooling",
+  "base_path": "/morphir-python/",
+  "site_url": "https://finos.github.io/morphir-python/",
+  "repo_url": "https://github.com/finos/morphir-python",
+  "repo_ref": "main",
+  "packages": [],
+  "source_roots": ["docs", "site/pages"]
+}
+</code></pre>
+<p>This is a configuration starting point, not the final navigation manifest. Configure exclusions, navigation and static resources using the pinned version's supported contract. Build to <code>_site/</code>; test both <code>/</code> and <code>/morphir-python/</code>. Keep existing guide URLs in the repository useful and add site links to READMEs. Copying MoonBit's renderer would duplicate work now owned by Telescope; a separate Python documentation framework would split that shared foundation.</p>
+
+<h3 id="docs-1">DOCS-1. Organize around complete user journeys</h3>
+<table>
+<thead><tr><th>Navigation</th><th>Initial content</th></tr></thead>
+<tbody>
+<tr><td>Start</td><td>Package responsibilities, supported Python/wheel platforms, installation, first CLI round trip and first in-memory API example.</td></tr>
+<tr><td>Python API</td><td>Compiler inputs, typed success/failure results, diagnostics, exposure and generated artifacts; IR codecs, version reading/migration and representative SDK functions.</td></tr>
+<tr><td>CLI</td><td><code>compile</code>, <code>generate</code>, <code>ir inspect</code>, <code>ir convert</code>, options, exit behavior, output safety and supported Python subset.</td></tr>
+<tr><td>Connect to Morphir</td><td>Host identification, compatibility table, finos/morphir extension setup, MoonBit limitations and qualified IR exchange or refusal examples.</td></tr>
+<tr><td>Contribute</td><td>Build/preview/check commands, example authoring, pin updates, host qualification, publication and Telescope upstream reporting.</td></tr>
+</tbody>
+</table>
+<p>Use one checked multi-module domain example for API, CLI and extension guides, plus small independent IR/SDK examples. Explain the result before reference details. Keep a concise public symbol/command reference checked against exports, signatures and help output. Telescope's MoonBit API importer is unsuitable for Python; explicit Python reference pages avoid adding an unrelated generator to the first delivery.</p>
+
+<h3 id="docs-2">DOCS-2. Treat runnable snippets as maintained examples</h3>
+<p>Store canonical Python sources, CLI argument arrays, fixtures and expected results under <code>examples/</code>. Give runnable snippets stable example identifiers and source-region references. A small Python docs utility synchronizes marked fenced regions in committed Markdown and offers a check-only mode that fails on drift. This works with the stock Telescope CLI. Retain source-file links and downloadable examples. Do not copy a tutorial into multiple untracked code blocks.</p>
+<p>Extend the existing docs test coverage to execute named API examples in isolated interpreters and run mypy/pyright, checking typed results, artifacts and diagnostics. Run CLI recipes in temporary directories against installed distributions, assert semantic round trips, and cover invalid source and nonempty output directories. Test snippets without executing submitted compiler input as part of compilation. Generated model behavior can be checked in a separate verification process, as existing compiler tests do.</p>
+<p>Record example prerequisites in a small machine-readable manifest. Released quickstarts use an exact qualified package set installed outside the checkout; development examples use the candidate wheels already produced by CI and visibly say they require a source build. The site's main-branch freshness must not imply that an unreleased compact-v4 writer or migration is available in a released wheel. A single tree can carry both labels without a version-assembly pipeline.</p>
+
+<h3 id="host-1">HOST-1. Qualify each CLI independently</h3>
+<table>
+<thead><tr><th>Consumer</th><th>Current evidence</th><th>Guide treatment</th></tr></thead>
+<tbody>
+<tr><td><code>morphir-python</code></td><td>Typed Python API and installed CLI call the native compiler in process. Default compiler output is IR v3; draft v4 is explicit.</td><td>Release-qualified install and API/CLI round trips, independent of another Morphir executable.</td></tr>
+<tr><td><code>finos/morphir</code></td><td>Existing Extism bundle host qualification; descriptor/CLI versions are pinned in <code>rust/extension.toml</code>.</td><td>Pin an actual released host/bundle pair, download and verify, create/select repository, install, discover capabilities and compile/generate. State IR selection explicitly.</td></tr>
+<tr><td>MoonBit-based Morphir CLI</td><td>Core-WASM callback adapter and native-process adapter; its current guide requires a separately qualified Extism adapter.</td><td>Label direct Python-bundle invocation unsupported. Probe narrow file exchange with the pinned CLI and show either a verified route or an actionable refusal.</td></tr>
+</tbody>
+</table>
+<p>Give each recipe an executable path and version/provider check so two programs called <code>morphir</code> cannot silently substitute for one another. Record exact host revisions/releases, bundle digest, MEP version, IR version/encoding, model distribution and envelope shape. A plain IR JSON document and a MoonBit <code>model-envelope.json</code> are distinct artifacts. Ion support or a shared IR version alone does not prove a working file exchange. Do not add ad hoc envelope or provenance conversions to make a documentation test pass.</p>
+<p>Reuse <code>scripts/extension_bundle.py</code> qualification and its existing host rather than invent another bundle packager. Add a bounded host recipe runner for the documented setup. Host-integration evidence contains input/command hashes, dependencies, outputs, diagnostic expectations and the qualification runner identity. Successful support claims require matching evidence. If no MoonBit exchange direction works today, publish the checked incompatibility and follow-up instead of expanding runtime scope.</p>
+<p>A Codex workspace was dispatched at <code>/Users/damian/orca/workspaces/morphir-moonbit/propose-extism-python</code>, branch <code>DamianReeves/propose-extism-python</code>, to propose Extism support separately. Replace this dispatch reference with its durable proposal/bead link when available. Existing MoonBit installed-selection follow-up <code>morphir-ukvn.5.64.30</code> is another reason to distinguish installation from invocation.</p>
+
+<h3 id="up-1">UP-1. Report generic foundation gaps to Telescope</h3>
+<p>Use stock rendering and browser controls first. Python compilation, CLI execution and result assertions belong to this consumer. Telescope's current API adapter accepts MoonBit metadata, so use authored, checked Python reference pages. If a reusable Python metadata adapter becomes necessary, report it upstream with a minimal fixture and acceptance criteria before building a private parallel system.</p>
+<p>The local Telescope checkout already contains an unmerged <code>standardize-tutorial-components</code> intent covering source-region examples and verification metadata. Record that relationship without treating it as a released dependency or modifying its draft. If its proposal later has a durable upstream link, use it rather than file a duplicate. For any blocking limitation, record version, minimal reproduction, expected behavior, consumer impact, workaround and upstream issue/proposal in <code>docs/site-foundation.md</code>. Adopt a fix only through a published, pinned release after checks. No confirmed rendering blocker currently requires a new Telescope issue.</p>
+</section>
+
+<section id="assurance-section">
+<h2 id="assurance">Checks and publication</h2>
+<h3 id="ci-1">CI-1. Select docs work and promote one checked artifact</h3>
+<p>Add <code>docs</code> ownership to the existing CI selector. Keep specific site/example/workflow rules ahead of broad docs, scripts and workflow rules. Published prose/configuration selects static build/check/browser coverage. Example or referenced API/CLI changes also select the relevant installed-package tests, using compatible existing wheel artifacts. Host recipe/pin changes select host qualification. Unknown paths and full runs remain conservative, and selected jobs that fail, cancel, disappear or skip unexpectedly must fail the aggregate.</p>
+<table>
+<thead><tr><th>Check and owner</th><th>Risk, trigger and deadline</th><th>Evidence and failure action</th></tr></thead>
+<tbody>
+<tr><td>Static site, docs maintainers</td><td>Broken links, excluded content leaks, deployment paths and unreadable UI. All published prose/config/assets; before merge and deployment.</td><td>Build/check at both bases; browser smoke at desktop and 360px, both themes, search/menu/copy/focus. Failure blocks the aggregate and publication.</td></tr>
+<tr><td>Examples, Python maintainers</td><td>Incorrect API/CLI advice. Example sources, snippets, dependencies and referenced APIs/commands; before merge and deployment.</td><td>Snippet drift, type checks, isolated execution and output assertions for the declared package set. Reuse wheel producers when candidate checks are selected.</td></tr>
+<tr><td>Host recipes, extension maintainers</td><td>False compatibility claims. Recipe/pin/host-contract changes; before new or revised claims merge or publish.</td><td>Exact recipe and artifact evidence. Missing evidence blocks the changed claim. Unchanged recipes may reuse evidence only with matching relevant-input hashes and qualified dependencies.</td></tr>
+<tr><td>Pages, docs maintainers</td><td>Publishing unverified bytes. Authorized main push or manual main run; after all required evidence succeeds.</td><td>Deploy the checked build artifact, with source SHA, Telescope version, package pins and evidence manifest. No rebuild during deployment.</td></tr>
+</tbody>
+</table>
+<p>Factor reusable site build/check work so the main CI and deployment caller use one definition. Keep deployment in the trusted main workflow, with <code>pages: write</code> and <code>id-token: write</code> only on the deploy job and the <code>github-pages</code> environment. PR validation has no deployment credentials. Avoid <code>workflow_run</code> promotion of untrusted PR artifacts. Re-run required examples for the main candidate or verify the documented relevant-input equivalence contract; a cache hit alone is insufficient.</p>
+<p>Initial checks run on Linux x64; validate local installation on macOS arm64. Broader package-platform coverage stays with existing package qualification. No new nightly schedule is needed. Measure representative run duration and artifact reuse during implementation; this proposal promises no unmeasured speedup.</p>
+<details>
+<summary>Build-master assessment and alternatives</summary>
+<p>The decision is provisional until selector, artifact and failure-path tests exist. Incorrect examples have moderate impact; untrusted deployment has high impact. The deadline is before the relevant merge or publication. Hard requirements for gate preservation, artifact identity and privilege isolation are currently unknown for the proposed implementation. No required coverage is deferred to an unenforced schedule.</p>
+<table>
+<thead><tr><th>Criterion</th><th>Weight</th><th>All checks on every docs edit</th><th>Scoped category and artifact reuse</th></tr></thead>
+<tbody>
+<tr><td>Risk and coverage fit</td><td>25</td><td>U, new site checks absent</td><td>U, selector regressions required</td></tr>
+<tr><td>Feedback and placement</td><td>20</td><td>U, no baseline timings</td><td>U, measure selected runs</td></tr>
+<tr><td>Evidence and trust</td><td>20</td><td>U, deployment not built</td><td>U, promotion tests required</td></tr>
+<tr><td>Execution efficiency</td><td>15</td><td>U, no measured comparison</td><td>U, verify compatible reuse</td></tr>
+<tr><td>Ownership and structure</td><td>10</td><td>2, broad existing categories</td><td>U, proposed docs ownership</td></tr>
+<tr><td>Operability and recovery</td><td>10</td><td>U, new deployment absent</td><td>U, rollback/failure tests required</td></tr>
+</tbody>
+</table>
+<p>Totals are withheld because the evidence is incomplete. Confidence in the inspected category contracts is high; runtime and proposed promotion behavior remain unmeasured. Prefer scoped checks because the existing selector already owns change planning, then validate that choice in task group 4.</p>
+</details>
+</section>
+
+<section id="risks-section">
+<h2 id="risks">Risks and trade-offs</h2>
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>MoonBit interoperability cannot be made successful with documentation alone.</td><td>Checked refusals satisfy accurate current-support guidance. Extism implementation remains a separate upstream proposal.</td></tr>
+<tr><td>Telescope 0.2.1 lacks a required reusable feature.</td><td>Report or link upstream, keep a bounded documented consumer workaround and expose any unmet acceptance criterion.</td></tr>
+<tr><td>Main-branch API docs get ahead of released packages.</td><td>Exact prerequisite manifests, visible release/development labels and installed-artifact checks.</td></tr>
+<tr><td>Generated snippets add maintenance cost.</td><td>One small sync/check utility with explicit markers; consumer tests own domain behavior. Replace with an upstream facility only after a published compatible release.</td></tr>
+<tr><td>Host downloads are unavailable or pins change.</td><td>Retain matching evidence for immutable qualified inputs. Changes to those inputs require fresh qualification; download failure never counts as success.</td></tr>
+<tr><td>Pages settings are not enabled.</td><td>Prepare and verify the complete site artifact and workflow first, then request the specific maintainer setting if necessary.</td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="migration-section">
+<h2 id="migration">Migration and rollback</h2>
+<p>Deliver the implementation in one PR if practical, with task groups carrying their own tests and docs. Preserve existing guide paths and enhance their content rather than delete the only instructions before the site is live. Add the site skeleton, checked examples and host guidance, then integrate the selector and publication job. Run the pinned consumer installation, project-base checks and browser smoke on the complete candidate.</p>
+<p>After review and authorized merge, deploy the verified main artifact. If repository settings block it, provide the checked artifact and exact setting request. Roll back a bad publication by redeploying a retained previously verified site artifact or reverting the content change and validating that revision. Keep package/extension releases independent of a site rollback. Archive this OpenSpec change and close task beads only after the agreed implementation evidence exists.</p>
+</section>
+</main>
+</body>
+</html>
