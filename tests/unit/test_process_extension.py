@@ -40,7 +40,9 @@ def candidate(directory: Path) -> str:
                         "sha256": digest,
                         "claimCheck": "unchecked",
                         "claims": {
-                            "protocolVersions": ["0.1"],
+                            "protocolVersions": wasm.declaration()["extension"][
+                                "mep_versions"
+                            ],
                             "extension": {"id": "morphir-python", "version": version},
                             "capabilities": {},
                         },

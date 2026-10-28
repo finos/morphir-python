@@ -10,3 +10,4 @@ tools/extension-qualification/Cargo.lock text eol=lf
 tools/extension-qualification/Cargo.toml text eol=lf
 tools/extension-qualification/*.rs text eol=lf
 tools/extension-qualification/src/*.rs text eol=lf
+tools/extension-qualification/src/bin/*.rs text eol=lf

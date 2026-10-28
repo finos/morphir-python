@@ -14,7 +14,7 @@ homepage = "https://github.com/finos/morphir-python"
 # Published Morphir crates. Never use sibling-checkout paths here.
 morphir-core = "=0.2.0"
 morphir-json = "=0.2.0"
-morphir-extension-sdk = "=0.3.0"
+morphir-extension-sdk = "=0.4.0"
 num-bigint = "0.5"
 # Ruff component crates evolve together; update this group as one unit.
 ruff_python_parser = "=0.0.15"

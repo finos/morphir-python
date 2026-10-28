@@ -67,6 +67,7 @@ impl Extension for PythonExtension {
                 ir_versions: vec!["3".into(), "4".into()],
                 generate: true,
             }),
+            model_transport: Some(model_transport::support()),
             ..Default::default()
         }
     }

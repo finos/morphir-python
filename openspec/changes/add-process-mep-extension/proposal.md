@@ -25,6 +25,7 @@ The Python compiler currently exposes a WASM MEP guest advertising legacy `0.1`,
 ## Beads
 
 - **Tracked by**: `morphir-5hxy`
+- **Prerequisites**: `morphir-4wrx` (published SDK0.4.0, completed), `morphir-av8s` (approved separate upstream Python JSON executable MCK profile, finos/morphir#1109).
 - **Related**: `morphir-bj9r` (mise/pipx CLI installation and release assurance), `morphir-ukvn.5.98` (MoonBit Extism qualification context).
 
 ## Impact

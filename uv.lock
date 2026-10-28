@@ -201,7 +201,7 @@ source = { editable = "packages/morphir" }
 
 [[package]]
 name = "morphir-python"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/morphir-tools" }
 dependencies = [
     { name = "morphir" },

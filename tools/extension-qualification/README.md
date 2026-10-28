@@ -64,3 +64,35 @@ The checker also accepts two optional source paths after `REPORT`, for the
 type-only and type/value cases respectively. The benchmark uses these to keep
 the measured inputs reproducible. Inputs must compile and roundtrip in both
 advertised IR versions.
+
+## Bridge the real WASM guest to the shared MCK
+
+The same build produces `mep_wasm_host`, a transport adapter for the upstream
+`morphir mck mep guest-run` executable. It forwards request bodies unchanged to
+the actual Extism guest's `handle` export and returns its exact response bytes.
+The adapter contains no conformance expectations or adjudication logic.
+
+```bash
+"$MCK" --no-banner mck mep guest-run --kit "$PYTHON_JSON_KIT" \
+  --host "$PWD/.dev/host-qualification-target/release/mep_wasm_host" \
+  --host-arg "$WASM_GUEST" --identity-file "$WASM_GUEST" \
+  --identity-file "$PWD/rust/Cargo.lock" \
+  --identity-file "$PWD/tools/extension-qualification/Cargo.lock" \
+  --identity-file "$PWD/tools/extension-qualification/src/bin/mep_wasm_host.rs" \
+  --report "$PWD/.dev/qualification/mck-wasm.json"
+"$MCK" --no-banner mck mep report-check --kit "$PYTHON_JSON_KIT" \
+  "$PWD/.dev/qualification/mck-wasm.json"
+```
+
+Use an explicitly pinned shared MCK source/binary and its matching
+`python-json-library-v1` kit. Supply absolute guest paths. Process qualification
+can pass the raw executable directly as `--host`, without this adapter.
+The saved report records the actual host executable, arguments, guest bytes,
+checker, corpus, identities and observations. Its canonical recheck requires
+the same checker and all recorded identity paths while they are available.
+
+Extism exposes a requests-only `handle` ABI. As in the pinned upstream
+`ExtismChannel`, notifications are not forwarded; an exit notification closes
+the bridge and unloads the guest. Those lifecycle observations qualify this
+adapter/guest pair, rather than claiming guest notification delivery. Process
+session tests exercise actual native guest notification handling separately.

@@ -2345,6 +2345,7 @@ dependencies = [
  "morphir-extension-sdk",
  "morphir-host",
  "morphir-host-native",
+ "serde",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",

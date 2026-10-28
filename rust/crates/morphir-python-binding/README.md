@@ -582,7 +582,7 @@ workspace. Use the same published SDK version as this crate:
 ```toml
 [dependencies]
 morphir-python-binding = { git = "https://github.com/finos/morphir-python", rev = "<commit>" }
-morphir-extension-sdk = "=0.3.0"
+morphir-extension-sdk = "=0.4.0"
 serde_json = "1"
 ```
 

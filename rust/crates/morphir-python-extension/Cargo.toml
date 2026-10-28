@@ -10,7 +10,7 @@ description = "Native stdio MEP guest for the Morphir Python compiler"
 publish = false
 
 [dependencies]
-morphir-python-binding = { path = "../morphir-python-binding", version = "0.4.2" }
+morphir-python-binding = { path = "../morphir-python-binding", version = "0.5.0" }
 morphir-extension-sdk.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }

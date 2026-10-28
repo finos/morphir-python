@@ -4,9 +4,9 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 
 ## 1. Negotiate current and legacy MEP (morphir-5hxy.1)
 
-- [ ] 1.1 Resolve the SDK 0.3.0 numeric-only wire ID gap with a qualified published SDK pin, linking an upstream prerequisite if needed; add explicit legacy `0.1` and exact `0.2.0-draft.1` offers using the pinned SDK's session helpers; verify numeric/string ID preservation, both handshakes, incompatible drafts and unchanged legacy compile/generate behavior.
-- [ ] 1.2 Add bilateral complete-tuple and limit negotiation without widening static claims; verify cross-product, unadvertised method, unsupported guarantee and legacy-session refusals.
-- [ ] 1.3 Document independent MEP, envelope, IR, claims and package versions; verify the capability reference matches live discovery and initialized sessions.
+- [x] 1.1 Resolve the SDK 0.3.0 numeric-only wire ID gap with a qualified published SDK pin, linking an upstream prerequisite if needed; add explicit legacy `0.1` and exact `0.2.0-draft.1` offers using the pinned SDK's session helpers; verify numeric/string ID preservation, both handshakes, incompatible drafts and unchanged legacy compile/generate behavior.
+- [x] 1.2 Add bilateral complete-tuple and limit negotiation without widening static claims; verify cross-product, unadvertised method, unsupported guarantee and legacy-session refusals.
+- [x] 1.3 Document independent MEP, envelope, IR, claims and package versions; verify the capability reference matches live discovery and initialized sessions.
 
 ## 2. Adapt supported model envelopes (morphir-5hxy.2)
 
@@ -18,7 +18,7 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 
 - [x] 3.1 Add the thin Rust process guest and documented `morphir-python-extension --stdio` entry point; verify it builds and executes without CPython/PyO3 or a user Rust toolchain.
 - [x] 3.2 Implement bounded Content-Length framing around the SDK session; test Unicode byte lengths, partial/truncated messages, duplicate/invalid lengths, overflow, invalid UTF-8/JSON and header/body limits.
-- [ ] 3.3 Preserve request IDs, notification silence, fixed session capabilities, shutdown/exit and protocol-only stdout; verify a real multi-request process test and document stderr and supervision behavior.
+- [x] 3.3 Preserve request IDs, notification silence, fixed session capabilities, shutdown/exit and protocol-only stdout; verify a real multi-request process test and document stderr and supervision behavior.
 
 ## 4. Distribute both runtime choices (morphir-5hxy.4)
 
@@ -35,8 +35,8 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 
 ## Workflow follow-up
 
-- Implementation is in progress under the active apply goal. SDK publication and a separate upstream Python MCK profile decision are pending; the new draft remains unadvertised.
+- Implementation is in progress under the active apply goal. The maintainer approved both prerequisites. SDK0.4.0 is published and registry-pinned. Upstream Python JSON MCK profilePR1109 preserves MoonBit rich-Ion checks; independent actual release-native/WASM0.5.0 runs and saved rechecks pass91observations each. Final merged-source pin and producer/promotion integration remain pending.
 - Task 4.1 now requires a source/artifact-bound framed diagnostic receipt from every process producer. Actual macOS process bytes match the installed Python API's complete v3/v4 diagnostic records with a clean child environment. Missing, changed, stale or mismatched diagnostic proofs block assembly. The checkbox remains open until the replacement platform run supplies all five receipts.
 - Task 4.3 now stages deterministic download assets and checksums alongside assembly. The all-platform archive preserves exact bytes, canonical `release.json` and executable permissions; real runtime switching, installed integrity and platform refusal pass after extracting actual 820c9d0 candidate bytes. CI now tests that packaged form. Archive staging is separate from the still-pending independent MCK promotion gate and GitHub process publication.
 - Source-pinned legacy Rust host checks pass for both actual b38e00e runtime artifacts, including v3/v4 parity, timeout and cleanup. Five release-host timing samples per workload retain exact inputs and raw reports in `.dev/qualification/timings-b38-release/`; the manual/release candidate job owns reruns and artifact retention. MoonBit remains unsupported at the documented pin, with explicit v3/v4 envelope refusals reverified by run 40685569455. These checks do not substitute for task 5.1's canonical executable conformance.
-- All merges are approved. Tags and publication still require maintainer approval; sync/archive only after implementation and qualification are complete.
+- All merges are approved. Exact SDK0.4.0 tag publication was separately approved and completed; Python/native/extension release tags still require maintainer approval; sync/archive only after implementation and qualification are complete.

@@ -124,7 +124,7 @@ fn invalid_request_ids_do_not_become_notifications_or_poison_the_session() {
         json!(-1),
         json!(1.5),
     ] {
-        messages.push(json!({"jsonrpc":"2.0","id":id,"method":"morphir.ping"}));
+        messages.push(json!({"jsonrpc":"2.0","id":id,"method":"morphir.ping","params":{}}));
     }
     messages.push(json!({"jsonrpc":"2.0","id":77,"method":"morphir.ping","params":{}}));
     let mut output = Vec::new();
@@ -153,6 +153,49 @@ fn independent_stream_sessions_cannot_share_initialization_state() {
     )
     .unwrap();
     assert_eq!(responses(second)[0]["error"]["code"], -32014);
+}
+
+#[test]
+fn canonical_numeric_and_string_ids_survive_requests_and_lifecycle() {
+    let ids = [json!(u64::MAX), json!("λ/request"), json!(""), json!(0)];
+    let mut messages = vec![initialize()];
+    for id in &ids {
+        messages.push(json!({"jsonrpc":"2.0","id":id,"method":"morphir.ping"}));
+    }
+    messages.extend([
+        json!({"jsonrpc":"2.0","id":"shutdown","method":"morphir.shutdown","params":{}}),
+        json!({"jsonrpc":"2.0","method":"morphir.exit"}),
+    ]);
+    let mut output = Vec::new();
+    serve(&mut Cursor::new(wire(&messages)), &mut output).unwrap();
+    let replies = responses(output);
+    assert_eq!(replies.len(), 6);
+    for (reply, id) in replies[1..5].iter().zip(ids) {
+        assert_eq!(reply["id"], id);
+        assert_eq!(reply["result"]["ok"], true);
+    }
+    assert_eq!(replies[5]["id"], "shutdown");
+    assert!(replies[5].get("error").is_none());
+}
+
+#[test]
+fn canonical_empty_parameter_requests_need_no_params_member() {
+    let mut output = Vec::new();
+    serve(
+        &mut Cursor::new(wire(&[
+            initialize(),
+            json!({"jsonrpc":"2.0","id":2,"method":"morphir.ping"}),
+            json!({"jsonrpc":"2.0","id":3,"method":"morphir.shutdown"}),
+            json!({"jsonrpc":"2.0","method":"morphir.exit"}),
+        ])),
+        &mut output,
+    )
+    .unwrap();
+    let replies = responses(output);
+    assert_eq!(replies[1]["id"], 2);
+    assert_eq!(replies[1]["result"]["ok"], true);
+    assert_eq!(replies[2]["id"], 3);
+    assert!(replies[2].get("error").is_none());
 }
 
 #[test]
@@ -200,7 +243,10 @@ fn description_is_fixed_across_initialization_and_reinitialization_refusal() {
     .unwrap();
     let replies = responses(output);
     assert_eq!(replies.len(), 5);
-    assert_eq!(replies[0]["result"]["protocolVersions"], json!(["0.1"]));
+    assert_eq!(
+        replies[0]["result"]["protocolVersions"],
+        json!(["0.2.0-draft.1", "0.1"])
+    );
     assert_eq!(replies[0]["result"], replies[2]["result"]);
     assert_eq!(replies[2]["result"], replies[4]["result"]);
     assert_eq!(replies[3]["error"]["code"], -32600);

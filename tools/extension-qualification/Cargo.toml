@@ -17,6 +17,7 @@ morphir-extension-sdk = { git = "https://github.com/finos/morphir-rust.git", rev
 morphir-host = { git = "https://github.com/finos/morphir-rust.git", rev = "d51daa8aea7ae09ae295ff254d72b27770c64104" }
 morphir-host-native = { git = "https://github.com/finos/morphir-rust.git", rev = "d51daa8aea7ae09ae295ff254d72b27770c64104" }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
+serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
 tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros", "sync", "time"] }
