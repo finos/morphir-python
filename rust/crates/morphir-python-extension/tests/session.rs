@@ -112,3 +112,96 @@ fn standalone(arguments: &[&str]) {
     assert_eq!(replies.len(), 1);
     assert_eq!(replies[0]["result"]["extension"]["id"], "morphir-python");
 }
+
+#[test]
+fn invalid_request_ids_do_not_become_notifications_or_poison_the_session() {
+    let mut messages = Vec::new();
+    for id in [
+        Value::Null,
+        json!(true),
+        json!([]),
+        json!({}),
+        json!(-1),
+        json!(1.5),
+    ] {
+        messages.push(json!({"jsonrpc":"2.0","id":id,"method":"morphir.ping"}));
+    }
+    messages.push(json!({"jsonrpc":"2.0","id":77,"method":"morphir.ping","params":{}}));
+    let mut output = Vec::new();
+    serve(&mut Cursor::new(wire(&messages)), &mut output).unwrap();
+    let replies = responses(output);
+    assert_eq!(replies.len(), 7);
+    for reply in &replies[..6] {
+        assert_eq!(reply["id"], Value::Null);
+        assert_eq!(reply["error"]["code"], -32600);
+    }
+    assert_eq!(replies[6]["id"], 77);
+    assert_eq!(replies[6]["result"]["ok"], true);
+}
+
+#[test]
+fn independent_stream_sessions_cannot_share_initialization_state() {
+    let mut first = Vec::new();
+    serve(&mut Cursor::new(wire(&[initialize()])), &mut first).unwrap();
+    assert_eq!(responses(first)[0]["result"]["protocolVersion"], "0.1");
+    let mut second = Vec::new();
+    serve(
+        &mut Cursor::new(wire(&[
+            json!({"jsonrpc":"2.0","id":2,"method":"morphir.extension.info","params":{}}),
+        ])),
+        &mut second,
+    )
+    .unwrap();
+    assert_eq!(responses(second)[0]["error"]["code"], -32014);
+}
+
+#[test]
+fn truncated_input_exits_with_diagnostics_only_on_stderr() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_morphir-python-extension"))
+        .env_clear()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"Content-Length: 10\r\n\r\n{}")
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert_eq!(result.status.code(), Some(1));
+    assert!(result.stdout.is_empty());
+    assert!(
+        String::from_utf8(result.stderr)
+            .unwrap()
+            .contains("morphir-python-extension:")
+    );
+}
+
+#[test]
+fn description_is_fixed_across_initialization_and_reinitialization_refusal() {
+    let describe = |id| json!({"jsonrpc":"2.0","id":id,"method":"morphir.extension.describe","params":{"protocolVersions":["0.1"]}});
+    let mut second_init = initialize();
+    second_init["id"] = json!(3);
+    second_init["params"]["protocolVersions"] = json!(["0.2.0-draft.99"]);
+    let mut output = Vec::new();
+    serve(
+        &mut Cursor::new(wire(&[
+            describe(0),
+            initialize(),
+            describe(2),
+            second_init,
+            describe(4),
+        ])),
+        &mut output,
+    )
+    .unwrap();
+    let replies = responses(output);
+    assert_eq!(replies.len(), 5);
+    assert_eq!(replies[0]["result"]["protocolVersions"], json!(["0.1"]));
+    assert_eq!(replies[0]["result"], replies[2]["result"]);
+    assert_eq!(replies[2]["result"], replies[4]["result"]);
+    assert_eq!(replies[3]["error"]["code"], -32600);
+}
