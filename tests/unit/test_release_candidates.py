@@ -110,6 +110,14 @@ def test_a_bundle_without_provenance_is_refused(tmp_path: Path) -> None:
         r.bundle_candidates(tmp_path, "0.4.0", "a" * 40)
 
 
+def test_a_bundle_with_a_wrong_checksum_is_refused(tmp_path: Path) -> None:
+    bundle(tmp_path)
+    artifact = "morphir-python-binding-0.4.0.wasm"
+    (tmp_path / f"{artifact}.sha256").write_text(f"{'0' * 64}  {artifact}\n")
+    with pytest.raises(r.CandidateError, match="checksum"):
+        r.bundle_candidates(tmp_path, "0.4.0", "a" * 40)
+
+
 def test_the_command_writes_a_receipt(tmp_path: Path) -> None:
     native_set(tmp_path)
     version = r.source_versions()["native"]

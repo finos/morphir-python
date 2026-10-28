@@ -16,8 +16,15 @@ This package provides:
 
 ## Installation
 
+For an isolated CLI installation managed by mise, use one of the
+[verified mise/uv or mise/pipx configurations](https://finos.github.io/morphir-python/docs/installation/).
+mise manages Python 3.14 and installs the compiled native dependency from a
+wheel. No Rust toolchain is required on supported platforms.
+
+To install the CLI and compiler API into an existing Python environment:
+
 ```bash
-pip install morphir-python
+python -m pip install --only-binary=:all: morphir-python==0.1.0
 ```
 
 Or with uv:

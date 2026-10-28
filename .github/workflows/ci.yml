@@ -264,6 +264,12 @@ jobs:
           # A python-v release qualifies the published native wheel instead.
           RELEASE_TAG: ${{ inputs.release-tag }}
 
+      - name: Qualify mise uv and pipx candidate installs
+        if: ${{ !startsWith(inputs.release-tag, 'morphir-v') }}
+        run: mise run cli:qualify-mise
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+
       - name: Upload morphir distributions
         uses: actions/upload-artifact@v6
         with:

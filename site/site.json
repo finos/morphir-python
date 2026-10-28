@@ -46,7 +46,8 @@
       "group": "Contribute",
       "items": [
         "site.md",
-        "site-foundation.md"
+        "site-foundation.md",
+        "releasing.md"
       ]
     }
   ],

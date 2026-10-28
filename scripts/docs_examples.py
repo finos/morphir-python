@@ -85,7 +85,7 @@ def synchronize(root: Path = ROOT, *, write: bool = False) -> list[str]:
 
         def snippet(match: re.Match[str]) -> str:
             name, region = match.groups()
-            language = "python" if name.endswith(".py") else "bash"
+            language = {".py": "python", ".toml": "toml"}.get(Path(name).suffix, "bash")
             key = name + (f"#{region}" if region else "")
             return (
                 f"<!-- example: {key} -->\n```{language}\n"

@@ -25,16 +25,20 @@ The library and CLI are separate distributions:
 Install just the library and SDK:
 
 ```bash
-pip install morphir==0.0.2
-# or: uv add morphir==0.0.2
+pip install morphir==0.1.0
+# or: uv add morphir==0.1.0
 ```
 
 Install the CLI, which also installs the library:
 
 ```bash
-pip install morphir-python==0.0.3
-# or: uv add morphir-python==0.0.3
+python -m pip install --only-binary=:all: morphir-python==0.1.0
+# or: uv add morphir-python==0.1.0
 ```
+
+For an isolated command-line installation, use the
+[mise/uv or mise/pipx configuration](docs/installation.md#install-the-cli-with-mise).
+mise manages Python and the CLI environment for you.
 
 Python 3.14 or later is required. The CLI inspects and converts IR, compiles a
 supported subset of Python to Morphir IR, and generates Python from Morphir IR.
