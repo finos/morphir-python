@@ -69,6 +69,12 @@ def command(arguments: list[str], *, cwd: Path | None = None) -> str:
     return result.stdout.strip()
 
 
+def configure_checkout(checkout: Path) -> None:
+    """Keep parent and submodule byte/path handling consistent, without resets."""
+    command(["git", "config", "core.autocrlf", "false"], cwd=checkout)
+    command(["git", "config", "core.longpaths", "true"], cwd=checkout)
+
+
 def build_checker(source: Path, target: Path, log: Path) -> None:
     """Build with bounded CI diagnostics and preserve the complete raw log."""
     environment = os.environ | {
@@ -122,6 +128,10 @@ def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
         command(["git", "config", "core.longpaths", "true"], cwd=source)
     if command(["git", "remote", "get-url", "origin"], cwd=source) != pin["repository"]:
         raise bundle.BundleError("MCK source cache has another repository")
+    configure_checkout(source)
+    rust_source = source / "ecosystem/morphir-rust"
+    if (rust_source / ".git").exists():
+        configure_checkout(rust_source)
     command(["git", "fetch", "--depth", "1", "origin", pin["rev"]], cwd=source)
     # Refuse tracked/untracked modifications rather than resetting somebody's work.
     if command(["git", "status", "--porcelain"], cwd=source):
@@ -145,6 +155,12 @@ def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
         ],
         cwd=source,
     )
+    configure_checkout(rust_source)
+    state = command(["git", "status", "--porcelain"], cwd=source)
+    if state:
+        raise bundle.BundleError(
+            f"MCK checkout is not clean before compilation:\n{state}"
+        )
     kit = source / pin["kit"]
     if (
         sha(source / "Cargo.lock") != pin["cargo_lock_sha256"]
@@ -157,8 +173,9 @@ def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
     # This is a correctness checker, not the implementation being benchmarked.
     # A dev-profile build reduces setup cost and is identified in the receipt.
     build_checker(source, target, log)
-    if command(["git", "status", "--porcelain"], cwd=source):
-        raise bundle.BundleError("MCK build changed its pinned source")
+    state = command(["git", "status", "--porcelain"], cwd=source)
+    if state:
+        raise bundle.BundleError(f"MCK build changed its pinned source:\n{state}")
     executable = target / "debug" / ("morphir.exe" if os.name == "nt" else "morphir")
     executable = freeze_binary(executable, cache / "bin")
     receipt = {
