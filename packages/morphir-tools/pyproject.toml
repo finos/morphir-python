@@ -32,7 +32,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/finos/morphir-python"
-Documentation = "https://morphir.finos.org"
+Documentation = "https://finos.github.io/morphir-python/"
 Repository = "https://github.com/finos/morphir-python"
 Issues = "https://github.com/finos/morphir-python/issues"
 

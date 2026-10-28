@@ -5,8 +5,11 @@ generates Python from Morphir IR. It does both in process, through a native
 compiler that installs automatically with the package. You do not need Rust or a
 separate Morphir executable.
 
+The [released installation guide](installation.md) records the tested package
+pair. This page also notes development-only codec behavior where it differs.
+
 The compiler is the Rust crate
-[`morphir-python-binding`](../rust/crates/morphir-python-binding/README.md). The
+[`morphir-python-binding`](https://github.com/finos/morphir-python/blob/main/rust/crates/morphir-python-binding/README.md). The
 same crate is the `morphir-python` Morphir extension, so the Python API, the CLI,
 native Rust callers and Morphir extension hosts give the same results and the
 same diagnostic codes.
@@ -44,7 +47,10 @@ compiler from the source archive, which needs Rust 1.98 or later; see
 
 ## Use the Python API
 
+<!-- example: examples/compiler_api.py -->
 ```python
+"""Compile source strings and generate typed artifacts in memory."""
+
 from morphir_tools.python import (
     CompiledV3,
     CompileFailure,
@@ -97,6 +103,7 @@ assert isinstance(generated, Generated)
 for artifact in generated.artifacts:
     print(artifact.path)
 ```
+<!-- /example -->
 
 `compile_sources` takes the source documents of one package, its Morphir
 package name, and two options:
@@ -122,8 +129,9 @@ or `GenerationFailure`. A Specs or Application distribution fails with
 `unsupported_distribution`. Convert legacy formats 1 and 2 with
 `morphir-python ir convert` first.
 
-Generation reads both v4 spellings, the compact one the compiler and other
-Morphir tools write and the expanded one the Python codec writes. Two limits
+Generation reads compact and expanded v4 spellings. Core 0.1.0 writes compact
+canonical JSON by default and offers explicit expanded output; see the
+[library guide](library.md#draft-v4-codec-features). Two limits
 apply:
 
 - IR v3 integer literals must fit in 64 bits. Compile to v4 for larger integers;
@@ -216,7 +224,7 @@ The compiler accepts this subset of Python 3.12 and later, in both IR versions:
 Anything else is rejected with a diagnostic, never compiled partially. This
 includes assignments, loops, methods, defaults, containers, optional fields,
 boolean operators, other imports, and constructor calls inside functions. The
-[compiler README](../rust/crates/morphir-python-binding/README.md#current-boundary)
+[compiler README](https://github.com/finos/morphir-python/blob/main/rust/crates/morphir-python-binding/README.md#current-boundary)
 lists the exact boundary.
 
 Compilation reads source text only. It never imports or runs the source, and
@@ -242,3 +250,25 @@ To build only the native wheel, run
 `packages/morphir-python-native`. Its source archive contains the whole Rust
 workspace it needs, so `pip install morphir_python_native-*.tar.gz` works without
 a checkout when Rust is on `PATH`.
+
+## Handle a model error
+
+This example reports `PY004 error rules.py` for unsupported assignment.
+
+<!-- example: examples/diagnostics.py -->
+```python
+"""Handle an unsupported model without exceptions or partial output."""
+
+from morphir_tools.python import CompileFailure, SourceDocument, compile_sources
+
+result = compile_sources(
+    [SourceDocument("rules.py", "answer = 42\n")], package="acme/example"
+)
+assert isinstance(result, CompileFailure)
+diagnostic = result.diagnostics[0]
+assert diagnostic.code == "PY004"
+assert diagnostic.source is not None
+assert diagnostic.source.path == "rules.py"
+print(diagnostic.code, diagnostic.severity.value, diagnostic.source.path)
+```
+<!-- /example -->

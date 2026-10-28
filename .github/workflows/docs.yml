@@ -1,0 +1,154 @@
+name: Documentation
+
+on:
+  workflow_call:
+    inputs:
+      examples:
+        type: boolean
+        default: false
+      hosts:
+        type: boolean
+        default: false
+      native-wheel:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  examples:
+    name: Installed documentation examples
+    if: inputs.examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v7
+      - name: Reuse the selected native producer
+        if: inputs.native-wheel
+        uses: actions/download-artifact@v7
+        with:
+          name: native-linux-x86_64
+          path: dist/native
+      - name: Verify released, candidate and library-only examples
+        env:
+          NATIVE_WHEEL: ${{ inputs.native-wheel }}
+        run: |
+          args=()
+          if [[ "$NATIVE_WHEEL" == true ]]; then args+=(--native-wheel-dir dist/native); fi
+          python scripts/docs_check.py "${args[@]}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: documentation-examples
+          path: .dev/docs-examples.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  hosts:
+    name: Host recipe qualification
+    if: inputs.hosts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: astral-sh/setup-uv@v7
+      - uses: jdx/mise-action@v3
+        with:
+          install: false
+      - name: Install the qualified Python pair
+        run: |
+          uv venv .dev/docs-host-python
+          uv pip install --python .dev/docs-host-python/bin/python --only-binary=:all: --refresh morphir==0.1.0 morphir-python==0.1.0
+      - name: Run displayed recipe, offline bundle checks and MoonBit refusal probes
+        run: .dev/docs-host-python/bin/python scripts/docs_hosts.py qualify
+      - uses: actions/upload-artifact@v6
+        with:
+          name: documentation-hosts
+          path: .dev/docs-hosts/report.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  site:
+    name: Site build, checks and browser smoke
+    needs: [examples, hosts]
+    if: >-
+      always() &&
+      (!inputs.examples || needs.examples.result == 'success') &&
+      (!inputs.hosts || needs.hosts.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: astral-sh/setup-uv@v7
+      - name: Check site tooling and failure behavior
+        env:
+          MORPHIR_SITE_TEST: '1'
+        run: |
+          uv venv .dev/site-checker
+          uv pip install --python .dev/site-checker/bin/python pytest==9.0.2 ruff==0.14.13
+          .dev/site-checker/bin/ruff check scripts/docs_*.py scripts/site_*.py tests/unit/test_docs*.py tests/unit/test_site*.py
+          .dev/site-checker/bin/ruff format --check scripts/docs_*.py scripts/site_*.py tests/unit/test_docs*.py tests/unit/test_site*.py
+          .dev/site-checker/bin/python -m pytest tests/unit/test_site_tool.py tests/unit/test_site_release.py tests/unit/test_docs_hosts.py tests/unit/test_docs_examples.py tests/unit/test_ci_changes.py
+      - name: Install browser checks
+        run: |
+          npm ci --prefix site/browser
+          npm exec --prefix site/browser -- playwright install --with-deps chromium
+      - name: Build once at each base and check the actual browser experience
+        run: |
+          npm test --prefix site/browser
+          python scripts/site_tool.py check
+          python scripts/site_tool.py check --base / --out .dev/site-root
+      - name: Download example evidence
+        if: inputs.examples
+        uses: actions/download-artifact@v7
+        with:
+          name: documentation-examples
+          path: .dev/site-evidence
+      - name: Download host evidence
+        if: inputs.hosts
+        uses: actions/download-artifact@v7
+        with:
+          name: documentation-hosts
+          path: .dev/site-evidence
+      - name: Bind checked bytes and required evidence
+        env:
+          EXAMPLES: ${{ inputs.examples }}
+          HOSTS: ${{ inputs.hosts }}
+        run: |
+          args=()
+          if [[ "$EXAMPLES" == true ]]; then args+=(--examples .dev/site-evidence/docs-examples.json); fi
+          if [[ "$HOSTS" == true ]]; then
+            args+=(--hosts .dev/site-evidence/report.json)
+          else
+            args+=(--hosts site/evidence/hosts.json)
+          fi
+          python scripts/site_release.py seal "${args[@]}"
+          python scripts/site_tool.py check
+      - name: Retain the exact verified output
+        uses: actions/upload-artifact@v6
+        with:
+          name: documentation-site
+          path: _site/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Retain browser evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: documentation-browser
+          path: .dev/site-browser/
+          include-hidden-files: true
+          retention-days: 30

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "python": "3.14",
+  "released": {
+    "morphir": "0.1.0",
+    "morphir-python": "0.1.0",
+    "morphir-python-native": "0.1.1"
+  },
+  "examples": [
+    {
+      "source": "examples/compiler_api.py",
+      "packages": "compiler",
+      "stdout": "acme/models.py\nacme/rules.py\n"
+    },
+    {
+      "source": "examples/diagnostics.py",
+      "packages": "compiler",
+      "stdout": "PY004 error rules.py\n"
+    },
+    {
+      "source": "examples/library.py",
+      "packages": "library",
+      "stdout": "IR read/write and explicit migration succeeded\n"
+    },
+    {
+      "source": "examples/sdk.py",
+      "packages": "library",
+      "stdout": "SDK Maybe: 42; missing value: 0\n"
+    }
+  ]
+}

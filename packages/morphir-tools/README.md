@@ -1,5 +1,10 @@
 # Morphir Python
 
+Read the [documentation site](https://finos.github.io/morphir-python/) for
+[installation](https://finos.github.io/morphir-python/docs/installation/),
+[API examples](https://finos.github.io/morphir-python/docs/python-compiler/) and
+[CLI workflows](https://finos.github.io/morphir-python/docs/quickstart/).
+
 CLI tools and extensions for [Morphir Python](https://github.com/finos/morphir-python).
 
 This package provides:

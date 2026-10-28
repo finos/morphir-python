@@ -3,6 +3,11 @@
 
 # Morphir Python
 
+Read the [documentation site](https://finos.github.io/morphir-python/) for
+[installation](https://finos.github.io/morphir-python/docs/installation/),
+[API examples](https://finos.github.io/morphir-python/docs/python-compiler/) and
+[CLI workflows](https://finos.github.io/morphir-python/docs/quickstart/).
+
 Python port of [Morphir](https://morphir.finos.org) - a library of tools for building and working with functional domain models.
 
 Morphir enables you to write business logic once and use it across multiple platforms, languages, and runtimes. It provides a strongly-typed intermediate representation (IR) that captures the semantics of your domain model.

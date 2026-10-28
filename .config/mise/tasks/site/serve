@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Serve the Telescope documentation site"
+set -euo pipefail
+exec python3 scripts/site_tool.py serve "$@"
