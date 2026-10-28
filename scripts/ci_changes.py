@@ -58,6 +58,7 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("site/*", ("docs",)),
     ("examples/extension.sh", ("docs", "docs-examples", "docs-hosts")),
     ("examples/model/*", ("docs", "docs-examples", "docs-hosts")),
+    ("examples/install/*", ("python", "native", "docs", "docs-examples")),
     ("examples/*", ("docs", "docs-examples")),
     ("scripts/docs_hosts.py", ("docs", "docs-examples", "docs-hosts")),
     ("scripts/docs_*.py", ("docs", "docs-examples")),

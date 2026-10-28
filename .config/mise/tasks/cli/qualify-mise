@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Qualify the candidate CLI with isolated mise uv and pipx installs"
+set -euo pipefail
+
+native="${NATIVE_DIST:-$PWD/dist/native}"
+receipts="${QUALIFICATION_DIR:-$PWD/.dev/qualification}"
+if [[ ${RELEASE_TAG:-} == python-v* ]]; then
+  native="$receipts/published-native"
+fi
+python -m scripts.qualify_mise \
+  packages/morphir/dist/morphir-*.whl \
+  "$native"/morphir_python_native-*.whl \
+  packages/morphir-tools/dist/morphir_python-*.whl \
+  --report "$receipts/mise-install.json"

@@ -1,0 +1,4 @@
+[tools]
+python = "3.14"
+pipx = "1.18.4"
+"pipx:morphir-python" = { version = "0.1.0", python = "3.14", uvx = false, pipx_args = "--pip-args='--only-binary=:all:'" }

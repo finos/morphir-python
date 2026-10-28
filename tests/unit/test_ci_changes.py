@@ -29,6 +29,10 @@ ALL = frozenset(c.CATEGORIES)
             {"python", "native", "docs", "docs-examples"},
         ),
         (["uv.lock"], {"python", "native", "docs", "docs-examples"}),
+        (
+            ["examples/install/mise-pipx.toml"],
+            {"python", "native", "docs", "docs-examples"},
+        ),
         (["rust/extension.toml"], {"bundle", "docs", "docs-examples", "docs-hosts"}),
         (
             ["tests/fixtures/python/loans/acme/rules.py"],
