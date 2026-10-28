@@ -22,7 +22,7 @@ def sha(path: Path) -> str:
 
 def object_file(path: Path) -> dict[str, Any]:
     """Read a required JSON object at the tool boundary."""
-    value = json.loads(path.read_text())
+    value = json.loads(path.read_bytes())
     if not isinstance(value, dict):
         raise bundle.BundleError(f"expected an object: {path}")
     return value
