@@ -68,6 +68,7 @@ def main() -> None:
                     "--python",
                     str(python),
                     "--only-binary=:all:",
+                    "--refresh",
                     *requirements,
                 ]
             )

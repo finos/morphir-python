@@ -66,7 +66,7 @@ jobs:
       - name: Install the qualified Python pair
         run: |
           uv venv .dev/docs-host-python
-          uv pip install --python .dev/docs-host-python/bin/python --only-binary=:all: morphir==0.1.0 morphir-python==0.1.0
+          uv pip install --python .dev/docs-host-python/bin/python --only-binary=:all: --refresh morphir==0.1.0 morphir-python==0.1.0
       - name: Run displayed recipe, offline bundle checks and MoonBit refusal probes
         run: .dev/docs-host-python/bin/python scripts/docs_hosts.py qualify
       - uses: actions/upload-artifact@v6
