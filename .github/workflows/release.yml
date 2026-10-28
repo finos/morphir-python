@@ -44,6 +44,18 @@ jobs:
         env:
           MORPHIR_MCK_CARGO_HOME: ${{ runner.temp }}/mck
         run: python -m scripts.mep_tool --output .dev/qualification/mep-tool.json
+      - name: Inspect checkout changes after the Windows build
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem .dev/mep-tool/*/source -Directory | ForEach-Object {
+            $source = $_.FullName
+            git -C $source status --short
+            git -C $source diff --stat
+            git -C $source diff --ignore-space-at-eol --stat
+            git -C $source submodule foreach --recursive 'git status --short'
+            git -C $source submodule foreach --recursive 'git diff --stat'
+          }
       - name: Retain checker setup diagnostics
         if: always()
         uses: actions/upload-artifact@v6
