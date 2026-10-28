@@ -66,6 +66,9 @@ pins the merged upstream source, tree, lockfile, Python JSON corpus and complete
 91-case identity set. `scripts.mep_tool` verifies that source and builds its CLI;
 it never replaces upstream expectations. Cargo may reuse compatible cached
 objects. Each report names an immutable copy of the built checker.
+The published host CLI and this source-built checker can have the same package
+version. Use the pinned source commit for the Python JSON profile; the older
+published CLI does not contain that profile.
 
 `scripts.qualify_mep` runs `morphir mck mep guest-run`, then `report-check` with
 the original checker and all identity files still available. A failed run or
@@ -88,6 +91,20 @@ imports, extracted-archive runtime switching, and real Rust host behavior. The
 final release retains raw MCK reports and recheck receipts, assembly and runtime
 receipts, and the host timing evidence. Publication verifies final checksums.
 Historical WASM releases remain available with their original bytes.
+
+## Investigate Windows checker setup
+
+Dispatch the Release workflow with `mck-diagnostic=true` to build only the shared
+checker on Windows and retain its complete build log, tool receipt and checkout
+status. This mode skips candidate qualification and publication. Leave the input
+false for a full release qualification run.
+
+The Windows checker uses a short Cargo cache under `RUNNER_TEMP/mck` so locked
+Git dependencies fit Windows path limits. The override applies only to checker
+compilation. Both the parent checkout and initialized Rust submodule use local
+Git settings for LF content and long paths. Preparation requires a clean source
+tree before and after building; it refuses genuine source edits without
+resetting them. These settings preserve the pinned source, lockfile and corpus.
 
 ## Reproduce the installer checks
 

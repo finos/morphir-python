@@ -1,6 +1,6 @@
 # Tasks
 
-This change is being applied. SDK 0.4.0 is published and the separate upstream Python JSON MCK profile is merged. Final platform qualification and release promotion remain incomplete.
+This change is being applied. SDK 0.4.0 is published and the separate upstream Python JSON MCK profile is merged. All implementation and candidate qualification tasks are complete. Landing and approved component publication remain in progress.
 
 ## 1. Negotiate current and legacy MEP (morphir-5hxy.1)
 
@@ -22,21 +22,22 @@ This change is being applied. SDK 0.4.0 is published and the separate upstream P
 
 ## 4. Distribute both runtime choices (morphir-5hxy.4)
 
-- [ ] 4.1 Build process artifacts for each advertised platform and retain the WASM artifact; verify both use the shared compiler and produce matching supported results and diagnostics.
+- [x] 4.1 Build process artifacts for each advertised platform and retain the WASM artifact; verify both use the shared compiler and produce matching supported results and diagnostics.
 - [x] 4.2 Stage canonical runtime/platform/mode/argument/digest/claim descriptors and source receipts with pinned tooling; verify host readers, installed-byte integrity, offline activation and explicit unsupported-platform refusal.
-- [ ] 4.3 Add release assurance and runtime-selection documentation alongside each artifact producer, including exact native/CLI pairing where affected; verify missing or mismatched evidence blocks promotion and historical WASM assets remain available.
+- [x] 4.3 Add release assurance and runtime-selection documentation alongside each artifact producer, including exact native/CLI pairing where affected; verify missing or mismatched evidence blocks promotion and historical WASM assets remain available.
 
 ## 5. Qualify host interoperability (morphir-5hxy.5)
 
-- [ ] 5.1 Run the pinned executable MEP guest suite for both runtimes and protocol offers, including supported model operations and negative admission; retain source/artifact-bound conformance receipts.
+- [x] 5.1 Run the pinned executable MEP guest suite for both runtimes and protocol offers, including supported model operations and negative admission; retain source/artifact-bound conformance receipts.
 - [x] 5.2 Qualify the concrete Rust host process and WASM routes using a pinned compatible release or source build; verify initialization, v3/v4 operations, parity, timeout and child cleanup with a clean child environment.
 - [x] 5.3 Test documented MoonBit routes independently, record prerequisite upstream work for any unsupported path and publish only evidenced compatibility claims; verify documentation recipes against the specified host revisions.
 - [x] 5.4 Measure representative cold-start and compile/generate workloads for process and WASM without making an unmeasured speed claim; retain the reproducible inputs, toolchain and timing report.
 
 ## Workflow follow-up
 
-- Implementation is in progress under the active apply goal. The maintainer approved both prerequisites. SDK0.4.0 is published and registry-pinned. Upstream Python JSON MCK profilePR1109 merged as85cf4352 with audited treec42c55ef, pinned in rust/extension.toml, and preserves MoonBit rich-Ion checks; independent actual release-native/WASM0.5.0 runs and saved rechecks pass91observations each. Producer run/recheck and the same-workflow transfer gate are implemented; the final five-platform run remains pending.
-- Task 4.1 now requires a source/artifact-bound framed diagnostic receipt from every process producer. Actual macOS process bytes match the installed Python API's complete v3/v4 diagnostic records with a clean child environment. Missing, changed, stale or mismatched diagnostic proofs block assembly. The checkbox remains open until the replacement platform run supplies all five receipts.
-- Task 4.3 now stages deterministic download assets and checksums alongside assembly. The all-platform archive preserves exact bytes, canonical `release.json` and executable permissions; real runtime switching, installed integrity and platform refusal pass after extracting actual 820c9d0 candidate bytes. CI now tests that packaged form. Archive staging is separate from the still-pending independent MCK promotion gate and GitHub process publication.
-- Source-pinned legacy Rust host checks pass for both actual b38e00e runtime artifacts, including v3/v4 parity, timeout and cleanup. Five release-host timing samples per workload retain exact inputs and raw reports in `.dev/qualification/timings-b38-release/`; the manual/release candidate job owns reruns and artifact retention. MoonBit remains unsupported at the documented pin, with explicit v3/v4 envelope refusals reverified by run 40685569455. These checks do not substitute for task 5.1's canonical executable conformance.
-- All merges are approved. Exact SDK0.4.0 tag publication was separately approved and completed; Python/native/extension release tags still require maintainer approval; sync/archive only after implementation and qualification are complete.
+- All 16 implementation tasks are complete. Full candidate [40726356123](https://github.com/finos/morphir-python/actions/runs/40726356123) succeeded at `bce5d859b524edf452b3031e2e2e56fc32f4da71`. The five process platforms and portable WASM each pass 91 canonical observations and saved rechecks, totaling 546 observations. All transferred receipts were independently checked locally against current source, helper, corpus, checker, lockfile, artifact and claim identities.
+- Exact native `0.1.2` / CLI `0.1.1` pairing and compiler/extension `0.5.0` are qualified. Every process producer passes installed offline operation and full structured diagnostic parity with the Python API. Windows imports only allowed OS runtimes. The extracted process archive passes runtime switching, installed-byte integrity and unsupported-platform refusal.
+- Final promotion stages 39 assets plus `SHA256SUMS`. Local audit verifies every final checksum, all 11 canonical process archive members, payload hashes, executable modes and all six raw MCK report/recheck pairs. A real four-platform input set is refused for missing Intel evidence. Historical WASM releases `0.4.0` and `0.4.2` remain available with their recorded digests.
+- Source-pinned Rust host checks and ten fresh timing samples for small/medium workloads pass on the actual candidate bytes. Raw inputs, reports and toolchain/build identities are retained in the candidate and final host-evidence archive. No general performance claim is made. MoonBit routes remain unsupported at the documented pin with checked limitations.
+- SDK `0.4.0` publication and the separate upstream Python JSON MCK profile are complete. The Windows checker build passes with short scoped Cargo storage and explicit parent/submodule Git settings; real source changes are still refused. No corpus change or integrity exception was accepted.
+- Main specs are synced. All merges and admin bypass are approved. Python/native/extension release tags require exact maintainer approval once the merged source is concrete. Keep this change active until publication and final verification; archive afterward. Do not treat staged assets as published releases.
