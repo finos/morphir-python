@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Install dependencies
         run: mise run install
@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Install dependencies
         run: mise run install
@@ -160,7 +160,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Download the native distributions
         uses: actions/download-artifact@v7
@@ -196,7 +196,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -219,7 +219,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -335,7 +335,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Build packages
         run: mise run build

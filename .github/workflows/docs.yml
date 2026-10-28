@@ -60,7 +60,7 @@ jobs:
         with:
           node-version: '24'
       - uses: astral-sh/setup-uv@v7
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v5
         with:
           install: false
       - name: Install the qualified Python pair
