@@ -2,9 +2,9 @@
   "schema_version": 1,
   "python": "3.14",
   "released": {
-    "morphir": "0.1.0",
-    "morphir-python": "0.1.0",
-    "morphir-python-native": "0.1.1"
+    "morphir": "0.1.1",
+    "morphir-python": "0.1.2",
+    "morphir-python-native": "0.1.2"
   },
   "examples": [
     {

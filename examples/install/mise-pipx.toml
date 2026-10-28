@@ -5,4 +5,4 @@ pipx = "pypi:pipx"
 python = "3.14"
 uv = "0.12.10"
 pipx = { version = "1.18.4", python = "3.14", expose = ["pipx"] }
-"pipx:morphir-python" = { version = "0.1.0", python = "3.14", uvx = false, pipx_args = "--pip-args='--only-binary=:all:'" }
+"pipx:morphir-python" = { version = "0.1.2", python = "3.14", uvx = false, pipx_args = "--pip-args='--only-binary=:all:'" }

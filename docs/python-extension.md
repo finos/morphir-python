@@ -20,8 +20,7 @@ available there.
 | Language | `python` (`.py`) |
 | Target | `python` |
 | IR versions | `3`, `4` |
-| Published 0.4.2 MEP version | `0.1` |
-| Development 0.5.0 MEP versions | `0.2.0-draft.1`, `0.1` |
+| Published 0.5.0 MEP versions | `0.2.0-draft.1`, `0.1` |
 | Multiple source documents | `multiDocument: true`, from `0.4.2` |
 
 Extension `0.4.2` pairs with `morphir-python==0.1.0` and
@@ -30,16 +29,15 @@ The native API reports compiler version `0.4.2`.
 Use `0.4.2` or later with hosts that require an explicit multi-document claim;
 `0.4.1` omits that claim.
 
-Development extension `0.5.0` pairs with `morphir-python==0.1.1` and
-`morphir-python-native==0.1.2`, using published Rust SDK `0.4.0`. These Python
-and extension versions are candidates, not published installation targets.
-The bridge API remains revision `1`; the core `morphir` library remains `0.1.0`.
+Extension `0.5.0` pairs with `morphir-python==0.1.2` and
+`morphir-python-native==0.1.2`, using published Rust SDK `0.4.0`.
+The bridge API remains revision `1`; core `morphir==0.1.1` includes the updated documentation metadata.
 
-## Model protocol in the development candidate
+## Model protocol in release 0.5.0
 
 Package, protocol, envelope, claims and IR versions identify different contracts:
 
-| Contract | Candidate value |
+| Contract | Value |
 | --- | --- |
 | Compiler / extension package | `0.5.0` |
 | Rust extension SDK dependency | exactly `0.4.0` from crates.io |
@@ -70,6 +68,9 @@ handles requests only, so notification silence and exit describe the adapter and
 guest route, not notification delivery inside the WASM guest.
 
 The declaration is in [`rust/extension.toml`](https://github.com/finos/morphir-python/blob/main/rust/extension.toml).
+The released host recipe below uses legacy MEP `0.1`. For new-draft protocol
+checks, use the [source-pinned MCK](releasing.md#qualify-both-extension-runtimes)
+recorded in the release evidence.
 
 ## Install the qualified release bundle
 
@@ -150,11 +151,11 @@ Use `python3 scripts/docs_hosts.py qualify` to repeat the displayed workflow and
 offline checks. Receipts record pins, file hashes, host identity, checker and
 input digest. Download failure never counts as a passing qualification.
 
-## Choose a runtime in development
+## Download and choose a runtime
 
-Published bundles remain WASM. The process bundle is a development candidate
-from the manual release-qualification workflow, not a published installation
-channel yet. Its executable is a MEP guest for the finos/morphir host. The
+Release `0.5.0` provides both WASM and process bundles on
+[GitHub Releases](https://github.com/finos/morphir-python/releases/tag/extension/python/v0.5.0).
+The process executable is a MEP guest for the finos/morphir host. The
 `morphir-python` CLI continues to use its pinned native Python wheel through the
 [mise/pipx installation](python-compiler.md); choosing an extension runtime does
 not configure that CLI.
@@ -163,36 +164,50 @@ Use two separate canonical bundle directories and named local repositories.
 The WASM bundle contains its `.wasm`, checksum and `release.json`. The process
 bundle contains the raw executables, their checksums and its own `release.json`.
 The canonical repository writer refuses a bundle mixing both runtimes.
-The process candidate includes Linux x86_64/ARM64, macOS x86_64/ARM64 and Windows
+The process bundle includes Linux x86_64/ARM64, macOS x86_64/ARM64 and Windows
 x86_64. Installation chooses the matching platform and refuses an absent one.
 
-The `process-release-candidate` workflow artifact also retains `process-assets/`:
-five raw executables and checksums, a separately named process descriptor,
-`morphir-python-extension-VERSION.tar.gz`, a source-bound packaging receipt and
-`SHA256SUMS`. The archive contains the complete canonical process bundle, with
-`release.json` and executable permissions. Its payloads match the raw assets.
-These are development candidates. GitHub release publication requires matching
-independent conformance evidence and the approved release tag.
+The release includes five raw executables and checksums, a separately named
+process descriptor, `morphir-python-extension-VERSION.tar.gz`, source-bound
+qualification receipts and `SHA256SUMS`. The archive contains the complete
+canonical process bundle, with `release.json` and executable permissions. Its
+payloads match the raw assets. Raw MCK reports, their saved rechecks, runtime
+switching evidence and host timing samples are retained alongside the bundles.
 
-After downloading the candidate, verify and extract it in Bash:
+With the [GitHub CLI](https://cli.github.com/) installed, run this in a fresh
+directory using Bash, `shasum` and `tar`. Download all assets before checking
+`SHA256SUMS`; it covers the qualification evidence as well as the bundles.
 
+<!-- example: examples/install/extension-bundles.sh -->
 ```bash
-cd process-assets
-shasum -a 256 -c SHA256SUMS
-mkdir ../python-process
-tar -xzf morphir-python-extension-*.tar.gz -C ../python-process
-export PROCESS_BUNDLE="$(cd ../python-process && pwd)"
+#!/usr/bin/env bash
+set -euo pipefail
+VERSION=0.5.0
+gh release download "extension/python/v$VERSION" \
+  --repo finos/morphir-python --dir python-extension-assets
+(cd python-extension-assets && shasum -a 256 -c SHA256SUMS)
+mkdir python-wasm python-process
+cp "python-extension-assets/morphir-python-binding-$VERSION.wasm" \
+  "python-extension-assets/morphir-python-binding-$VERSION.wasm.sha256" python-wasm/
+cp "python-extension-assets/morphir-python-binding-$VERSION.release.json" \
+  python-wasm/release.json
+tar -xzf "python-extension-assets/morphir-python-extension-$VERSION.tar.gz" \
+  -C python-process
+export WASM_BUNDLE="$(cd python-wasm && pwd)"
+export PROCESS_BUNDLE="$(cd python-process && pwd)"
 ```
+<!-- /example -->
 
-The qualification workflow runs the installation and runtime-switching checks
-against this extracted archive. Its original WASM bundle remains separate.
+The qualification workflow runs installation and runtime-switching checks
+against this extracted archive. Both directories above contain version `0.5.0`.
+The `0.4.2` bundle in the earlier historical recipe remains available separately.
 
 Set `WASM_BUNDLE` and `PROCESS_BUNDLE` to those unmodified directories. With
 `MORPHIR_HOST` pointing at the pinned host described above, an isolated trial is:
 
 ```bash
 export MORPHIR_HOME="$(mktemp -d)"
-VERSION=0.5.0 # Current development candidate version from release.json.
+VERSION=0.5.0
 "$MORPHIR_HOST" extension repository init ./wasm-repository
 "$MORPHIR_HOST" extension repository init ./process-repository
 "$MORPHIR_HOST" extension repository add python-wasm --directory ./wasm-repository
