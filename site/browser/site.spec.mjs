@@ -1,5 +1,31 @@
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
+
+for (const width of [1440, 360]) for (const theme of ['light', 'dark']) {
+  test(`MoonBit design at ${width}px in ${theme}`, async ({ page }, info) => {
+    const base = info.project.metadata.base;
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme: theme });
+    await page.goto(base);
+    await expect(page.getByRole('heading', { name: 'Morphir, in Python', exact: true })).toBeVisible();
+    await expect(page.locator('.hero .code-window')).toBeVisible();
+    await expect(page.locator('.code-window pre')).toHaveCSS('background-color', 'rgb(15, 20, 27)');
+    const model = await readFile(new URL('../../examples/model/acme/models.py', import.meta.url), 'utf8');
+    expect((await page.locator('.code-window pre code').textContent()).trimEnd()).toBe(model.trimEnd());
+    await expect(page.locator('.pipeline li')).toHaveCount(3);
+    await expect(page.locator('.features .feature')).toHaveCount(3);
+    await expect(page.locator('.button.primary')).toHaveCSS('background-color', 'rgb(255, 106, 0)');
+    await expect(page.locator('body')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(15, 20, 27)' : 'rgb(255, 255, 255)');
+    const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, columns: getComputedStyle(document.querySelector('.hero')).gridTemplateColumns.split(' ').length }));
+    expect(metrics.width).toBeLessThanOrEqual(metrics.viewport + 1);
+    expect(metrics.columns).toBe(width === 360 ? 1 : 2);
+    await page.screenshot({ path: fileURLToPath(new URL(`../../.dev/site-browser/${info.project.name}-home-${width}-${theme}.png`, import.meta.url)), fullPage: true });
+    await page.getByRole('link', { name: 'Start with Python', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'A Python model round trip', exact: true })).toBeVisible();
+    await expect(page.locator('body')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(15, 20, 27)' : 'rgb(255, 255, 255)');
+  });
+}
 
 for (const width of [1440, 360]) for (const theme of ['light', 'dark']) {
   test(`read and navigate at ${width}px in ${theme}`, async ({ page }, info) => {

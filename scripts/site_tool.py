@@ -111,6 +111,37 @@ def setup() -> Path:
         )
 
 
+def build_site(binary: Path, base: str, out: str, *, root: Path = ROOT) -> None:
+    """Check Telescope output and the consumer theme before atomic promotion."""
+    root = root.resolve()
+    destination = (root / out).resolve()
+    if destination == root or not destination.is_relative_to(root):
+        raise SiteError("Site output must be a directory inside the project")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=f".{destination.name}-", dir=destination.parent
+    ) as scratch:
+        staged = Path(scratch) / "site"
+        arguments = ["--config", "site/site.json", "--out", str(staged), "--base", base]
+        subprocess.run([str(binary), "build", *arguments], cwd=root, check=True)
+        # Telescope has no consumer stylesheet hook. Preserve its shell and
+        # append our attributed theme before checking and sealing final bytes.
+        stylesheet = staged / "assets/site.css"
+        with stylesheet.open("ab") as stream:
+            stream.write(b"\n/* Morphir consumer theme */\n")
+            stream.write((root / "site/theme/morphir.css").read_bytes())
+        subprocess.run([str(binary), "check", *arguments], cwd=root, check=True)
+        previous = Path(scratch) / "previous"
+        if destination.exists():
+            destination.rename(previous)
+        try:
+            staged.rename(destination)
+        except OSError:
+            if previous.exists():
+                previous.rename(destination)
+            raise
+
+
 def main(argv: list[str] | None = None) -> None:
     """Run a reproducible site command without installing the Rust toolchain."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -129,6 +160,8 @@ def main(argv: list[str] | None = None) -> None:
                 [sys.executable, str(ROOT / "scripts/docs_examples.py"), "archive"],
                 check=True,
             )
+            build_site(binary, args.base, args.out)
+            return
         command = [
             str(binary),
             args.command,

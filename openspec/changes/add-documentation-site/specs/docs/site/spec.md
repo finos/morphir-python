@@ -52,3 +52,10 @@ When a site-foundation limitation obstructs a required experience, contributors 
 #### Scenario: A required presentation feature is unavailable
 - **WHEN** a contributor confirms the pinned foundation cannot render a required example interaction
 - **THEN** the change records an upstream report or existing proposal and labels any workaround and remaining acceptance gap
+
+### Requirement: The site follows the Morphir MoonBit visual design
+The documentation SHALL use morphir-moonbit's blue/orange palette in light and dark themes, and its landing-page structure with a split hero, code window, workflow pipeline and feature cards. Content and calls to action SHALL describe qualified Python workflows and remain usable at 360 pixels. The displayed model MUST match a canonical checked Python example. (bead: morphir-ukvn.9.1)
+
+#### Scenario: Open the Python landing page
+- **WHEN** a reader opens the site at either supported deployment base in either theme
+- **THEN** the Morphir palette and responsive landing design are visible, the model matches the checked source, and the main actions reach the API and CLI guides without overflow
