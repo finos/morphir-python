@@ -1479,6 +1479,12 @@ dependencies = [
 [[package]]
 name = "morphir-python-extension"
 version = "0.1.0"
+dependencies = [
+ "morphir-extension-sdk",
+ "morphir-python-binding",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "morphir-python-native"

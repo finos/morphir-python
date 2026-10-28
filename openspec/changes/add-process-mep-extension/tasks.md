@@ -16,8 +16,8 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 
 ## 3. Serve native stdio sessions (morphir-5hxy.3)
 
-- [ ] 3.1 Add the thin Rust process guest and documented `morphir-python-extension --stdio` entry point; verify it builds and executes without CPython/PyO3 or a user Rust toolchain.
-- [ ] 3.2 Implement bounded Content-Length framing around the SDK session; test Unicode byte lengths, partial/truncated messages, duplicate/invalid lengths, overflow, invalid UTF-8/JSON and header/body limits.
+- [x] 3.1 Add the thin Rust process guest and documented `morphir-python-extension --stdio` entry point; verify it builds and executes without CPython/PyO3 or a user Rust toolchain.
+- [x] 3.2 Implement bounded Content-Length framing around the SDK session; test Unicode byte lengths, partial/truncated messages, duplicate/invalid lengths, overflow, invalid UTF-8/JSON and header/body limits.
 - [ ] 3.3 Preserve request IDs, notification silence, fixed session capabilities, shutdown/exit and protocol-only stdout; verify a real multi-request process test and document stderr and supervision behavior.
 
 ## 4. Distribute both runtime choices (morphir-5hxy.4)

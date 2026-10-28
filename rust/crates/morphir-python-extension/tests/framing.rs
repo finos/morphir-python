@@ -60,3 +60,16 @@ fn content_length_is_case_insensitive_and_uses_bytes() {
     write_frame(&mut wire, "λ".as_bytes()).unwrap();
     assert_eq!(wire, "Content-Length: 2\r\n\r\nλ".as_bytes());
 }
+
+#[test]
+fn a_complete_header_at_the_limit_is_accepted() {
+    let prefix = "Content-Length: 2\r\nOther: ";
+    let suffix = "\r\n\r\n";
+    let header = format!(
+        "{prefix}{}{suffix}",
+        "x".repeat(MAX_HEADER_BYTES - prefix.len() - suffix.len())
+    );
+    assert_eq!(header.len(), MAX_HEADER_BYTES);
+    let mut input = Cursor::new(format!("{header}{{}}"));
+    assert_eq!(read_frame(&mut input).unwrap().unwrap(), b"{}");
+}
