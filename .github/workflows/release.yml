@@ -48,8 +48,9 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          Get-ChildItem .dev/mep-tool/*/source -Directory | ForEach-Object {
+          Get-Item .dev/mep-tool/*/source | ForEach-Object {
             $source = $_.FullName
+            Write-Output "Pinned MCK source: $source"
             git -C $source status --short
             git -C $source diff --stat
             git -C $source diff --ignore-space-at-eol --stat
