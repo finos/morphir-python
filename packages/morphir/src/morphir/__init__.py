@@ -7,8 +7,8 @@ representation (IR) that captures the semantics of your domain model.
 Example:
     >>> import morphir
     >>> morphir.__version__
-    '0.0.2'
+    '0.1.0'
 """
 
-__version__ = "0.0.2"
+__version__ = "0.1.0"
 __all__ = ["__version__"]
