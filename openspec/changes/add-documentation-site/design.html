@@ -22,7 +22,7 @@
 <body>
 <main>
 <h1>add-documentation-site</h1>
-<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.9</code> · 2026-10-27 · Proposed</p>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.9</code> · 2026-10-28 · Implemented, awaiting review</p>
 
 <nav class="toc" aria-label="Contents">
 <ul>
@@ -128,20 +128,22 @@
 <p>Factor reusable site build/check work so the main CI and deployment caller use one definition. Keep deployment in a separate trusted-main publication workflow, with <code>pages: write</code> and <code>id-token: write</code> only on the deploy job and the <code>github-pages</code> environment. PR validation has no deployment credentials. The CI workflow is also reused by package releases, whose callers grant no Pages permission. A separate <code>workflow_run</code> publisher therefore verifies the producer repository, event, main branch, workflow path and successful conclusion before downloading an artifact, then checks out its exact SHA. PR/fork/failed/unrelated producers are refused. A manual run ID provides rollback through the same checks. This avoids requesting publication permissions through package-release callers. Re-run required examples for the main candidate or verify the documented relevant-input equivalence contract; a cache hit alone is insufficient.</p>
 <p>Initial checks run on Linux x64; validate local installation on macOS arm64. Broader package-platform coverage stays with existing package qualification. No new nightly schedule is needed. Measure representative run duration and artifact reuse during implementation; this proposal promises no unmeasured speedup.</p>
 <details>
-<summary>Build-master assessment and alternatives</summary>
-<p>The decision is provisional until selector, artifact and failure-path tests exist. Incorrect examples have moderate impact; untrusted deployment has high impact. The deadline is before the relevant merge or publication. Hard requirements for gate preservation, artifact identity and privilege isolation are currently unknown for the proposed implementation. No required coverage is deferred to an unenforced schedule.</p>
+<summary>Build-master reassessment and validation evidence</summary>
+<p>Implementation <code>af9c725</code> passed every check in <a href="https://github.com/finos/morphir-python/actions/runs/40637061027">CI run 40637061027</a>, against base <code>f9c9af6</code>. The retained site binds the integrated candidate <code>302892bc85fdbac838c9b0b850f03a7e3ed48023</code>, Telescope 0.2.1, all three installed-example groups, Linux host qualification and hashes of 20 published files. A local download independently passed artifact verification and Telescope checking. <a href="https://github.com/finos/morphir-python/pull/51">PR 51</a> has no automated review findings.</p>
+<p>Local full checks passed 2,516 tests, 34 BDD scenarios and 98.35% coverage. Twelve browser cases passed at both deployment bases. Linux CI measured installed examples at 43 seconds, host qualification at 76 seconds, and site/browser validation at 45 seconds. These are one-run job durations, not queue time, billing or a measured before/after speedup. The compatible native wheel was produced once and reused by tests, bundle qualification, installed examples and packaging.</p>
+<p>The implementation preserves required failure/cancellation/skip handling, binds evidence and artifact bytes, and refuses PR/fork/failed/unrelated producers. No required coverage was deferred to a schedule. GitHub Pages now reports Actions deployment enabled. A first authorized production promotion and a real production rollback remain workflow follow-up after review and merge.</p>
 <table>
-<thead><tr><th>Criterion</th><th>Weight</th><th>All checks on every docs edit</th><th>Scoped category and artifact reuse</th></tr></thead>
+<thead><tr><th>Criterion</th><th>Weight</th><th>Implemented rating</th><th>Evidence and confidence</th></tr></thead>
 <tbody>
-<tr><td>Risk and coverage fit</td><td>25</td><td>U, new site checks absent</td><td>U, selector regressions required</td></tr>
-<tr><td>Feedback and placement</td><td>20</td><td>U, no baseline timings</td><td>U, measure selected runs</td></tr>
-<tr><td>Evidence and trust</td><td>20</td><td>U, deployment not built</td><td>U, promotion tests required</td></tr>
-<tr><td>Execution efficiency</td><td>15</td><td>U, no measured comparison</td><td>U, verify compatible reuse</td></tr>
-<tr><td>Ownership and structure</td><td>10</td><td>2, broad existing categories</td><td>U, proposed docs ownership</td></tr>
-<tr><td>Operability and recovery</td><td>10</td><td>U, new deployment absent</td><td>U, rollback/failure tests required</td></tr>
+<tr><td>Risk and coverage fit</td><td>25</td><td>4</td><td>Selector/aggregate regressions, broken-build preservation, stale receipt and artifact/producer refusal tests; full CI passed. High confidence for tested contracts.</td></tr>
+<tr><td>Feedback and placement</td><td>20</td><td>3</td><td>Measured category jobs run independently after their real producer. No prior site baseline; one Linux run gives medium confidence.</td></tr>
+<tr><td>Evidence and trust</td><td>20</td><td>U</td><td>Candidate binding and producer refusals pass; first production workflow invocation awaits authorized main publication.</td></tr>
+<tr><td>Execution efficiency</td><td>15</td><td>3</td><td>Native artifact reuse verified. Small pure wheels are built for early docs feedback before the broader package gate; no compute-saving estimate is claimed.</td></tr>
+<tr><td>Ownership and structure</td><td>10</td><td>4</td><td>One reusable documentation workflow with explicit example/host inputs, stable aggregate and separate privileged publisher. High confidence from source and CI.</td></tr>
+<tr><td>Operability and recovery</td><td>10</td><td>2</td><td>Failure diagnostics, 30-day retention and run-ID rollback are documented and their refusal checks pass. A real Pages rollback is untested.</td></tr>
 </tbody>
 </table>
-<p>Totals are withheld because the evidence is incomplete. Confidence in the inspected category contracts is high; runtime and proposed promotion behavior remain unmeasured. Prefer scoped checks because the existing selector already owns change planning, then validate that choice in task group 4.</p>
+<p>The total remains withheld because the 20-weight production trust criterion is unknown. Retain the scoped design provisionally: the all-checks-on-every-prose-edit alternative adds unrelated compiler work, while this selector preserves conservative unknown/full-run behavior and qualifies relevant examples and host changes. The maintainer owns the first production promotion and rollback evidence; a green proposal or PR does not grant merge or deployment approval.</p>
 </details>
 </section>
 

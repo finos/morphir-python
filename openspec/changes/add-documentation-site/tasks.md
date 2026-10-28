@@ -33,7 +33,7 @@ Implement the contracts in `specs/docs/` using the decisions in `design.html`. S
 - [x] 4.2 Add a reusable site build/check workflow and wire selected checks into main CI; verify PRs build and test without production privileges, both deployment bases pass and the complete candidate's required example/host evidence is available or explicitly blocks publication.
 - [x] 4.3 Add trusted-main Pages publication using the exact checked site artifact and source/tool/package/evidence manifest; verify deploy depends on all required checks, missing or mismatched evidence refuses promotion, and deploy-only permissions and the github-pages environment are correctly scoped.
 - [x] 4.4 Document deployment settings, authorized manual runs, pin updates, evidence retention and rollback; verify the instructions identify any required maintainer setting and can restore a retained verified artifact without rebuilding it.
-- [ ] 4.5 Run the complete candidate's site/browser/example/host checks and required code quality gates; record actual run identities, tool versions and representative timings, reassess the provisional CI design, and verify no supported recipe or published snippet lacks qualification.
+- [x] 4.5 Run the complete candidate's site/browser/example/host checks and required code quality gates; record actual run identities, tool versions and representative timings, reassess the provisional CI design, and verify no supported recipe or published snippet lacks qualification.
 
 ## Workflow follow-up
 
