@@ -39,6 +39,7 @@ morphir-python ir inspect morphir-ir.json
 morphir-python ir convert morphir-ir.json --to v4 -o out.json --package-version 1.2.0
 morphir-python ir convert v4.json --to v3 -o out.json --drop-source-locations
 morphir-python ir convert old-format-1.json --to v3 -o out.json
+morphir-python ir convert morphir-ir.json --to v4 --v4-spelling expanded -o out.json
 ```
 
 `inspect` prints the normalized format version, the distribution kind
@@ -47,6 +48,9 @@ draft and formats 1 and 2 as legacy. `convert` handles `Library` and `Specs` in
 both directions. It writes a v3 `Library` as format `3` and a v3 `Specs` as
 `"3.1.0"`, the lowest version that holds each. A legacy format 1 or 2 file
 converts to a format 3.0.0 `Library` or draft v4; nothing writes format 1 or 2.
+Draft v4 is written in the compact canonical spelling, as other Morphir tools
+write it; `--v4-spelling expanded` writes every node in the expanded form
+instead. Both spellings read back to the same model.
 `convert` writes through a temporary file and renames it only on success, so a
 failed conversion leaves no output file.
 Diagnostics go to standard error as `code at location: message`.

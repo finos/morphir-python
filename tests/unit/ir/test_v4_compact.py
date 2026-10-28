@@ -30,6 +30,7 @@ from morphir.ir.v4 import type_def as td
 from morphir.ir.v4 import type_spec as ts
 from morphir.ir.v4 import value as v
 from morphir.ir.v4.access_controlled import Private, Public
+from morphir.ir.v4.codec import Spelling
 from morphir.ir.v4.distribution import (
     ApplicationDistribution,
     EntryPointKind,
@@ -258,7 +259,7 @@ class TestTypeSpellings:
     def test_compact_reads_as_expanded(self, compact: Json, expanded: Json) -> None:
         decoded = codec.decode_type(compact)
         assert decoded == codec.decode_type(expanded)
-        assert codec.encode_type(decoded) == expanded
+        assert codec.encode_type(decoded, spelling=Spelling.EXPANDED) == expanded
 
     def test_compact_model(self) -> None:
         assert codec.decode_type("morphir/SDK:basics#int") == INT
@@ -687,7 +688,7 @@ class TestValueSpellings:
     def test_compact_reads_as_expanded(self, compact: Json, expanded: Json) -> None:
         decoded = codec.decode_value(compact)
         assert decoded == codec.decode_value(expanded)
-        assert codec.encode_value(decoded) == expanded
+        assert codec.encode_value(decoded, spelling=Spelling.EXPANDED) == expanded
 
     def test_compact_model(self) -> None:
         assert codec.decode_value(42) == v.LiteralValue(VA, lit.IntegerLiteral(42))
@@ -899,7 +900,7 @@ class TestPatternSpellings:
     def test_compact_reads_as_expanded(self, compact: Json, expanded: Json) -> None:
         decoded = codec.decode_pattern(compact)
         assert decoded == codec.decode_pattern(expanded)
-        assert codec.encode_pattern(decoded) == expanded
+        assert codec.encode_pattern(decoded, spelling=Spelling.EXPANDED) == expanded
 
     @pytest.mark.parametrize(
         ("bad", "code"),
@@ -1445,7 +1446,7 @@ class TestCompilerOutput:
     @pytest.mark.parametrize("name", ["modules-v4.json", "adt-v4.json"])
     def test_fixture_round_trips_through_the_expanded_writer(self, name: str) -> None:
         dist = library(COMPILER / name)
-        encoded = codec.encode_versioned_distribution(dist)
+        encoded = codec.encode_versioned_distribution(dist, spelling=Spelling.EXPANDED)
         assert codec.decode_versioned_distribution(json.dumps(encoded)) == dist
         assert encoded != load(COMPILER / name)
 
