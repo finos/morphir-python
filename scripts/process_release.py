@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts import extension_bundle as bundle
-from scripts import process_diagnostics
+from scripts import process_diagnostics, qualify_mep
 from scripts import process_extension as process
 from scripts.qualify_native import tools_pin
 from scripts.qualify_runtime import _descriptor
@@ -365,6 +365,9 @@ def main(argv: list[str] | None = None) -> int:
         ):
             raise bundle.BundleError("WASM reference is not this qualified candidate")
         claims = _read(args.wasm_bundle / "release.json")["artifacts"][0]["claims"]
+        canonical_mep = qualify_mep.verify_release(
+            args.inputs, args.wasm_bundle, args.wasm_report.parent, args.commit
+        )
         result = assemble(
             args.inputs,
             args.output,
@@ -372,6 +375,7 @@ def main(argv: list[str] | None = None) -> int:
             claims,
             reference["offline_round_trips"],
         )
+        result["canonicalMep"] = canonical_mep
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(result, indent=2) + "\n")
         if args.assets_output is not None:

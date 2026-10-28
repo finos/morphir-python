@@ -91,6 +91,13 @@ The saved report records the actual host executable, arguments, guest bytes,
 checker, corpus, identities and observations. Its canonical recheck requires
 the same checker and all recorded identity paths while they are available.
 
+The release producers automate this through `scripts.mep_tool` and
+`scripts.qualify_mep`. Each producer rechecks its saved report locally before
+uploading it. The Linux collector verifies the source/artifact/report identities
+and successful producer receipt from the same workflow run; it does not rewrite
+foreign filesystem paths or claim to re-run their filesystem recheck. See the
+[release contract](../../docs/releasing.md#qualify-both-extension-runtimes).
+
 Extism exposes a requests-only `handle` ABI. As in the pinned upstream
 `ExtismChannel`, notifications are not forwarded; an exit notification closes
 the bridge and unloads the guest. Those lifecycle observations qualify this

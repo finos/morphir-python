@@ -12,6 +12,10 @@ on:
         description: Package-specific tag that must match its project version
         type: string
         default: ''
+      qualify-mep:
+        description: Run the source-pinned canonical MCK before release promotion
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -253,6 +257,44 @@ jobs:
             --report .dev/qualification/process-x86_64-unknown-linux-gnu.json \
             --host-check
 
+      # Full executable conformance belongs to candidate qualification. The
+      # normal PR path already covers model negotiation and framing in Rust.
+      - name: Cache the source-pinned canonical MCK build
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v5
+        with:
+          path: .dev/mep-tool/
+          key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
+
+      - name: Cache the independent WASM adapter build
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/extension-qualification -> ../../.dev/host-qualification-target
+
+      - name: Prepare the shared checker and transparent WASM adapter
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/.dev/host-qualification-target
+        run: |
+          python -m scripts.mep_tool --output .dev/qualification/mep-tool.json
+          cargo build --locked --release --manifest-path tools/extension-qualification/Cargo.toml --bin mep_wasm_host
+
+      - name: Run and independently recheck canonical MEP reports
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        run: |
+          python -m scripts.qualify_mep \
+            --bundle .morphir/build/extensions/python-process --runtime process \
+            --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
+            --report .dev/qualification/mep-x86_64-unknown-linux-gnu-report.json \
+            --receipt .dev/qualification/mep-x86_64-unknown-linux-gnu-recheck.json
+          python -m scripts.qualify_mep \
+            --bundle .morphir/build/extensions/python --runtime wasm \
+            --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
+            --adapter .dev/host-qualification-target/release/mep_wasm_host \
+            --report .dev/qualification/bundle-mep-report.json \
+            --receipt .dev/qualification/bundle-mep-recheck.json
+
       - name: Upload the qualified process bundle and receipt
         uses: actions/upload-artifact@v6
         with:
@@ -260,6 +302,7 @@ jobs:
           path: |
             .morphir/build/extensions/python-process/
             .dev/qualification/process-x86_64-unknown-linux-gnu.json
+            .dev/qualification/mep-x86_64-unknown-linux-gnu-*.json
           include-hidden-files: true
           if-no-files-found: error
 
