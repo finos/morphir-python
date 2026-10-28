@@ -34,7 +34,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.ref, 'refs/tags/native-v') ||
-      startsWith(github.ref, 'refs/tags/python-v')
+      startsWith(github.ref, 'refs/tags/python-v') ||
+      startsWith(github.ref, 'refs/tags/extension/python/v')
     strategy:
       fail-fast: false
       matrix:
@@ -89,6 +90,11 @@ jobs:
           rust-toolchain: '1.98.1'
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'off' }}
+          # Process guests share the wheel's Linux baseline and compiled core.
+          before-script-linux: >-
+            ${{ (github.event_name == 'workflow_dispatch' ||
+                 startsWith(github.ref, 'refs/tags/extension/python/v')) &&
+                 format('cargo build --manifest-path ../../rust/Cargo.toml --locked --release -p morphir-python-extension --target {0}', matrix.target) || '' }}
           args: --release --locked --out ../../dist/native
 
       - name: Set up Python 3.14
@@ -157,6 +163,57 @@ jobs:
         with:
           name: mise-install-${{ matrix.platform }}
           path: dist/mise-install.json
+          if-no-files-found: error
+
+      # Linux x86_64 already produced and qualified this exact guest in qualify.
+      # The other producers use their matching native wheel for API comparison.
+      - name: Build the process executable on macOS and Windows
+        if: >-
+          matrix.manylinux == '' &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'aarch64-apple-darwin' && '11.0' || '10.12' }}
+        run: >-
+          cargo +1.98.1 build --manifest-path rust/Cargo.toml --locked --release
+          -p morphir-python-extension --target '${{ matrix.target }}'
+
+      - name: Qualify the process bundle against the matching Python API
+        if: >-
+          !matrix.reuse &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        shell: bash
+        run: |
+          uv venv .dev/process-check --python 3.14
+          qualifier=.dev/process-check/bin/python
+          executable=rust/target/${{ matrix.target }}/release/morphir-python-extension
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            qualifier=.dev/process-check/Scripts/python.exe
+            executable="$executable.exe"
+          fi
+          uv pip install --python "$qualifier" dist/pure/*.whl dist/native/*.whl
+          mkdir -p .morphir/build/extensions .dev/qualification
+          "$qualifier" -m scripts.process_extension \
+            --executable "$executable" \
+            --output .morphir/build/extensions/python-process \
+            --commit "$GITHUB_SHA" \
+            --report .dev/qualification/process-${{ matrix.target }}.json \
+            --host-check
+
+      - name: Upload the qualified process bundle and receipt
+        if: >-
+          !matrix.reuse &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        uses: actions/upload-artifact@v6
+        with:
+          name: morphir-python-process-${{ matrix.target }}
+          path: |
+            .morphir/build/extensions/python-process/
+            .dev/qualification/process-${{ matrix.target }}.json
+          include-hidden-files: true
           if-no-files-found: error
 
       - name: Upload the qualified wheel
@@ -239,7 +296,7 @@ jobs:
 
   extension-candidate:
     name: Verify the extension bundle candidate
-    needs: qualify
+    needs: [qualify, native-wheels]
     if: startsWith(github.ref, 'refs/tags/extension/python/v')
     runs-on: ubuntu-latest
     steps:

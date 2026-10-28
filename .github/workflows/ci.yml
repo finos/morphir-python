@@ -110,6 +110,11 @@ jobs:
           rust-toolchain: '1.98.1'
           manylinux: '2_28'
           target: x86_64-unknown-linux-gnu
+          # Build the standalone guest in the same glibc 2.28 container. Its
+          # shared compiler objects are then reused by the Python wheel build.
+          before-script-linux: >-
+            cargo build --manifest-path ../../rust/Cargo.toml --locked --release
+            -p morphir-python-extension --target x86_64-unknown-linux-gnu
           args: --release --locked --sdist --out ../../dist/native
 
       - name: Audit the Linux baseline and bundled libraries
@@ -128,6 +133,13 @@ jobs:
         with:
           name: native-linux-x86_64
           path: dist/native/
+          if-no-files-found: error
+
+      - name: Upload the process executable from the portable build
+        uses: actions/upload-artifact@v6
+        with:
+          name: process-linux-x86_64
+          path: rust/target/x86_64-unknown-linux-gnu/release/morphir-python-extension
           if-no-files-found: error
 
   test:
@@ -218,8 +230,34 @@ jobs:
         run: |
           MORPHIR_NATIVE_WHEEL="$(ls dist/native/*.whl)" mise run install
 
+      - name: Download the portable process executable
+        uses: actions/download-artifact@v7
+        with:
+          name: process-linux-x86_64
+          path: dist/process/
+
       - name: Package and qualify the bundle offline
         run: mise run extension:bundle
+
+      - name: Package and qualify the process guest offline
+        run: |
+          mkdir -p .morphir/build/extensions .dev/qualification
+          uv run --no-sync python -m scripts.process_extension \
+            --executable dist/process/morphir-python-extension \
+            --output .morphir/build/extensions/python-process \
+            --commit "$GITHUB_SHA" \
+            --report .dev/qualification/process-x86_64-unknown-linux-gnu.json \
+            --host-check
+
+      - name: Upload the qualified process bundle and receipt
+        uses: actions/upload-artifact@v6
+        with:
+          name: morphir-python-process-x86_64-unknown-linux-gnu
+          path: |
+            .morphir/build/extensions/python-process/
+            .dev/qualification/process-x86_64-unknown-linux-gnu.json
+          include-hidden-files: true
+          if-no-files-found: error
 
       - name: Upload the extension bundle
         uses: actions/upload-artifact@v6
