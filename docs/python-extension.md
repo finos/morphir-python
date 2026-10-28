@@ -23,15 +23,15 @@ available there.
 | Published 0.5.0 MEP versions | `0.2.0-draft.1`, `0.1` |
 | Multiple source documents | `multiDocument: true`, from `0.4.2` |
 
-Extension `0.4.2` pairs with `morphir-python==0.1.0` and
-`morphir-python-native==0.1.1`, qualified with `morphir==0.1.0`.
-The native API reports compiler version `0.4.2`.
-Use `0.4.2` or later with hosts that require an explicit multi-document claim;
-`0.4.1` omits that claim.
-
 Extension `0.5.0` pairs with `morphir-python==0.1.2` and
 `morphir-python-native==0.1.2`, using published Rust SDK `0.4.0`.
-The bridge API remains revision `1`; core `morphir==0.1.1` includes the updated documentation metadata.
+The bridge API remains revision `1`; core `morphir==0.1.1` includes the updated
+documentation metadata.
+
+Historical extension `0.4.2` pairs with `morphir-python==0.1.0`,
+`morphir-python-native==0.1.1` and `morphir==0.1.0`; its compiler version is
+`0.4.2`. Use `0.4.2` or later with hosts that require an explicit multi-document
+claim; `0.4.1` omits that claim.
 
 ## Model protocol in release 0.5.0
 
@@ -74,7 +74,7 @@ recorded in the release evidence.
 
 ## Install the qualified release bundle
 
-This recipe uses **finos/morphir 0.4.0-beta.10** and Python extension **0.4.2**.
+This recipe uses **finos/morphir 0.4.0-beta.10** and Python extension **0.5.0**.
 Use the Rust product CLI, not the MoonBit executable of the same name. The
 [compatibility guide](compatibility.md) explains the difference. CPython is not
 needed to run the installed WASM guest.
@@ -87,14 +87,14 @@ prints the absolute `MORPHIR_HOST` and `PYTHON_BUNDLE` paths. Pins live in
 and [rust/extension.toml](https://github.com/finos/morphir-python/blob/main/rust/extension.toml).
 Run the printed `--version` command and check it reports 0.4.0-beta.10.
 
-For manual acquisition, download the 0.4.2 `.wasm`, `.wasm.sha256` and `.release.json` assets
-from the [extension release](https://github.com/finos/morphir-python/releases/tag/extension/python/v0.4.2).
+For manual acquisition, download the 0.5.0 `.wasm`, `.wasm.sha256` and `.release.json` assets
+from the [extension release](https://github.com/finos/morphir-python/releases/tag/extension/python/v0.5.0).
 Verify the SHA-256 values in the pin file before using them, then rename the
 `.release.json` descriptor to `release.json` in the same bundle directory.
 The WASM digest is
-`10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5`.
+`791d6cc60f442b1088b291e9aed4f2740a38b0f0cc920f5f7418735c2b88aeb6`.
 The descriptor digest is
-`72770f73f05a72535fd8c86ad4629175019037441a758b827c1ba47cc9a52ebd`.
+`a78df591623388a95f3f7f8f7465422cee3dd4f6d86a64224d2a02291d8a81b3`.
 The host release has platform-specific archives; use the declared target and
 hash rather than an unversioned executable from PATH.
 
@@ -111,7 +111,7 @@ before compiling. It is the exact recipe run by documentation qualification.
 #!/usr/bin/env bash
 set -euo pipefail
 # MORPHIR_HOST is the verified finos/morphir 0.4.0-beta.10 executable.
-# PYTHON_BUNDLE is the verified 0.4.2 bundle directory containing release.json.
+# PYTHON_BUNDLE is the verified 0.5.0 bundle directory containing release.json.
 : "${MORPHIR_HOST:?Set the verified Rust-host executable path}"
 : "${PYTHON_BUNDLE:?Set the verified bundle directory}"
 "$MORPHIR_HOST" --version
@@ -200,7 +200,7 @@ export PROCESS_BUNDLE="$(cd python-process && pwd)"
 
 The qualification workflow runs installation and runtime-switching checks
 against this extracted archive. Both directories above contain version `0.5.0`.
-The `0.4.2` bundle in the earlier historical recipe remains available separately.
+Historical `0.4.2` bundles remain available from their original release.
 
 Set `WASM_BUNDLE` and `PROCESS_BUNDLE` to those unmodified directories. With
 `MORPHIR_HOST` pointing at the pinned host described above, an isolated trial is:
