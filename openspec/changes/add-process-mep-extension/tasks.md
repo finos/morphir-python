@@ -36,5 +36,6 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 ## Workflow follow-up
 
 - Implementation is in progress under the active apply goal. SDK publication and a separate upstream Python MCK profile decision are pending; the new draft remains unadvertised.
+- Task 4.1 now requires a source/artifact-bound framed diagnostic receipt from every process producer. Actual macOS process bytes match the installed Python API's complete v3/v4 diagnostic records with a clean child environment. Missing, changed, stale or mismatched diagnostic proofs block assembly. The checkbox remains open until the replacement platform run supplies all five receipts.
 - Source-pinned legacy Rust host checks pass for both actual b38e00e runtime artifacts, including v3/v4 parity, timeout and cleanup. Five release-host timing samples per workload retain exact inputs and raw reports in `.dev/qualification/timings-b38-release/`; the manual/release candidate job owns reruns and artifact retention. MoonBit remains unsupported at the documented pin, with explicit v3/v4 envelope refusals reverified by run 40685569455. These checks do not substitute for task 5.1's canonical executable conformance.
 - All merges are approved. Tags and publication still require maintainer approval; sync/archive only after implementation and qualification are complete.

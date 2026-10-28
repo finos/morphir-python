@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from scripts import extension_bundle as bundle
+from scripts import process_diagnostics
 from scripts import process_extension as process
 from scripts import process_release as release
 from scripts.qualify_native import tools_pin
@@ -72,6 +73,27 @@ def candidates(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         receipt["cargoLockSha256"] = bundle.sha256(
             (bundle.ROOT / "rust/Cargo.lock").read_bytes()
         )
+        receipt["processDiagnostics"] = {
+            "scope": "legacy-process-diagnostic-parity",
+            "artifactSha256": digest,
+            "checkerSha256": bundle.sha256(
+                (bundle.ROOT / "scripts/process_diagnostics.py").read_bytes()
+            ),
+            "inputSha256": bundle.sha256(process_diagnostics.SOURCE.encode()),
+            "compilerVersion": version,
+            "nativeVersion": tools_pin(),
+            "protocolVersion": "0.1",
+            "cleanEnvironment": True,
+            "exitCode": 0,
+            "stderr": "",
+            "cases": {
+                version: {
+                    "diagnostics": [{"code": "PY004", "severity": "error"}],
+                    "pythonApi": [{"code": "PY004", "severity": "error"}],
+                }
+                for version in ("3", "4")
+            },
+        }
         receipt["installedHost"] = {
             **copy.deepcopy(receipt),
             "host": {
@@ -162,6 +184,14 @@ def test_complete_process_set_keeps_canonical_per_platform_artifacts(
         "integrity-not-run",
         "integrity-cache",
         "integrity-reason",
+        "diagnostics-missing",
+        "diagnostics-code",
+        "diagnostics-api",
+        "diagnostics-checker",
+        "diagnostics-artifact",
+        "diagnostics-version",
+        "diagnostics-environment",
+        "diagnostics-v4",
     ],
 )
 def test_mixed_missing_or_unqualified_process_sets_are_refused(
@@ -173,7 +203,26 @@ def test_mixed_missing_or_unqualified_process_sets_are_refused(
     platform_root = inputs / f"morphir-python-process-{target}"
     receipt_path = platform_root / f".dev/qualification/process-{target}.json"
     receipt = json.loads(receipt_path.read_text())
-    if change.startswith("integrity-"):
+    if change == "diagnostics-missing":
+        receipt.pop("processDiagnostics", None)
+    elif change.startswith("diagnostics-"):
+        proof = receipt["processDiagnostics"]
+        if change == "diagnostics-code":
+            proof["cases"]["3"]["diagnostics"][0]["code"] = "PY001"
+            proof["cases"]["3"]["pythonApi"][0]["code"] = "PY001"
+        elif change == "diagnostics-api":
+            proof["cases"]["3"]["pythonApi"][0]["code"] = "PY001"
+        elif change == "diagnostics-checker":
+            proof["checkerSha256"] = "c" * 64
+        elif change == "diagnostics-artifact":
+            proof["artifactSha256"] = "c" * 64
+        elif change == "diagnostics-version":
+            proof["compilerVersion"] = "0.0.0"
+        elif change == "diagnostics-environment":
+            proof["cleanEnvironment"] = False
+        elif change == "diagnostics-v4":
+            del proof["cases"]["4"]
+    elif change.startswith("integrity-"):
         proof = receipt["installedHost"]["installed_integrity"]
         if change == "integrity-digest":
             proof["expected_sha256"] = "c" * 64

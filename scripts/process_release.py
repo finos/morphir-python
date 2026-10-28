@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts import extension_bundle as bundle
+from scripts import process_diagnostics
 from scripts import process_extension as process
 from scripts.qualify_native import tools_pin
 from scripts.release_candidates import CandidateError, bundle_candidates
@@ -61,6 +62,34 @@ def _windows_imports(root: Path, artifact_digest: str, commit: str) -> str:
     return bundle.sha256(path.read_bytes())
 
 
+def _diagnostics(proof: dict[str, Any], digest: str, version: str) -> None:
+    if not (
+        proof["scope"] == "legacy-process-diagnostic-parity"
+        and proof["artifactSha256"] == digest
+        and proof["checkerSha256"]
+        == bundle.sha256(Path(process_diagnostics.__file__).read_bytes())
+        and proof["inputSha256"] == bundle.sha256(process_diagnostics.SOURCE.encode())
+        and proof["compilerVersion"] == version
+        and proof["nativeVersion"] == tools_pin()
+        and proof["protocolVersion"] == "0.1"
+        and proof["cleanEnvironment"] is True
+        and proof["exitCode"] == 0
+        and proof["stderr"] == ""
+        and isinstance(proof["cases"], dict)
+        and set(proof["cases"]) == {"3", "4"}
+    ):
+        raise bundle.BundleError("process diagnostic proof identity differs")
+    for case in proof["cases"].values():
+        diagnostics = case["diagnostics"]
+        if not (
+            diagnostics == case["pythonApi"]
+            and len(diagnostics) == 1
+            and diagnostics[0]["code"] == "PY004"
+            and diagnostics[0]["severity"] == "error"
+        ):
+            raise bundle.BundleError("process diagnostics differ from the Python API")
+
+
 def assemble(
     inputs: Path,
     output: Path,
@@ -103,6 +132,7 @@ def assemble(
                 root, checked["files"][name], commit
             )
         try:
+            _diagnostics(report["processDiagnostics"], checked["files"][name], version)
             for field in (
                 "sourceCommit",
                 "runtime",

@@ -167,6 +167,11 @@ def main(argv: list[str] | None = None) -> int:
         result = package(args.executable, args.output, args.commit)
         if args.host_check:
             result["installedHost"] = bundle.host_round_trips(args.output, result)
+            from scripts.process_diagnostics import qualify
+
+            result["processDiagnostics"] = qualify(
+                args.output / artifact_name(bundle.crate_version(), bundle._target())
+            )
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(result, indent=2) + "\n")
     except (bundle.BundleError, OSError, subprocess.CalledProcessError) as error:
