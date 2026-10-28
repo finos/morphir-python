@@ -170,10 +170,10 @@ def package(wasm: Path, output: Path, git_commit: str | None) -> dict[str, objec
     return receipt(output)
 
 
-def receipt(bundle: Path) -> dict[str, object]:
+def receipt(bundle: Path, *, version: str | None = None) -> dict[str, object]:
     """Check a bundle's files, digest and claims, and describe them."""
     extension = declaration()["extension"]
-    version = crate_version()
+    version = crate_version() if version is None else version
     artifact = f"{extension['artifact']}-{version}.wasm"
     names = sorted(p.name for p in bundle.iterdir())
     if names != sorted([artifact, f"{artifact}.sha256", "release.json"]):
@@ -258,12 +258,12 @@ def morphir_cli() -> tuple[Path, str]:
     return binary, expected
 
 
-def host_check(bundle: Path) -> dict[str, object]:
+def host_check(bundle: Path, *, version: str | None = None) -> dict[str, object]:
     """Install the bundle with the pinned CLI and round trip offline."""
     from morphir_tools.python import native_compiler
 
     bundle = bundle.resolve()
-    described = receipt(bundle)
+    described = receipt(bundle, version=version)
     cli, cli_digest = morphir_cli()
     with tempfile.TemporaryDirectory(prefix="python-bundle-host-") as scratch:
         work = Path(scratch)

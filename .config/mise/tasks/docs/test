@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Check canonical documentation snippets, installed examples and types"
+set -euo pipefail
+uv run --no-sync python scripts/docs_examples.py check
+uv run --no-sync pytest tests/tools/test_python_docs.py tests/unit/test_docs_examples.py

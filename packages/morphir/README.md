@@ -1,5 +1,10 @@
 # Morphir
 
+Read the [documentation site](https://finos.github.io/morphir-python/) for
+[installation](https://finos.github.io/morphir-python/docs/installation/),
+[API examples](https://finos.github.io/morphir-python/docs/python-compiler/) and
+[CLI workflows](https://finos.github.io/morphir-python/docs/quickstart/).
+
 Python port of [Morphir](https://morphir.finos.org) - functional domain modeling for the enterprise.
 
 This is the core library package containing:
