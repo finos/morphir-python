@@ -65,7 +65,8 @@ def tool_name(installer: str) -> str:
 def configuration(installer: str, version: str, wheelhouse: Path | None = None) -> str:
     """Render the documented config, optionally restricted to candidate wheels."""
     template = ROOT / "examples" / "install" / f"mise-{installer}.toml"
-    tools = tomllib.loads(template.read_text())["tools"]
+    document = tomllib.loads(template.read_text())
+    tools = document["tools"]
     options = cast("dict[str, str | bool]", tools[tool_name(installer)])
     options["version"] = version
     if wheelhouse:
@@ -76,14 +77,18 @@ def configuration(installer: str, version: str, wheelhouse: Path | None = None) 
             options["pipx_args"] = shlex.join(
                 ["--pip-args", f"--only-binary=:all: --no-index {location}"]
             )
-    lines = ["[tools]"]
-    for name, value in tools.items():
-        rendered = (
-            "{ " + ", ".join(f"{k} = {json.dumps(v)}" for k, v in value.items()) + " }"
-            if isinstance(value, dict)
-            else json.dumps(value)
-        )
-        lines.append(f"{json.dumps(name)} = {rendered}")
+    lines = []
+    for section, entries in document.items():
+        lines.append(f"[{section}]")
+        for name, value in entries.items():
+            rendered = (
+                "{ "
+                + ", ".join(f"{k} = {json.dumps(v)}" for k, v in value.items())
+                + " }"
+                if isinstance(value, dict)
+                else json.dumps(value)
+            )
+            lines.append(f"{json.dumps(name)} = {rendered}")
     return "\n".join(lines) + "\n"
 
 

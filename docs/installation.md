@@ -37,14 +37,21 @@ To use actual pipx instead of uv, use this alternative `mise.toml`:
 
 <!-- example: examples/install/mise-pipx.toml -->
 ```toml
+[tool_alias]
+pipx = "pypi:pipx"
+
 [tools]
 python = "3.14"
-pipx = "1.18.4"
+uv = "0.12.10"
+pipx = { version = "1.18.4", python = "3.14", expose = ["pipx"] }
 "pipx:morphir-python" = { version = "0.1.0", python = "3.14", uvx = false, pipx_args = "--pip-args='--only-binary=:all:'" }
 ```
 <!-- /example -->
 
-Run the same three commands above. `uvx = false` selects pipx, `python = "3.14"`
+Run the same three commands above. The alias installs pipx itself through the
+portable PyPI backend using uv, including on Windows, and gives mise the correct
+dependency ordering. The CLI still installs through actual pipx:
+`uvx = false` selects pipx, `python = "3.14"`
 on the tool selects its interpreter, and `--only-binary=:all:` enforces the same
 wheel-only policy. Choose one configuration. `pipx:` and `pypi:` are accepted
 backend names, but mise treats them as separate installed tools. The

@@ -45,3 +45,12 @@ def test_candidate_refuses_a_missing_native_input_before_resolving(
 ) -> None:
     with pytest.raises(ValueError, match="core, native and CLI"):
         q.validate_candidates([tmp_path / "core.whl"] * 3)
+
+
+@pytest.mark.parametrize("installer", ["uv", "pipx"])
+def test_qualification_preserves_the_published_configuration(installer: str) -> None:
+    original = tomllib.loads(
+        (q.ROOT / "examples/install" / f"mise-{installer}.toml").read_text()
+    )
+    version = original["tools"][q.tool_name(installer)]["version"]
+    assert tomllib.loads(q.configuration(installer, version)) == original
