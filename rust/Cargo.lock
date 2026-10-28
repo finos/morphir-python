@@ -1476,6 +1476,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "morphir-python-extension"
+version = "0.1.0"
+
+[[package]]
 name = "morphir-python-native"
 version = "0.1.1"
 dependencies = [
