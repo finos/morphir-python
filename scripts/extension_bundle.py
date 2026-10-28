@@ -243,30 +243,41 @@ def morphir_cli() -> tuple[Path, str]:
     binary = directory / ("morphir.exe" if is_windows else "morphir")
     extension = "zip" if is_windows else "tgz"
     archive_name = f"morphir-{host['version']}-{target}.{extension}"
-    if not binary.is_file():
+    archive_path = directory / archive_name
+    if archive_path.is_symlink() or binary.is_symlink():
+        raise BundleError("cached Morphir CLI and archive must be regular files")
+    if archive_path.is_file():
+        data = archive_path.read_bytes()
+    else:
         with urllib.request.urlopen(
             f"{host['release']}/{archive_name}", timeout=120
-        ) as r:
-            data = r.read()
-        if sha256(data) != expected:
-            raise BundleError(f"{archive_name} digest differs from the pin")
-        directory.mkdir(parents=True, exist_ok=True)
-        if is_windows:
-            with zipfile.ZipFile(io.BytesIO(data)) as archive:
-                zip_member = next(
-                    m for m in archive.namelist() if Path(m).name == "morphir.exe"
-                )
-                binary.write_bytes(archive.read(zip_member))
-        else:
-            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-                member = next(
-                    m for m in archive.getmembers() if Path(m.name).name == "morphir"
-                )
-                extracted = archive.extractfile(member)
-                if extracted is None:
-                    raise BundleError(f"{archive_name} has no morphir executable")
-                binary.write_bytes(extracted.read())
-        binary.chmod(0o755)
+        ) as response:
+            data = response.read()
+    if sha256(data) != expected:
+        raise BundleError(f"{archive_name} digest differs from the pin")
+    if is_windows:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            zip_member = next(
+                m for m in archive.namelist() if Path(m).name == "morphir.exe"
+            )
+            executable_bytes = archive.read(zip_member)
+    else:
+        with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+            member = next(
+                m for m in archive.getmembers() if Path(m.name).name == "morphir"
+            )
+            extracted = archive.extractfile(member)
+            if extracted is None:
+                raise BundleError(f"{archive_name} has no morphir executable")
+            executable_bytes = extracted.read()
+    if binary.exists() and binary.read_bytes() != executable_bytes:
+        raise BundleError("cached Morphir CLI differs from the verified archive")
+    directory.mkdir(parents=True, exist_ok=True)
+    if not archive_path.exists():
+        archive_path.write_bytes(data)
+    if not binary.exists():
+        binary.write_bytes(executable_bytes)
+    binary.chmod(0o755)
     return binary, expected
 
 
@@ -306,6 +317,7 @@ def host_round_trips(bundle: Path, described: dict[str, Any]) -> dict[str, objec
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=60,
             )
             if result.returncode != 0:
                 raise BundleError(f"morphir {' '.join(args)}: {result.stderr}")
@@ -350,13 +362,25 @@ def host_round_trips(bundle: Path, described: dict[str, Any]) -> dict[str, objec
             )
             results[f"v{tag}"] = {
                 "modules": files,
+                "ir_sha256": sha256(
+                    json.dumps(first, sort_keys=True, separators=(",", ":")).encode()
+                ),
+                "generated_sha256": {
+                    path: sha256((project / generated / path).read_bytes())
+                    for path in files
+                },
                 "agrees_with_python_api": agrees_with_api(
                     first, tag, compiler_version=str(described["version"])
                 ),
             }
     return {
         **described,
-        "host": {"morphir": declaration()["host"]["version"], "sha256": cli_digest},
+        "host": {
+            "morphir": declaration()["host"]["version"],
+            "sha256": cli_digest,
+            "binary_sha256": sha256(cli.read_bytes()),
+        },
+        "qualification_script_sha256": sha256(Path(__file__).read_bytes()),
         "python_api": {
             "native_version": native_compiler().version,
             "compiler_version": native_compiler().compiler_version,

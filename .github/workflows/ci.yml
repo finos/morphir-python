@@ -104,6 +104,10 @@ jobs:
 
       - name: Build the manylinux_2_28 wheel and source archive
         uses: PyO3/maturin-action@v1
+        env:
+          # Maturin builds the wheel from an isolated sdist. Share registry
+          # dependency objects with the process hook across that source path.
+          CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
         with:
           working-directory: packages/morphir-python-native
           maturin-version: '1.15.0'

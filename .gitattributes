@@ -1,3 +1,7 @@
 
 # Use bd merge for beads JSONL files
 .beads/issues.jsonl merge=beads
+
+# Release receipts bind these inputs as bytes on every runner OS.
+rust/Cargo.lock text eol=lf
+scripts/*.py text eol=lf

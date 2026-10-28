@@ -95,4 +95,20 @@ def test_windows_cli_archive_is_verified_and_only_the_binary_is_extracted(
     ]
     assert sorted(
         p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file()
-    ) == ["morphir-test-x86_64-pc-windows-msvc/morphir.exe"]
+    ) == [
+        "morphir-test-x86_64-pc-windows-msvc/morphir-test-x86_64-pc-windows-msvc.zip",
+        "morphir-test-x86_64-pc-windows-msvc/morphir.exe",
+    ]
+
+    executable.write_bytes(b"changed cached CLI")
+    with pytest.raises(bundle.BundleError, match="cached Morphir CLI"):
+        bundle.morphir_cli()
+    assert len(urls) == 1
+
+    executable.write_bytes(b"verified CLI")
+    (executable.parent / "morphir-test-x86_64-pc-windows-msvc.zip").write_bytes(
+        b"changed archive"
+    )
+    with pytest.raises(bundle.BundleError, match="digest differs"):
+        bundle.morphir_cli()
+    assert len(urls) == 1

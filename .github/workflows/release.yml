@@ -84,6 +84,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         env:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'aarch64-apple-darwin' && '11.0' || '10.12' }}
+          CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
         with:
           working-directory: packages/morphir-python-native
           maturin-version: '1.15.0'
@@ -263,6 +264,57 @@ jobs:
         with:
           name: native-release
           path: dist/candidates/
+          if-no-files-found: error
+
+  # This stages a process-only candidate. Publication additionally requires
+  # independent MEP guest qualification; no process release is published here.
+  process-candidates:
+    name: Verify the process release candidate set
+    needs: [qualify, native-wheels]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/extension/python/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Download each qualified process platform
+        uses: actions/download-artifact@v7
+        with:
+          pattern: morphir-python-process-*
+          path: dist/process-inputs/
+
+      - name: Download the qualified WASM reference
+        uses: actions/download-artifact@v7
+        with:
+          name: morphir-python-extension-bundle
+          path: dist/wasm-check/
+
+      - name: Refuse mixed sources, claims, bytes or installed results
+        run: |
+          python -m scripts.process_release \
+            --inputs dist/process-inputs \
+            --output dist/process-release \
+            --commit "$GITHUB_SHA" \
+            --wasm-bundle dist/wasm-check/.morphir/build/extensions/python \
+            --wasm-report dist/wasm-check/.dev/qualification/bundle-host.json \
+            --report dist/process-assembly.json
+
+      - name: Upload the process-only candidate and its evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: process-release-candidate
+          path: |
+            dist/process-release/
+            dist/process-assembly.json
+            dist/process-inputs/*/.dev/qualification/*.json
+          include-hidden-files: true
           if-no-files-found: error
 
   publish-native:
