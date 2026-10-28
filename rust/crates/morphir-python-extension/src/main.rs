@@ -8,13 +8,16 @@ fn main() {
         eprintln!("Usage: morphir-python-extension --stdio");
         std::process::exit(2);
     }
-    match argument.as_deref() {
-        Some(value) if value == "--stdio" => {
-            if let Err(error) = serve(&mut std::io::stdin().lock(), &mut std::io::stdout().lock()) {
-                eprintln!("morphir-python-extension: {error}");
-                std::process::exit(1);
-            }
+    // Canonical native bundles launch their executable without arguments.
+    // Keep --stdio as an explicit alias for host configurations and manual use.
+    if argument.as_deref().is_none_or(|value| value == "--stdio") {
+        if let Err(error) = serve(&mut std::io::stdin().lock(), &mut std::io::stdout().lock()) {
+            eprintln!("morphir-python-extension: {error}");
+            std::process::exit(1);
         }
+        return;
+    }
+    match argument.as_deref() {
         Some(value) if value == "--help" => println!("Usage: morphir-python-extension --stdio"),
         _ => {
             eprintln!("Usage: morphir-python-extension --stdio");

@@ -35,5 +35,5 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 
 ## Workflow follow-up
 
-- Implementation requires separately applying this proposal after review.
+- Implementation is in progress under the active apply goal. SDK publication and a separate upstream Python MCK profile decision are pending; the new draft remains unadvertised.
 - Merge, tags and publication require maintainer approval; sync/archive only after implementation and qualification are complete.

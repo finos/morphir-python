@@ -32,6 +32,7 @@ import tarfile
 import tempfile
 import tomllib
 import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -220,9 +221,11 @@ def receipt(bundle: Path, *, version: str | None = None) -> dict[str, object]:
 def _target() -> str:
     machine = platform.machine().lower()
     arch = {"arm64": "aarch64", "amd64": "x86_64"}.get(machine, machine)
-    system = {"Darwin": "apple-darwin", "Linux": "unknown-linux-gnu"}.get(
-        platform.system()
-    )
+    system = {
+        "Darwin": "apple-darwin",
+        "Linux": "unknown-linux-gnu",
+        "Windows": "pc-windows-msvc",
+    }.get(platform.system())
     if system is None:
         raise BundleError(f"no pinned Morphir CLI for {platform.system()}")
     return f"{arch}-{system}"
@@ -236,8 +239,10 @@ def morphir_cli() -> tuple[Path, str]:
     if expected is None:
         raise BundleError(f"no pinned Morphir CLI digest for {target}")
     directory = CACHE / f"morphir-{host['version']}-{target}"
-    binary = directory / "morphir"
-    archive_name = f"morphir-{host['version']}-{target}.tgz"
+    is_windows = target.endswith("windows-msvc")
+    binary = directory / ("morphir.exe" if is_windows else "morphir")
+    extension = "zip" if is_windows else "tgz"
+    archive_name = f"morphir-{host['version']}-{target}.{extension}"
     if not binary.is_file():
         with urllib.request.urlopen(
             f"{host['release']}/{archive_name}", timeout=120
@@ -246,24 +251,35 @@ def morphir_cli() -> tuple[Path, str]:
         if sha256(data) != expected:
             raise BundleError(f"{archive_name} digest differs from the pin")
         directory.mkdir(parents=True, exist_ok=True)
-        with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-            member = next(
-                m for m in archive.getmembers() if Path(m.name).name == "morphir"
-            )
-            extracted = archive.extractfile(member)
-            if extracted is None:
-                raise BundleError(f"{archive_name} has no morphir executable")
-            binary.write_bytes(extracted.read())
+        if is_windows:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                zip_member = next(
+                    m for m in archive.namelist() if Path(m).name == "morphir.exe"
+                )
+                binary.write_bytes(archive.read(zip_member))
+        else:
+            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+                member = next(
+                    m for m in archive.getmembers() if Path(m.name).name == "morphir"
+                )
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    raise BundleError(f"{archive_name} has no morphir executable")
+                binary.write_bytes(extracted.read())
         binary.chmod(0o755)
     return binary, expected
 
 
 def host_check(bundle: Path, *, version: str | None = None) -> dict[str, object]:
     """Install the bundle with the pinned CLI and round trip offline."""
+    return host_round_trips(bundle, receipt(bundle, version=version))
+
+
+def host_round_trips(bundle: Path, described: dict[str, Any]) -> dict[str, object]:
+    """Qualify an admitted runtime bundle through installed, offline CLI routes."""
     from morphir_tools.python import native_compiler
 
     bundle = bundle.resolve()
-    described = receipt(bundle, version=version)
     cli, cli_digest = morphir_cli()
     with tempfile.TemporaryDirectory(prefix="python-bundle-host-") as scratch:
         work = Path(scratch)

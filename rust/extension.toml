@@ -32,3 +32,5 @@ release = "https://github.com/finos/morphir/releases/download/v0.4.0-beta.10"
 "aarch64-unknown-linux-gnu" = "76a92a11030cd254d2283e98363cf203f86aaecd583fa480bdf6f508c86710f6"
 "aarch64-apple-darwin" = "98635ec74fbdc3c2cef1d4ae184bb1c5ed9e2960575f3d8abb4b97e0e4da363f"
 "x86_64-apple-darwin" = "4080dcfb04f6e1c902bce2780756c6af44320ac0dd6ff6bd953ca74a0da8e128"
+
+"x86_64-pc-windows-msvc" = "c178002d570f4cb8c9ceed4bf7b51f04d4ebec2458765935839c90ac1cc01176"

@@ -87,8 +87,13 @@ fn malformed_frames_fail_without_writing_non_protocol_output() {
 
 #[test]
 fn standalone_process_needs_no_python_or_rust_environment() {
+    standalone(&["--stdio"]);
+    standalone(&[]);
+}
+
+fn standalone(arguments: &[&str]) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_morphir-python-extension"))
-        .arg("--stdio")
+        .args(arguments)
         .env_clear()
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
