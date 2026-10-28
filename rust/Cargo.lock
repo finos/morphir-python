@@ -1465,6 +1465,7 @@ dependencies = [
  "cucumber",
  "morphir-core",
  "morphir-extension-sdk",
+ "morphir-json",
  "num-bigint 0.5.1",
  "ruff_python_ast",
  "ruff_python_codegen",

@@ -11,7 +11,6 @@ The Python compiler currently exposes a WASM MEP guest advertising legacy `0.1`,
 - Add exact `0.2.0-draft.1` negotiation and bilateral model transport admission, initially for the `morphir-ir`/`morphir-json` profile with the compiler's supported IR v3/v4 Library models.
 - Implement bounded, integrity-checked model envelopes and compileModel/generateModel adapters for the admitted tuples. Refuse unsupported profiles and guarantees explicitly; rich Ion transport is not advertised by this initial increment.
 - Publish and qualify both runtime choices, with accurate platform/runtime descriptors and host compatibility documentation. Qualify each documented host route independently.
-- Keep this change proposed: no process guest or newer-MEP implementation has been added by PR #52.
 
 ## Capabilities
 

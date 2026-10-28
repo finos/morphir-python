@@ -15,6 +15,7 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 num-bigint.workspace = true
 morphir-core.workspace = true
+morphir-json.workspace = true
 morphir-extension-sdk.workspace = true
 ruff_python_parser.workspace = true
 ruff_python_ast.workspace = true
