@@ -198,6 +198,7 @@ def receipt(bundle: Path) -> dict[str, object]:
     if not (
         isinstance(frontend, dict)
         and frontend.get("compile") is True
+        and frontend.get("multiDocument") is True
         and frontend.get("irVersions") == extension["ir_versions"]
         and isinstance(backend, dict)
         and backend.get("generate") is True
@@ -212,6 +213,7 @@ def receipt(bundle: Path) -> dict[str, object]:
         "git_commit": descriptor.get("gitCommit"),
         "packager_rev": declaration()["packager"]["rev"],
         "capabilities": sorted(k for k, v in capabilities.items() if v),
+        "multiDocument": frontend["multiDocument"],
     }
 
 
@@ -258,6 +260,8 @@ def morphir_cli() -> tuple[Path, str]:
 
 def host_check(bundle: Path) -> dict[str, object]:
     """Install the bundle with the pinned CLI and round trip offline."""
+    from morphir_tools.python import native_compiler
+
     bundle = bundle.resolve()
     described = receipt(bundle)
     cli, cli_digest = morphir_cli()
@@ -335,6 +339,10 @@ def host_check(bundle: Path) -> dict[str, object]:
     return {
         **described,
         "host": {"morphir": declaration()["host"]["version"], "sha256": cli_digest},
+        "python_api": {
+            "native_version": native_compiler().version,
+            "compiler_version": native_compiler().compiler_version,
+        },
         "offline_round_trips": results,
     }
 
@@ -348,8 +356,15 @@ def agrees_with_api(document: dict[str, Any], tag: str) -> bool:
         IrVersion,
         SourceDocument,
         compile_sources,
+        native_compiler,
     )
 
+    compiler = native_compiler()
+    if compiler.compiler_version != crate_version():
+        raise BundleError(
+            f"API compiler {compiler.compiler_version} differs from "
+            f"bundle {crate_version()}"
+        )
     sources = [
         SourceDocument(p.relative_to(SAMPLE).as_posix(), p.read_text())
         for p in sorted(SAMPLE.rglob("*.py"))

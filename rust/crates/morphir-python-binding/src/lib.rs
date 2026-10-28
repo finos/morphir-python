@@ -58,6 +58,7 @@ impl Extension for PythonExtension {
                 }],
                 ir_versions: vec!["3".into(), "4".into()],
                 compile: true,
+                multi_document: true,
                 ..Default::default()
             }),
             backend: Some(BackendCapability {

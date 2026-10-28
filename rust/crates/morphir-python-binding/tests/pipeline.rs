@@ -107,6 +107,11 @@ fn rejects_unsupported_or_ambiguous_source_without_partial_ir() {
 #[test]
 fn advertises_and_enforces_the_initial_contract() {
     let capabilities = PythonExtension::capabilities();
+    assert!(capabilities.frontend.as_ref().unwrap().multi_document);
+    assert_eq!(
+        serde_json::to_value(&capabilities).unwrap()["frontend"]["multiDocument"],
+        json!(true)
+    );
     assert_eq!(capabilities.frontend.unwrap().ir_versions, ["3", "4"]);
     assert_eq!(capabilities.backend.unwrap().targets, ["python"]);
     let mut request = a_request("");
