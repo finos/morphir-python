@@ -10,17 +10,50 @@ on:
   # Qualification only, including every native wheel platform. Publishing
   # requires a tag push.
   workflow_dispatch:
+    inputs:
+      mck-diagnostic:
+        description: Build only the shared MCK on Windows; never stage or publish a release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: ${{ inputs.mck-diagnostic && 'mck-diagnostic' || 'release' }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  mck-diagnostic:
+    name: Diagnose Windows shared MCK build
+    if: github.event_name == 'workflow_dispatch' && inputs.mck-diagnostic
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+        with:
+          install_args: rust python
+      - uses: actions/cache@v5
+        with:
+          path: .dev/mep-tool/
+          key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
+          restore-keys: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-
+      - name: Build the pinned canonical checker
+        run: python -m scripts.mep_tool --output .dev/qualification/mep-tool.json
+      - name: Retain checker setup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-mck-build-diagnostic
+          path: |
+            .dev/mep-tool/*/build.log
+            .dev/qualification/mep-tool.json
+          include-hidden-files: true
+          if-no-files-found: warn
+
   qualify:
     name: Qualify release
+    if: inputs.mck-diagnostic != true
     uses: ./.github/workflows/ci.yml
     with:
       release-tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
@@ -236,8 +269,9 @@ jobs:
         with:
           path: .dev/mep-tool/
           key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
+          restore-keys: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-
 
-      - name: Run and independently recheck the canonical process MEP report
+      - name: Build the shared checker and qualify process MEP
         if: >-
           !matrix.reuse &&
           (github.event_name == 'workflow_dispatch' ||
@@ -250,6 +284,14 @@ jobs:
             --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
             --report .dev/qualification/mep-${{ matrix.target }}-report.json \
             --receipt .dev/qualification/mep-${{ matrix.target }}-recheck.json
+
+      - name: Retain failed checker build diagnostics
+        if: failure() && hashFiles('.dev/mep-tool/*/build.log') != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: mep-build-log-${{ matrix.target }}
+          path: .dev/mep-tool/*/build.log
+          include-hidden-files: true
 
       - name: Upload the qualified process bundle and receipt
         if: >-

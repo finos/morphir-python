@@ -69,6 +69,34 @@ def command(arguments: list[str], *, cwd: Path | None = None) -> str:
     return result.stdout.strip()
 
 
+def build_checker(source: Path, target: Path, log: Path) -> None:
+    """Build with bounded CI diagnostics and preserve the complete raw log."""
+    with log.open("wb") as stream:
+        result = subprocess.run(
+            [
+                "cargo",
+                "build",
+                "--locked",
+                "--manifest-path",
+                str(source / "Cargo.toml"),
+                "--target-dir",
+                str(target),
+                "-p",
+                "morphir",
+            ],
+            cwd=bundle.ROOT,
+            env=os.environ | {"CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_INCREMENTAL": "0"},
+            stdout=stream,
+            stderr=subprocess.STDOUT,
+            timeout=1800,
+        )
+    if result.returncode:
+        tail = "\n".join(
+            log.read_bytes().decode("utf-8", errors="replace").splitlines()[-80:]
+        )
+        raise bundle.BundleError(f"MCK build failed; full log {log}\n{tail[-16000:]}")
+
+
 def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
     """Fetch source by Git identity and run Cargo even when a build cache exists.
 
@@ -120,27 +148,7 @@ def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
     log = cache / "build.log"
     # This is a correctness checker, not the implementation being benchmarked.
     # A dev-profile build reduces setup cost and is identified in the receipt.
-    with log.open("w") as stream:
-        result = subprocess.run(
-            [
-                "cargo",
-                "build",
-                "--locked",
-                "--manifest-path",
-                str(source / "Cargo.toml"),
-                "--target-dir",
-                str(target),
-                "-p",
-                "morphir",
-            ],
-            cwd=bundle.ROOT,
-            env=os.environ | {"CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_INCREMENTAL": "0"},
-            stdout=stream,
-            stderr=subprocess.STDOUT,
-            timeout=1800,
-        )
-    if result.returncode:
-        raise bundle.BundleError(f"MCK build failed; see {log}")
+    build_checker(source, target, log)
     if command(["git", "status", "--porcelain"], cwd=source):
         raise bundle.BundleError("MCK build changed its pinned source")
     executable = target / "debug" / ("morphir.exe" if os.name == "nt" else "morphir")

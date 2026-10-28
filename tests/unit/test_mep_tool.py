@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -57,3 +57,22 @@ def test_unicode_report_does_not_depend_on_producer_locale(tmp_path: Path) -> No
         timeout=10,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_failed_build_exposes_diagnostics_and_retains_full_log(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    diagnostic = (
+        "earlier build output\n" * 100 + "error: missing Windows prerequisite λ\n"
+    ).encode()
+
+    def fail(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        kwargs["stdout"].write(diagnostic)
+        return subprocess.CompletedProcess(arguments, 1)
+
+    monkeypatch.setattr(mep_tool.subprocess, "run", fail)
+    log = tmp_path / "build.log"
+    with pytest.raises(bundle.BundleError, match="missing Windows prerequisite λ"):
+        mep_tool.build_checker(tmp_path, tmp_path / "target", log)
+    assert log.read_bytes() == diagnostic

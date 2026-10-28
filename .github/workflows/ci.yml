@@ -265,6 +265,7 @@ jobs:
         with:
           path: .dev/mep-tool/
           key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
+          restore-keys: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-
 
       - name: Cache the independent WASM adapter build
         if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
@@ -294,6 +295,14 @@ jobs:
             --adapter .dev/host-qualification-target/release/mep_wasm_host \
             --report .dev/qualification/bundle-mep-report.json \
             --receipt .dev/qualification/bundle-mep-recheck.json
+
+      - name: Retain failed checker build diagnostics
+        if: failure() && hashFiles('.dev/mep-tool/*/build.log') != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: mep-build-log-linux-x86_64
+          path: .dev/mep-tool/*/build.log
+          include-hidden-files: true
 
       - name: Upload the qualified process bundle and receipt
         uses: actions/upload-artifact@v6
