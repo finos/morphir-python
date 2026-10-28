@@ -23,17 +23,18 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 ## 4. Distribute both runtime choices (morphir-5hxy.4)
 
 - [ ] 4.1 Build process artifacts for each advertised platform and retain the WASM artifact; verify both use the shared compiler and produce matching supported results and diagnostics.
-- [ ] 4.2 Stage canonical runtime/platform/mode/argument/digest/claim descriptors and source receipts with pinned tooling; verify host readers, installed-byte integrity, offline activation and explicit unsupported-platform refusal.
+- [x] 4.2 Stage canonical runtime/platform/mode/argument/digest/claim descriptors and source receipts with pinned tooling; verify host readers, installed-byte integrity, offline activation and explicit unsupported-platform refusal.
 - [ ] 4.3 Add release assurance and runtime-selection documentation alongside each artifact producer, including exact native/CLI pairing where affected; verify missing or mismatched evidence blocks promotion and historical WASM assets remain available.
 
 ## 5. Qualify host interoperability (morphir-5hxy.5)
 
 - [ ] 5.1 Run the pinned executable MEP guest suite for both runtimes and protocol offers, including supported model operations and negative admission; retain source/artifact-bound conformance receipts.
-- [ ] 5.2 Qualify the concrete Rust host process and WASM routes using a pinned compatible release or source build; verify initialization, v3/v4 operations, parity, timeout and child cleanup with a clean child environment.
-- [ ] 5.3 Test documented MoonBit routes independently, record prerequisite upstream work for any unsupported path and publish only evidenced compatibility claims; verify documentation recipes against the specified host revisions.
-- [ ] 5.4 Measure representative cold-start and compile/generate workloads for process and WASM without making an unmeasured speed claim; retain the reproducible inputs, toolchain and timing report.
+- [x] 5.2 Qualify the concrete Rust host process and WASM routes using a pinned compatible release or source build; verify initialization, v3/v4 operations, parity, timeout and child cleanup with a clean child environment.
+- [x] 5.3 Test documented MoonBit routes independently, record prerequisite upstream work for any unsupported path and publish only evidenced compatibility claims; verify documentation recipes against the specified host revisions.
+- [x] 5.4 Measure representative cold-start and compile/generate workloads for process and WASM without making an unmeasured speed claim; retain the reproducible inputs, toolchain and timing report.
 
 ## Workflow follow-up
 
 - Implementation is in progress under the active apply goal. SDK publication and a separate upstream Python MCK profile decision are pending; the new draft remains unadvertised.
-- Merge, tags and publication require maintainer approval; sync/archive only after implementation and qualification are complete.
+- Source-pinned legacy Rust host checks pass for both actual b38e00e runtime artifacts, including v3/v4 parity, timeout and cleanup. Five release-host timing samples per workload retain exact inputs and raw reports in `.dev/qualification/timings-b38-release/`; the manual/release candidate job owns reruns and artifact retention. MoonBit remains unsupported at the documented pin, with explicit v3/v4 envelope refusals reverified by run 40685569455. These checks do not substitute for task 5.1's canonical executable conformance.
+- All merges are approved. Tags and publication still require maintainer approval; sync/archive only after implementation and qualification are complete.

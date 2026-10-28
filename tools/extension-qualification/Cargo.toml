@@ -1,0 +1,22 @@
+[package]
+name = "morphir-python-host-qualification"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "Apache-2.0"
+publish = false
+
+# Independent developer tooling, not part of the compiler/Python dependency tree.
+[workspace]
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+hex = "0.4"
+morphir-extension-sdk = { git = "https://github.com/finos/morphir-rust.git", rev = "d51daa8aea7ae09ae295ff254d72b27770c64104" }
+morphir-host = { git = "https://github.com/finos/morphir-rust.git", rev = "d51daa8aea7ae09ae295ff254d72b27770c64104" }
+morphir-host-native = { git = "https://github.com/finos/morphir-rust.git", rev = "d51daa8aea7ae09ae295ff254d72b27770c64104" }
+serde_json = { version = "1", features = ["arbitrary_precision"] }
+sha2 = "0.11"
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "macros", "sync", "time"] }

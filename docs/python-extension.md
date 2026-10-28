@@ -154,6 +154,14 @@ Installation restores executable permissions, so the Morphir host can launch a
 downloaded raw executable without a user Rust toolchain or Python interpreter.
 A process has ordinary OS rights; WASM uses the host's Extism isolation.
 
+The developer [Rust host checker](https://github.com/finos/morphir-python/tree/main/tools/extension-qualification)
+pins the upstream host source and tests actual WASM/process bytes independently
+of the installation recipe. It verifies legacy v3/v4 operations, diagnostic
+parity, orderly shutdown and process timeout cleanup. Its timing runner retains
+fresh-guest startup and compile/generate samples for small and larger inputs,
+including the machine, build profile, input and artifact identities. These
+observations do not establish newer-draft conformance or a general speed claim.
+
 The release-assembly check runs this switch in both directions with fresh
 project caches, compares v3/v4 IR and generated-file digests, rejects an actual
 foreign-only bundle, and checks that changing installed bytes causes a digest

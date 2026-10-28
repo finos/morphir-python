@@ -328,6 +328,38 @@ jobs:
             --process dist/process-release \
             --report dist/runtime-choice.json
 
+      # Source-pinned host assurance belongs to the existing manual/release
+      # candidate consumer. Build once; exercise the downloaded guest bytes.
+      - name: Set up the pinned Rust host toolchain
+        uses: jdx/mise-action@v3
+        with:
+          install_args: rust python
+
+      - name: Cache the independent Rust host build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/extension-qualification -> ../../.dev/host-qualification-target
+
+      - name: Build and check the source-pinned Rust host qualifier
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/.dev/host-qualification-target
+        run: |
+          manifest=tools/extension-qualification/Cargo.toml
+          cargo fmt --manifest-path "$manifest" --check
+          cargo clippy --locked --release --manifest-path "$manifest" --all-targets --no-deps -- -D warnings
+          cargo test --locked --release --manifest-path "$manifest"
+          cargo build --locked --release --manifest-path "$manifest"
+
+      - name: Qualify real host channels and retain repeated timing samples
+        run: |
+          wasm=dist/wasm-check/.morphir/build/extensions/python
+          version="$(python -c 'from scripts.extension_bundle import crate_version; print(crate_version())')"
+          python -m scripts.benchmark_extension \
+            --checker .dev/host-qualification-target/release/morphir-python-host-qualification \
+            --wasm "$wasm/morphir-python-binding-$version.wasm" \
+            --process "dist/process-release/morphir-python-extension-$version-x86_64-unknown-linux-gnu" \
+            --output dist/host-qualification --samples 5
+
       - name: Upload the process-only candidate and its evidence
         uses: actions/upload-artifact@v6
         with:
@@ -336,6 +368,7 @@ jobs:
             dist/process-release/
             dist/process-assembly.json
             dist/runtime-choice.json
+            dist/host-qualification/
             dist/process-inputs/*/.dev/qualification/*.json
           include-hidden-files: true
           if-no-files-found: error
@@ -371,7 +404,7 @@ jobs:
 
   extension-candidate:
     name: Verify the extension bundle candidate
-    needs: [qualify, native-wheels]
+    needs: [qualify, native-wheels, process-candidates]
     if: startsWith(github.ref, 'refs/tags/extension/python/v')
     runs-on: ubuntu-latest
     steps:

@@ -6,3 +6,7 @@
 rust/Cargo.lock text eol=lf
 scripts/*.py text eol=lf
 .github/scripts/*.ps1 text eol=lf
+tools/extension-qualification/Cargo.lock text eol=lf
+tools/extension-qualification/Cargo.toml text eol=lf
+tools/extension-qualification/*.rs text eol=lf
+tools/extension-qualification/src/*.rs text eol=lf
