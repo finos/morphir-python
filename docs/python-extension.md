@@ -126,6 +126,27 @@ The canonical repository writer refuses a bundle mixing both runtimes.
 The process candidate includes Linux x86_64/ARM64, macOS x86_64/ARM64 and Windows
 x86_64. Installation chooses the matching platform and refuses an absent one.
 
+The `process-release-candidate` workflow artifact also retains `process-assets/`:
+five raw executables and checksums, a separately named process descriptor,
+`morphir-python-extension-VERSION.tar.gz`, a source-bound packaging receipt and
+`SHA256SUMS`. The archive contains the complete canonical process bundle, with
+`release.json` and executable permissions. Its payloads match the raw assets.
+These are development candidates; GitHub release publication remains pending
+the SDK and independent conformance prerequisites.
+
+After downloading the candidate, verify and extract it in Bash:
+
+```bash
+cd process-assets
+shasum -a 256 -c SHA256SUMS
+mkdir ../python-process
+tar -xzf morphir-python-extension-*.tar.gz -C ../python-process
+export PROCESS_BUNDLE="$(cd ../python-process && pwd)"
+```
+
+The qualification workflow runs the installation and runtime-switching checks
+against this extracted archive. Its original WASM bundle remains separate.
+
 Set `WASM_BUNDLE` and `PROCESS_BUNDLE` to those unmodified directories. With
 `MORPHIR_HOST` pointing at the pinned host described above, an isolated trial is:
 

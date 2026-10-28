@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import tarfile
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -158,6 +159,124 @@ def test_complete_process_set_keeps_canonical_per_platform_artifacts(
     assert len(descriptor["artifacts"]) == 5
     assert {artifact["runtime"] for artifact in descriptor["artifacts"]} == {"process"}
     assert all(artifact["claims"] == claims for artifact in descriptor["artifacts"])
+
+
+def archive_candidate(tmp_path: Path) -> tuple[Path, Path, Path]:
+    inputs, directory = tmp_path / "inputs", tmp_path / "canonical"
+    claims, results = candidates(inputs)
+    report = release.assemble(inputs, directory, COMMIT, claims, results)
+    wasm = tmp_path / "wasm"
+    wasm.mkdir()
+    version = bundle.crate_version()
+    name = f"morphir-python-binding-{version}.wasm"
+    digest = bundle.sha256(b"WASM fixture")
+    (wasm / name).write_bytes(b"WASM fixture")
+    (wasm / f"{name}.sha256").write_text(f"{digest}  {name}\n")
+    (wasm / "release.json").write_text(
+        json.dumps(
+            {
+                "extensionId": "morphir-python",
+                "version": version,
+                "gitCommit": COMMIT,
+                "artifacts": [
+                    {
+                        "runtime": "wasm",
+                        "filename": name,
+                        "sha256": digest,
+                        "claims": claims,
+                    }
+                ],
+            }
+        )
+    )
+    assembled = tmp_path / "assembly.json"
+    assembled.write_text(json.dumps(report))
+    return directory, assembled, wasm
+
+
+def test_download_archive_keeps_exact_bytes_modes_and_canonical_descriptor(
+    tmp_path: Path,
+) -> None:
+    directory, assembled, wasm = archive_candidate(tmp_path)
+    version = bundle.crate_version()
+    report = json.loads(assembled.read_text())
+    first = release.archive_bundle(
+        directory, assembled, wasm, tmp_path / "assets", COMMIT
+    )
+    second = release.archive_bundle(
+        directory, assembled, wasm, tmp_path / "again", COMMIT
+    )
+    assert first == second
+    assert first["sourceCommit"] == COMMIT
+    assert len(list((tmp_path / "assets").iterdir())) == 14
+    with tarfile.open(
+        tmp_path / "assets" / f"morphir-python-extension-{version}.tar.gz"
+    ) as archive:
+        assert set(archive.getnames()) == set(report["files"])
+        for member in archive.getmembers():
+            stream = archive.extractfile(member)
+            assert stream is not None
+            assert bundle.sha256(stream.read()) == report["files"][member.name]
+            assert member.isfile()
+            assert member.uid == member.gid == member.mtime == 0
+            assert member.mode == (
+                0o644 if member.name.endswith((".json", ".sha256")) else 0o700
+            )
+    lines = (tmp_path / "assets/SHA256SUMS").read_text().splitlines()
+    assert len(lines) == 13
+    for line in lines:
+        checksum, filename = line.split("  ")
+        assert checksum == bundle.sha256((tmp_path / "assets" / filename).read_bytes())
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["bytes", "receipt", "source", "claims", "platform", "extra", "symlink", "copy"],
+)
+def test_archive_refuses_changed_inputs_or_transfers_without_partial_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    directory, assembled, wasm = archive_candidate(tmp_path)
+    executable = directory / process.artifact_name(
+        bundle.crate_version(), process.PLATFORMS[0]
+    )
+    report = json.loads(assembled.read_text())
+    descriptor = json.loads((directory / "release.json").read_text())
+    if change == "bytes":
+        executable.write_bytes(b"changed bytes")
+    elif change == "receipt":
+        report["files"][executable.name] = "c" * 64
+    elif change == "source":
+        report["sourceCommit"] = "c" * 40
+    elif change in ("claims", "platform"):
+        if change == "claims":
+            descriptor["artifacts"][0]["claims"]["capabilities"]["streaming"] = True
+        else:
+            descriptor["artifacts"][0]["platform"] = descriptor["artifacts"][1][
+                "platform"
+            ]
+        (directory / "release.json").write_text(json.dumps(descriptor))
+        report["files"]["release.json"] = bundle.sha256(
+            (directory / "release.json").read_bytes()
+        )
+    elif change == "extra":
+        (directory / "unqualified").write_bytes(b"extra")
+    elif change == "symlink":
+        target = tmp_path / "outside"
+        executable.rename(target)
+        executable.symlink_to(target)
+    elif change == "copy":
+        original = release.shutil.copyfile
+
+        def changed_copy(source: Path, destination: Path) -> None:
+            original(source, destination)
+            destination.write_bytes(b"changed transfer")
+
+        monkeypatch.setattr(release.shutil, "copyfile", changed_copy)
+    assembled.write_text(json.dumps(report))
+    with pytest.raises((bundle.BundleError, OSError)):
+        release.archive_bundle(directory, assembled, wasm, tmp_path / "assets", COMMIT)
+    assert not (tmp_path / "assets").exists()
 
 
 @pytest.mark.parametrize(

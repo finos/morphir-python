@@ -319,13 +319,17 @@ jobs:
             --commit "$GITHUB_SHA" \
             --wasm-bundle dist/wasm-check/.morphir/build/extensions/python \
             --wasm-report dist/wasm-check/.dev/qualification/bundle-host.json \
-            --report dist/process-assembly.json
+            --report dist/process-assembly.json \
+            --assets-output dist/process-assets
 
       - name: Verify runtime switching, installed integrity and platform refusal
         run: |
+          (cd dist/process-assets && sha256sum --strict --check SHA256SUMS)
+          mkdir -p .dev/process-archive
+          tar -xzf dist/process-assets/morphir-python-extension-*.tar.gz -C .dev/process-archive
           python -m scripts.qualify_runtime \
             --wasm dist/wasm-check/.morphir/build/extensions/python \
-            --process dist/process-release \
+            --process .dev/process-archive \
             --report dist/runtime-choice.json
 
       # Source-pinned host assurance belongs to the existing manual/release
@@ -357,7 +361,7 @@ jobs:
           python -m scripts.benchmark_extension \
             --checker .dev/host-qualification-target/release/morphir-python-host-qualification \
             --wasm "$wasm/morphir-python-binding-$version.wasm" \
-            --process "dist/process-release/morphir-python-extension-$version-x86_64-unknown-linux-gnu" \
+            --process ".dev/process-archive/morphir-python-extension-$version-x86_64-unknown-linux-gnu" \
             --output dist/host-qualification --samples 5
 
       - name: Upload the process-only candidate and its evidence
@@ -366,6 +370,7 @@ jobs:
           name: process-release-candidate
           path: |
             dist/process-release/
+            dist/process-assets/
             dist/process-assembly.json
             dist/runtime-choice.json
             dist/host-qualification/

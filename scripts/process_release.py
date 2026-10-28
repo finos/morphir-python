@@ -9,9 +9,12 @@ must additionally require independent executable MEP qualification.
 from __future__ import annotations
 
 import argparse
+import gzip
+import io
 import json
 import re
 import shutil
+import tarfile
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +22,7 @@ from scripts import extension_bundle as bundle
 from scripts import process_diagnostics
 from scripts import process_extension as process
 from scripts.qualify_native import tools_pin
+from scripts.qualify_runtime import _descriptor
 from scripts.release_candidates import CandidateError, bundle_candidates
 
 
@@ -226,6 +230,104 @@ def assemble(
     }
 
 
+def archive_bundle(
+    directory: Path, assembly: Path, wasm: Path, output: Path, commit: str
+) -> dict[str, Any]:
+    """Seal a portable download from verified candidate bytes, without publishing.
+
+    This packaging receipt does not replace host assurance or the independent
+    executable MCK promotion gate. The current workflow retains candidates only.
+    """
+    version = bundle.crate_version()
+    expected = {"release.json"}
+    for target in process.PLATFORMS:
+        name = process.artifact_name(version, target)
+        expected.update((name, f"{name}.sha256"))
+    if {path.name for path in directory.iterdir()} != expected or any(
+        path.is_symlink() or not path.is_file() for path in directory.iterdir()
+    ):
+        raise bundle.BundleError("archive input is not the exact regular process set")
+    descriptor = _descriptor(directory, "process")
+    reference = _descriptor(wasm, "wasm")
+    receipt = _read(assembly)
+    files = {
+        name: bundle.sha256((directory / name).read_bytes())
+        for name in sorted(expected)
+    }
+    if not (
+        receipt["kind"] == "process-release-assembly"
+        and receipt["sourceCommit"] == commit
+        and receipt["version"] == version
+        and receipt["platforms"] == list(process.PLATFORMS)
+        and receipt["files"] == files
+        and descriptor["extensionId"] == reference["extensionId"] == "morphir-python"
+        and descriptor["version"] == reference["version"] == version
+        and descriptor["gitCommit"] == reference["gitCommit"] == commit
+        and len(reference["artifacts"]) == 1
+        and len(descriptor["artifacts"]) == len(process.PLATFORMS)
+        and {entry["platform"] for entry in descriptor["artifacts"]}
+        == set(process.PLATFORMS)
+        and all(
+            entry["filename"] == process.artifact_name(version, entry["platform"])
+            and entry["claims"] == reference["artifacts"][0]["claims"]
+            for entry in descriptor["artifacts"]
+        )
+    ):
+        raise bundle.BundleError("archive source, bytes or runtime claims differ")
+    if output.exists() or output.is_symlink():
+        raise FileExistsError(output)
+    if output.resolve().is_relative_to(
+        directory.resolve()
+    ) or output.resolve().is_relative_to(wasm.resolve()):
+        raise bundle.BundleError("archive assets must remain outside canonical bundles")
+    output.mkdir()
+    try:
+        descriptor_name = f"morphir-python-extension-{version}.release.json"
+        for name in sorted(expected):
+            destination = output / (descriptor_name if name == "release.json" else name)
+            shutil.copyfile(directory / name, destination)
+            if bundle.sha256(destination.read_bytes()) != files[name]:
+                raise bundle.BundleError("archive asset transfer changed bytes")
+            destination.chmod(0o644 if name.endswith((".json", ".sha256")) else 0o700)
+        archive_path = output / f"morphir-python-extension-{version}.tar.gz"
+        # Normalize only the container metadata; preserve each original payload.
+        with (
+            archive_path.open("xb") as raw,
+            gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=0) as compressed,
+            tarfile.open(fileobj=compressed, mode="w") as archive,
+        ):
+            for name in sorted(expected):
+                data = (directory / name).read_bytes()
+                if bundle.sha256(data) != files[name]:
+                    raise bundle.BundleError("archive payload changed during packaging")
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                info.mode = 0o644 if name.endswith((".json", ".sha256")) else 0o700
+                archive.addfile(info, io.BytesIO(data))
+        result = {
+            "kind": "process-download-assets",
+            "sourceCommit": commit,
+            "version": version,
+            "assemblySha256": bundle.sha256(assembly.read_bytes()),
+            "bundleFiles": files,
+            "files": {
+                path.name: bundle.sha256(path.read_bytes())
+                for path in sorted(output.iterdir())
+            },
+        }
+        (output / "process-assets.json").write_text(json.dumps(result, indent=2) + "\n")
+        (output / "SHA256SUMS").write_text(
+            "".join(
+                f"{bundle.sha256(path.read_bytes())}  {path.name}\n"
+                for path in sorted(output.iterdir())
+            )
+        )
+    except BaseException:
+        shutil.rmtree(output)
+        raise
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     """Assemble a process candidate against source-bound WASM reference bytes."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -235,6 +337,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wasm-bundle", type=Path, required=True)
     parser.add_argument("--wasm-report", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--assets-output", type=Path)
     args = parser.parse_args(argv)
     if args.report.resolve().is_relative_to(args.output.resolve()):
         parser.error("assembly report must remain outside the canonical bundle")
@@ -271,6 +374,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(result, indent=2) + "\n")
+        if args.assets_output is not None:
+            archive_bundle(
+                args.output,
+                args.report,
+                args.wasm_bundle,
+                args.assets_output,
+                args.commit,
+            )
     except (
         bundle.BundleError,
         CandidateError,
