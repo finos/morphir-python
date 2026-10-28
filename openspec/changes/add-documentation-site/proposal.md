@@ -6,7 +6,7 @@ Python users need a discoverable guide to the library, compiler API, CLI and ext
 
 ## What Changes
 
-- Publish a repository-owned documentation site using a pinned release of moonrockz/telescope, with navigation, search, readable code examples and local preview instructions informed by morphir-moonbit's site.
+- Publish a repository-owned documentation site using a pinned release of moonrockz/telescope, with navigation, search, readable code examples and local preview instructions. Use morphir-moonbit's blue/orange palette and responsive hero, code window, pipeline and feature-card landing design.
 - Add tested examples for Python API compilation/generation, IR codecs and migration, SDK usage, and CLI compile/generate/inspect/convert workflows. Explain package installation, supported platforms, diagnostics and language limits.
 - Document the Python extension's qualified installation and invocation through finos/morphir. Publish a compatibility matrix and verified file-based IR interchange recipes for the MoonBit-based CLI, with explicit unsupported cases.
 - Keep MoonBit Extism adapter implementation in a separate upstream proposal. This change documents current support and links the follow-up; it does not claim that the existing Python WASM bundle works with the MoonBit core-WASM adapter.

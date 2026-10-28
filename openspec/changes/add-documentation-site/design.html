@@ -22,7 +22,7 @@
 <body>
 <main>
 <h1>add-documentation-site</h1>
-<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.9</code> · 2026-10-28 · Implemented, awaiting review</p>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.9</code> · 2026-10-28 · Published foundation; MoonBit visual alignment in progress</p>
 
 <nav class="toc" aria-label="Contents">
 <ul>
@@ -76,6 +76,9 @@
 </code></pre>
 <p>This is a configuration starting point, not the final navigation manifest. Configure exclusions, navigation and static resources using the pinned version's supported contract. Build to <code>_site/</code>; test both <code>/</code> and <code>/morphir-python/</code>. Keep existing guide URLs in the repository useful and add site links to READMEs. Copying MoonBit's renderer would duplicate work now owned by Telescope; a separate Python documentation framework would split that shared foundation.</p>
 
+<h3 id="site-2">SITE-2. Reuse the Morphir MoonBit visual design</h3>
+<p>Use the blue/orange palette and responsive hero, code window, pipeline and feature cards from morphir-moonbit bd3adc52, adapting only the Python content and guide links. Keep the attributed CSS in site/theme/morphir.css and bridge Telescope shell variables to the same palette. The hero model is the checked examples/model/acme/models.py source; browser checks compare the displayed text and exercise both themes, viewports and deployment bases.</p>
+<p>Telescope 0.2.1 has no consumer stylesheet hook and rejects a static assets/site.css collision. Append the consumer theme to stock generated CSS in a private build directory, run Telescope checks on those final bytes, then atomically promote the checked tree. A broken CSS reference must leave the previous publication unchanged. Report this reusable gap upstream and retain the published renderer rather than fork it. This workaround changes presentation, not the renderer or browser controls.</p>
 <h3 id="docs-1">DOCS-1. Organize around complete user journeys</h3>
 <table>
 <thead><tr><th>Navigation</th><th>Initial content</th></tr></thead>
