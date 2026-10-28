@@ -5,8 +5,8 @@ as well as the version before copying an integration command.
 
 | Tool | Qualified identity | Python compiler route | IR and artifacts |
 | --- | --- | --- | --- |
-| `morphir-python` | Python distribution 0.0.3, core 0.0.2, native 0.1.0 | In-process typed API and CLI | v3 Library by default; explicit draft v4; versioned JSON |
-| `finos/morphir` | Rust product CLI 0.4.0-beta.10 | Python Extism bundle 0.4.1, MEP 0.1 | Explicit v3/v4 JSON; compile writes `morphir-ir.json` |
+| `morphir-python` | Python distribution 0.1.0, core 0.1.0, native 0.1.1 | In-process typed API and CLI | v3 Library by default; explicit draft v4; versioned JSON |
+| `finos/morphir` | Rust product CLI 0.4.0-beta.10 | Python Extism bundle 0.4.2, MEP 0.1 | Explicit v3/v4 JSON; compile writes `morphir-ir.json` |
 | MoonBit-based `morphir` | Source pin documented in the MoonBit guide | Current `core-wasm-process` and `native-process` adapters do not run the Python Extism guest | Portable MEP 0.2 draft, IR v4 model envelope; Ion default, explicit JSON tuple |
 
 ## Verify the provider

@@ -62,7 +62,11 @@ def test_released_receipt_can_qualify_a_version_other_than_the_current_crate(
                 "claims": {
                     "extension": {"id": "morphir-python", "version": version},
                     "capabilities": {
-                        "frontend": {"compile": True, "irVersions": ["3", "4"]},
+                        "frontend": {
+                            "compile": True,
+                            "multiDocument": True,
+                            "irVersions": ["3", "4"],
+                        },
                         "backend": {"generate": True, "targets": ["python"]},
                     },
                 },

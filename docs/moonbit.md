@@ -15,8 +15,7 @@ Renaming the Python `.wasm` to `model.wasm` does not supply a compatible ABI.
 
 The separate [Extism proposal](https://github.com/finos/morphir-moonbit/tree/DamianReeves/propose-extism-python/openspec/changes/qualify-extism-python)
 is tracked by `morphir-ukvn.5.98`. It proposes a pinned shared Rust host adapter,
-protocol negotiation and qualification with the real Python bundle. It is
-planning work, not released support. Until it is independently qualified, use
+protocol negotiation and qualification with the real Python bundle. The proposal does not establish released support. Until it is independently qualified, use
 the [Rust-host recipe](python-extension.md) to invoke the Python extension or
 use the [Python API](python-compiler.md) directly.
 

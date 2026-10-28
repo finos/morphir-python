@@ -33,7 +33,7 @@ The declaration is in [`rust/extension.toml`](https://github.com/finos/morphir-p
 
 ## Install the qualified release bundle
 
-This recipe uses **finos/morphir 0.4.0-beta.10** and Python extension **0.4.1**.
+This recipe uses **finos/morphir 0.4.0-beta.10** and Python extension **0.4.2**.
 Use the Rust product CLI, not the MoonBit executable of the same name. The
 [compatibility guide](compatibility.md) explains the difference. CPython is not
 needed to run the installed WASM guest.
@@ -46,14 +46,14 @@ prints the absolute `MORPHIR_HOST` and `PYTHON_BUNDLE` paths. Pins live in
 and [rust/extension.toml](https://github.com/finos/morphir-python/blob/main/rust/extension.toml).
 Run the printed `--version` command and check it reports 0.4.0-beta.10.
 
-For manual acquisition, download the 0.4.1 `.wasm`, `.wasm.sha256` and `.release.json` assets
-from the [extension release](https://github.com/finos/morphir-python/releases/tag/extension/python/v0.4.1).
+For manual acquisition, download the 0.4.2 `.wasm`, `.wasm.sha256` and `.release.json` assets
+from the [extension release](https://github.com/finos/morphir-python/releases/tag/extension/python/v0.4.2).
 Verify the SHA-256 values in the pin file before using them, then rename the
 `.release.json` descriptor to `release.json` in the same bundle directory.
 The WASM digest is
-`a04722e16115667fc7c332177805dcb049aef563afcee0e5f80c5fea302f5b4e`.
+`10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5`.
 The descriptor digest is
-`6cebee18b70e75da90f1cd187f24c8185ddde2565bb7c8e5049e21bbcccf0bb3`.
+`72770f73f05a72535fd8c86ad4629175019037441a758b827c1ba47cc9a52ebd`.
 The host release has platform-specific archives; use the declared target and
 hash rather than an unversioned executable from PATH.
 
@@ -70,7 +70,7 @@ before compiling. It is the exact recipe run by documentation qualification.
 #!/usr/bin/env bash
 set -euo pipefail
 # MORPHIR_HOST is the verified finos/morphir 0.4.0-beta.10 executable.
-# PYTHON_BUNDLE is the verified 0.4.1 bundle directory containing release.json.
+# PYTHON_BUNDLE is the verified 0.4.2 bundle directory containing release.json.
 : "${MORPHIR_HOST:?Set the verified Rust-host executable path}"
 : "${PYTHON_BUNDLE:?Set the verified bundle directory}"
 "$MORPHIR_HOST" --version

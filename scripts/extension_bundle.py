@@ -334,7 +334,9 @@ def host_check(bundle: Path, *, version: str | None = None) -> dict[str, object]
             )
             results[f"v{tag}"] = {
                 "modules": files,
-                "agrees_with_python_api": agrees_with_api(first, tag),
+                "agrees_with_python_api": agrees_with_api(
+                    first, tag, compiler_version=str(described["version"])
+                ),
             }
     return {
         **described,
@@ -347,7 +349,9 @@ def host_check(bundle: Path, *, version: str | None = None) -> dict[str, object]
     }
 
 
-def agrees_with_api(document: dict[str, Any], tag: str) -> bool:
+def agrees_with_api(
+    document: dict[str, Any], tag: str, *, compiler_version: str | None = None
+) -> bool:
     """Compare host output with the Python API's model for the same sources."""
     from morphir.ir.v3 import codec as v3_codec
     from morphir.ir.v4 import codec as v4_codec
@@ -360,10 +364,11 @@ def agrees_with_api(document: dict[str, Any], tag: str) -> bool:
     )
 
     compiler = native_compiler()
-    if compiler.compiler_version != crate_version():
+    expected_version = crate_version() if compiler_version is None else compiler_version
+    if compiler.compiler_version != expected_version:
         raise BundleError(
             f"API compiler {compiler.compiler_version} differs from "
-            f"bundle {crate_version()}"
+            f"bundle {expected_version}"
         )
     sources = [
         SourceDocument(p.relative_to(SAMPLE).as_posix(), p.read_text())

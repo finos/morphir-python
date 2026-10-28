@@ -1,7 +1,7 @@
 # A Python model round trip
 
-**Released:** CPython 3.14, `morphir-python==0.0.3`, `morphir==0.0.2`, native
-compiler `0.1.0`. Follow [installation](installation.md) first. This recipe uses
+**Released:** CPython 3.14, `morphir-python==0.1.0`, `morphir==0.1.0`, native
+compiler `0.1.1`. Follow [installation](installation.md) first. This recipe uses
 a POSIX shell such as Bash. The CLI commands themselves also work on Windows;
 create the same source files in your editor there.
 

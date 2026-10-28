@@ -129,8 +129,9 @@ or `GenerationFailure`. A Specs or Application distribution fails with
 `unsupported_distribution`. Convert legacy formats 1 and 2 with
 `morphir-python ir convert` first.
 
-Generation reads both v4 spellings, the compact one the compiler and other
-Morphir tools write and the expanded one the Python codec writes. Two limits
+Generation reads compact and expanded v4 spellings. Core 0.1.0 writes compact
+canonical JSON by default and offers explicit expanded output; see the
+[library guide](library.md#draft-v4-codec-features). Two limits
 apply:
 
 - IR v3 integer literals must fit in 64 bits. Compile to v4 for larger integers;

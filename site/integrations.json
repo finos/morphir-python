@@ -5,12 +5,12 @@
     "declaration": "rust/extension.toml"
   },
   "python_bundle": {
-    "version": "0.4.1",
-    "release": "https://github.com/finos/morphir-python/releases/download/extension/python/v0.4.1",
+    "version": "0.4.2",
+    "release": "https://github.com/finos/morphir-python/releases/download/extension/python/v0.4.2",
     "files": {
-      "morphir-python-binding-0.4.1.wasm": "a04722e16115667fc7c332177805dcb049aef563afcee0e5f80c5fea302f5b4e",
-      "morphir-python-binding-0.4.1.release.json": "6cebee18b70e75da90f1cd187f24c8185ddde2565bb7c8e5049e21bbcccf0bb3",
-      "morphir-python-binding-0.4.1.wasm.sha256": "1ce4615eaea293b96f0f64a0f02b5e45786b1681f894c56558a5d7bf4c4330ce"
+      "morphir-python-binding-0.4.2.release.json": "72770f73f05a72535fd8c86ad4629175019037441a758b827c1ba47cc9a52ebd",
+      "morphir-python-binding-0.4.2.wasm": "10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5",
+      "morphir-python-binding-0.4.2.wasm.sha256": "64f60ff9e58e6cbe2f3323e1c375cef77be7db81b9879974f943918a92a42634"
     }
   },
   "moonbit": {

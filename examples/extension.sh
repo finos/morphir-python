@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # MORPHIR_HOST is the verified finos/morphir 0.4.0-beta.10 executable.
-# PYTHON_BUNDLE is the verified 0.4.1 bundle directory containing release.json.
+# PYTHON_BUNDLE is the verified 0.4.2 bundle directory containing release.json.
 : "${MORPHIR_HOST:?Set the verified Rust-host executable path}"
 : "${PYTHON_BUNDLE:?Set the verified bundle directory}"
 "$MORPHIR_HOST" --version

@@ -1,6 +1,6 @@
 # Work with IR and the SDK
 
-**Released:** CPython 3.14 and `morphir==0.0.2`. These examples need neither the
+**Released:** CPython 3.14 and `morphir==0.1.0`. These examples need neither the
 CLI nor the native compiler. Install only `morphir` as described in
 [installation](installation.md#use-only-the-library).
 
@@ -73,9 +73,9 @@ Char, String, List, Dict, Set, Result, Tuple, Decimal, Int and Number. The SDK
 is usable from ordinary Python, even where the compiler's source subset does
 not yet accept a particular construct.
 
-## Development codec features
+## Draft-v4 codec features
 
-**Development:** the source tree's v4 writer emits compact canonical spellings
+**Released in core 0.1.0:** the v4 writer emits compact canonical spellings
 and exposes `morphir.ir.v4.codec.Spelling.EXPANDED` for explicit expanded output.
 Core 0.0.2 predates this writer change. Both profiles describe draft v4; choosing
 one does not establish compatibility with another tool's envelope or provenance
