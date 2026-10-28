@@ -134,6 +134,7 @@ def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
                 "morphir",
             ],
             cwd=bundle.ROOT,
+            env=os.environ | {"CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_INCREMENTAL": "0"},
             stdout=stream,
             stderr=subprocess.STDOUT,
             timeout=1800,
@@ -154,6 +155,8 @@ def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
         "corpusSha256": sha(kit),
         "cargoLockSha256": sha(source / "Cargo.lock"),
         "profile": "dev",
+        "debugInfo": False,
+        "incremental": False,
         "rustc": command(["rustc", "-vV"]),
         "preparerSha256": sha(Path(__file__)),
     }
