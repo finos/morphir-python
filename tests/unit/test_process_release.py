@@ -81,6 +81,14 @@ def candidates(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
             },
             "python_api": {"native_version": tools_pin(), "compiler_version": version},
             "offline_round_trips": results,
+            "installed_integrity": {
+                "expected_sha256": digest,
+                "tampered_sha256": "e" * 64,
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"digest mismatch: expected {digest}, got {'e' * 64}",
+                "fresh_project": True,
+            },
             "qualification_script_sha256": bundle.sha256(
                 (bundle.ROOT / "scripts/extension_bundle.py").read_bytes()
             ),
@@ -88,6 +96,28 @@ def candidates(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         path = platform_root / f".dev/qualification/process-{target}.json"
         path.parent.mkdir(parents=True)
         path.write_text(json.dumps(receipt))
+        if target.endswith("windows-msvc"):
+            (path.parent / "windows-process-imports.json").write_text(
+                json.dumps(
+                    {
+                        "sourceCommit": COMMIT,
+                        "crt": "static",
+                        "artifact": {"sha256": digest},
+                        "checkerSha256": bundle.sha256(
+                            (
+                                bundle.ROOT
+                                / ".github/scripts/check_process_windows.ps1"
+                            ).read_bytes()
+                        ),
+                        "tool": {
+                            "name": "dumpbin.exe",
+                            "sha256": "d" * 64,
+                            "version": "test",
+                        },
+                        "dependencies": ["kernel32.dll", "ntdll.dll"],
+                    }
+                )
+            )
         # Artifact transfer preserves bytes, but not POSIX execute bits.
         executable.chmod(0o600)
     return claims, results
@@ -124,6 +154,14 @@ def test_complete_process_set_keeps_canonical_per_platform_artifacts(
         "bytes",
         "checker",
         "binary",
+        "windows-runtime",
+        "windows-bytes",
+        "windows-checker",
+        "windows-missing",
+        "integrity-digest",
+        "integrity-not-run",
+        "integrity-cache",
+        "integrity-reason",
     ],
 )
 def test_mixed_missing_or_unqualified_process_sets_are_refused(
@@ -135,7 +173,33 @@ def test_mixed_missing_or_unqualified_process_sets_are_refused(
     platform_root = inputs / f"morphir-python-process-{target}"
     receipt_path = platform_root / f".dev/qualification/process-{target}.json"
     receipt = json.loads(receipt_path.read_text())
-    if change == "missing":
+    if change.startswith("integrity-"):
+        proof = receipt["installedHost"]["installed_integrity"]
+        if change == "integrity-digest":
+            proof["expected_sha256"] = "c" * 64
+        elif change == "integrity-not-run":
+            proof["exit_code"] = 0
+        elif change == "integrity-cache":
+            proof["fresh_project"] = False
+        elif change == "integrity-reason":
+            proof["stderr"] = "unrelated permission error"
+    elif change.startswith("windows-"):
+        windows = (
+            inputs
+            / "morphir-python-process-x86_64-pc-windows-msvc/.dev/qualification/windows-process-imports.json"
+        )
+        proof = json.loads(windows.read_text())
+        if change == "windows-missing":
+            windows.unlink()
+        else:
+            if change == "windows-runtime":
+                proof["dependencies"].append("VCRUNTIME140.dll")
+            elif change == "windows-bytes":
+                proof["artifact"]["sha256"] = "c" * 64
+            elif change == "windows-checker":
+                proof["checkerSha256"] = "c" * 64
+            windows.write_text(json.dumps(proof))
+    elif change == "missing":
         receipt_path.unlink()
     elif change == "extra":
         (inputs / "morphir-python-process-unknown").mkdir()

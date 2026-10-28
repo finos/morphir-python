@@ -112,3 +112,21 @@ def test_windows_cli_archive_is_verified_and_only_the_binary_is_extracted(
     with pytest.raises(bundle.BundleError, match="digest differs"):
         bundle.morphir_cli()
     assert len(urls) == 1
+
+
+def test_integrity_refusal_requires_the_mismatch_and_both_actual_hashes() -> None:
+    expected, observed = "a" * 64, "b" * 64
+    assert bundle.is_digest_mismatch(
+        f"digest mismatch: expected {expected[:32]}\n│ {expected[32:]}, got {observed}",
+        expected,
+        observed,
+    )
+    assert not bundle.is_digest_mismatch(
+        "cannot read morphir-integrity/sha256/log", expected, observed
+    )
+    assert not bundle.is_digest_mismatch(
+        f"digest mismatch: expected {expected}", expected, observed
+    )
+    assert not bundle.is_digest_mismatch(
+        f"invalid module at sha256/{expected}", expected, observed
+    )

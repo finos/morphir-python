@@ -176,9 +176,23 @@ jobs:
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'aarch64-apple-darwin' && '11.0' || '10.12' }}
+          # The standalone guest must not require the VC redistributable.
+          # This setting is confined to the executable, not the Python wheel.
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-C target-feature=+crt-static' || '' }}
         run: >-
           cargo +1.98.1 build --manifest-path rust/Cargo.toml --locked --release
           -p morphir-python-extension --target '${{ matrix.target }}'
+
+      - name: Refuse external VC and Python runtime dependencies
+        if: >-
+          runner.os == 'Windows' &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        shell: pwsh
+        run: |
+          ./.github/scripts/check_process_windows.ps1 `
+            -Executable rust/target/x86_64-pc-windows-msvc/release/morphir-python-extension.exe `
+            -Report .dev/qualification/windows-process-imports.json
 
       - name: Qualify the process bundle against the matching Python API
         if: >-
@@ -214,6 +228,7 @@ jobs:
           path: |
             .morphir/build/extensions/python-process/
             .dev/qualification/process-${{ matrix.target }}.json
+            .dev/qualification/*-process-imports.json
           include-hidden-files: true
           if-no-files-found: error
 
@@ -306,6 +321,13 @@ jobs:
             --wasm-report dist/wasm-check/.dev/qualification/bundle-host.json \
             --report dist/process-assembly.json
 
+      - name: Verify runtime switching, installed integrity and platform refusal
+        run: |
+          python -m scripts.qualify_runtime \
+            --wasm dist/wasm-check/.morphir/build/extensions/python \
+            --process dist/process-release \
+            --report dist/runtime-choice.json
+
       - name: Upload the process-only candidate and its evidence
         uses: actions/upload-artifact@v6
         with:
@@ -313,6 +335,7 @@ jobs:
           path: |
             dist/process-release/
             dist/process-assembly.json
+            dist/runtime-choice.json
             dist/process-inputs/*/.dev/qualification/*.json
           include-hidden-files: true
           if-no-files-found: error

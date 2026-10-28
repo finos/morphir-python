@@ -25,7 +25,9 @@ import io
 import json
 import os
 import platform
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -281,6 +283,102 @@ def morphir_cli() -> tuple[Path, str]:
     return binary, expected
 
 
+def is_digest_mismatch(text: str, expected: str, observed: str) -> bool:
+    """Require the verifier's mismatch and both exact hashes, allowing wrapping."""
+    compact = re.sub(r"[\s│╰─]", "", text.lower())
+    return "digestmismatch" in compact and expected in compact and observed in compact
+
+
+def check_installed_integrity(
+    cli: Path, home: Path, environment: dict[str, str]
+) -> dict[str, Any]:
+    """Refuse changed installed bytes in a fresh project, then restore them."""
+    catalog = json.loads((home / "catalog/extensions.json").read_text())
+    (installed,) = catalog["extensions"]
+    stored = home / installed["storePath"]
+    if (
+        stored.is_symlink()
+        or not stored.is_file()
+        or not stored.resolve().is_relative_to(home.resolve())
+    ):
+        raise BundleError("integrity fixture must be a regular file inside its home")
+    original = stored.read_bytes()
+    expected = sha256(original)
+    if installed["digest"] != expected:
+        raise BundleError("installed artifact already disagrees with its catalog")
+    modified = bytearray(original)
+    modified[-1] ^= 1
+    observed = sha256(bytes(modified))
+    mode = stat.S_IMODE(stored.stat().st_mode)
+
+    def replace_bytes(data: bytes) -> None:
+        # Replacing the directory entry preserves any hardlinked cache or input.
+        with tempfile.NamedTemporaryFile(dir=stored.parent, delete=False) as file:
+            file.write(data)
+            replacement = Path(file.name)
+        try:
+            replacement.chmod(mode)
+            replacement.replace(stored)
+        finally:
+            replacement.unlink(missing_ok=True)
+
+    with tempfile.TemporaryDirectory(prefix="morphir-integrity-") as temporary:
+        project = Path(temporary)
+        shutil.copytree(SAMPLE, project / "src")
+        (project / "morphir.toml").write_text(
+            '[project]\nname = "acme/example"\nversion = "0.1.0"\n'
+            'source_directory = "src"\n[frontend]\nlanguage = "python"\n'
+            "emit_parse_stage = false\n"
+        )
+        env = {**environment, "MORPHIR_HOME": str(home)}
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+            env[name] = env[name.lower()] = OFFLINE
+        env.pop("NO_PROXY", None)
+        env.pop("no_proxy", None)
+        command = [
+            str(cli),
+            "--no-banner",
+            "compile",
+            "--language",
+            "python",
+            "--input",
+            "src",
+            "--ir-version",
+            "4",
+            "--output",
+            "must-not-exist",
+        ]
+        replace_bytes(bytes(modified))
+        try:
+            result = subprocess.run(
+                command,
+                cwd=project,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            reason = result.stdout + result.stderr
+            if (
+                result.returncode == 0
+                or not is_digest_mismatch(reason, expected, observed)
+                or (project / "must-not-exist").exists()
+            ):
+                raise BundleError(
+                    f"installed artifact integrity was not enforced: {reason}"
+                )
+        finally:
+            replace_bytes(original)
+    return {
+        "expected_sha256": expected,
+        "tampered_sha256": observed,
+        "exit_code": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "fresh_project": True,
+    }
+
+
 def host_check(bundle: Path, *, version: str | None = None) -> dict[str, object]:
     """Install the bundle with the pinned CLI and round trip offline."""
     return host_round_trips(bundle, receipt(bundle, version=version))
@@ -373,8 +471,10 @@ def host_round_trips(bundle: Path, described: dict[str, Any]) -> dict[str, objec
                     first, tag, compiler_version=str(described["version"])
                 ),
             }
+        integrity = check_installed_integrity(cli, home, base)
     return {
         **described,
+        "installed_integrity": integrity,
         "host": {
             "morphir": declaration()["host"]["version"],
             "sha256": cli_digest,

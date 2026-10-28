@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,39 @@ def _read(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise bundle.BundleError(f"expected an object in {path}")
     return value
+
+
+def _windows_imports(root: Path, artifact_digest: str, commit: str) -> str:
+    path = root / ".dev/qualification/windows-process-imports.json"
+    proof = _read(path)
+    try:
+        dependencies = proof["dependencies"]
+        if not (
+            proof["sourceCommit"] == commit
+            and proof["crt"] == "static"
+            and proof["artifact"]["sha256"] == artifact_digest
+            and proof["checkerSha256"]
+            == bundle.sha256(
+                (bundle.ROOT / ".github/scripts/check_process_windows.ps1").read_bytes()
+            )
+            and proof["tool"]["name"] == "dumpbin.exe"
+            and re.fullmatch(r"[0-9a-f]{64}", proof["tool"]["sha256"])
+            and proof["tool"]["version"]
+            and isinstance(dependencies, list)
+            and dependencies
+            and all(
+                isinstance(name, str) and re.fullmatch(r"(?i)[a-z0-9_.-]+\.dll", name)
+                for name in dependencies
+            )
+            and not any(
+                re.match(r"(?i)(vcruntime|msvcp|concrt|python)\d", name)
+                for name in dependencies
+            )
+        ):
+            raise bundle.BundleError("Windows process runtime dependency proof differs")
+    except (KeyError, TypeError) as error:
+        raise bundle.BundleError("incomplete Windows process runtime proof") from error
+    return bundle.sha256(path.read_bytes())
 
 
 def assemble(
@@ -50,6 +84,7 @@ def assemble(
     source_files: list[Path] = []
     artifacts: list[dict[str, Any]] = []
     reports: dict[str, str] = {}
+    windows_imports_digest = ""
     for target in process.PLATFORMS:
         root = inputs / f"morphir-python-process-{target}"
         directory = root / ".morphir/build/extensions/python-process"
@@ -63,6 +98,10 @@ def assemble(
             raise bundle.BundleError("process artifact is not a regular file")
         executable.chmod(0o700)
         checked = process.receipt(directory, commit, target)
+        if target.endswith("windows-msvc"):
+            windows_imports_digest = _windows_imports(
+                root, checked["files"][name], commit
+            )
         try:
             for field in (
                 "sourceCommit",
@@ -87,6 +126,21 @@ def assemble(
                 and host["sourceCommit"] == commit
                 and host["version"] == version
                 and host["files"] == checked["files"]
+                and host["installed_integrity"]["expected_sha256"]
+                == checked["files"][name]
+                and re.fullmatch(
+                    r"[0-9a-f]{64}", host["installed_integrity"]["tampered_sha256"]
+                )
+                and host["installed_integrity"]["tampered_sha256"]
+                != checked["files"][name]
+                and host["installed_integrity"]["exit_code"] != 0
+                and host["installed_integrity"]["fresh_project"] is True
+                and bundle.is_digest_mismatch(
+                    host["installed_integrity"]["stdout"]
+                    + host["installed_integrity"]["stderr"],
+                    checked["files"][name],
+                    host["installed_integrity"]["tampered_sha256"],
+                )
                 and host["host"]["morphir"] == pin["version"]
                 and host["host"]["sha256"] == pin["sha256"][target]
                 and host["host"]["binary_sha256"] == report["bundler"]["binarySha256"]
@@ -138,6 +192,7 @@ def assemble(
             for path in sorted(output.iterdir())
         },
         "inputReports": reports,
+        "windowsImportsSha256": windows_imports_digest,
     }
 
 
@@ -160,6 +215,16 @@ def main(argv: list[str] | None = None) -> int:
         if not (
             reference["git_commit"] == args.commit
             and reference["bundle"] == checked["bundle"]
+            and reference["installed_integrity"]["expected_sha256"]
+            == checked["wasm_sha256"]
+            and reference["installed_integrity"]["exit_code"] != 0
+            and reference["installed_integrity"]["fresh_project"] is True
+            and bundle.is_digest_mismatch(
+                reference["installed_integrity"]["stdout"]
+                + reference["installed_integrity"]["stderr"],
+                str(checked["wasm_sha256"]),
+                reference["installed_integrity"]["tampered_sha256"],
+            )
             and reference["qualification_script_sha256"]
             == bundle.sha256((bundle.ROOT / "scripts/extension_bundle.py").read_bytes())
             and reference["python_api"]["native_version"] == tools_pin()
