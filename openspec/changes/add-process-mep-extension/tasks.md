@@ -4,7 +4,7 @@ This change is proposed. No process guest or newer-MEP implementation has starte
 
 ## 1. Negotiate current and legacy MEP (morphir-5hxy.1)
 
-- [ ] 1.1 Add explicit legacy `0.1` and exact `0.2.0-draft.1` offers using the pinned SDK's session helpers; verify both handshakes, incompatible drafts and unchanged legacy compile/generate behavior.
+- [ ] 1.1 Resolve the SDK 0.3.0 numeric-only wire ID gap with a qualified published SDK pin, linking an upstream prerequisite if needed; add explicit legacy `0.1` and exact `0.2.0-draft.1` offers using the pinned SDK's session helpers; verify numeric/string ID preservation, both handshakes, incompatible drafts and unchanged legacy compile/generate behavior.
 - [ ] 1.2 Add bilateral complete-tuple and limit negotiation without widening static claims; verify cross-product, unadvertised method, unsupported guarantee and legacy-session refusals.
 - [ ] 1.3 Document independent MEP, envelope, IR, claims and package versions; verify the capability reference matches live discovery and initialized sessions.
 

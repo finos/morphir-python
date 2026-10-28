@@ -22,6 +22,10 @@ A released native process guest SHALL serve JSON-RPC MEP over Content-Length-fra
 - **WHEN** a host initializes the guest, performs supported operations, requests shutdown and sends exit
 - **THEN** responses retain request IDs, session capabilities remain fixed, and the process exits cleanly
 
+#### Scenario: Numeric and string request identity
+- **WHEN** a supported request uses either a numeric or string JSON-RPC ID
+- **THEN** its response preserves that exact ID type and value in both runtime routes
+
 #### Scenario: Malformed or oversized frame
 - **WHEN** a frame has conflicting lengths, truncated data, invalid JSON, invalid UTF-8 or exceeds a declared bound
 - **THEN** the guest refuses it without unbounded allocation or logging non-protocol text to stdout
