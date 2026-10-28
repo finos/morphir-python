@@ -71,6 +71,14 @@ def command(arguments: list[str], *, cwd: Path | None = None) -> str:
 
 def build_checker(source: Path, target: Path, log: Path) -> None:
     """Build with bounded CI diagnostics and preserve the complete raw log."""
+    environment = os.environ | {
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_INCREMENTAL": "0",
+    }
+    if cache_home := environment.get("MORPHIR_MCK_CARGO_HOME"):
+        # Cargo's Git checkout includes a 192-character Gleam snapshot path.
+        # Windows CI uses RUNNER_TEMP/mck rather than the longer user profile.
+        environment["CARGO_HOME"] = str(Path(cache_home).resolve())
     with log.open("wb") as stream:
         result = subprocess.run(
             [
@@ -85,7 +93,7 @@ def build_checker(source: Path, target: Path, log: Path) -> None:
                 "morphir",
             ],
             cwd=bundle.ROOT,
-            env=os.environ | {"CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_INCREMENTAL": "0"},
+            env=environment,
             stdout=stream,
             stderr=subprocess.STDOUT,
             timeout=1800,
@@ -165,6 +173,7 @@ def prepare(output: Path, target: Path | None = None) -> dict[str, Any]:
         "profile": "dev",
         "debugInfo": False,
         "incremental": False,
+        "cargoHomeOverride": os.environ.get("MORPHIR_MCK_CARGO_HOME") or None,
         "rustc": command(["rustc", "-vV"]),
         "preparerSha256": sha(Path(__file__)),
     }

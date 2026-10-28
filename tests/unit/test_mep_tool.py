@@ -76,3 +76,24 @@ def test_failed_build_exposes_diagnostics_and_retains_full_log(
     with pytest.raises(bundle.BundleError, match="missing Windows prerequisite λ"):
         mep_tool.build_checker(tmp_path, tmp_path / "target", log)
     assert log.read_bytes() == diagnostic
+
+
+def test_short_cargo_cache_is_scoped_to_the_checker_build(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original, short = tmp_path / "ordinary-cache", tmp_path / "short"
+    monkeypatch.setenv("CARGO_HOME", str(original))
+    monkeypatch.setenv("MORPHIR_MCK_CARGO_HOME", str(short))
+    environments = []
+
+    def compile(
+        arguments: list[str], **kwargs: Any
+    ) -> subprocess.CompletedProcess[str]:
+        environments.append(kwargs["env"])
+        return subprocess.CompletedProcess(arguments, 0)
+
+    monkeypatch.setattr(mep_tool.subprocess, "run", compile)
+    mep_tool.build_checker(tmp_path, tmp_path / "target", tmp_path / "build.log")
+    assert environments[0]["CARGO_HOME"] == str(short.resolve())
+    assert os.environ["CARGO_HOME"] == str(original)
