@@ -22,7 +22,7 @@ jobs:
     if: inputs.examples
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
@@ -52,7 +52,7 @@ jobs:
     if: inputs.hosts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
@@ -85,7 +85,7 @@ jobs:
       (!inputs.hosts || needs.hosts.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
