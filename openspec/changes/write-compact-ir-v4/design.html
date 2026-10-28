@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write-compact-ir-v4: design</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>
+<h1>write-compact-ir-v4</h1>
+<p class="meta">OpenSpec change write-compact-ir-v4 · Bead morphir-ukvn.8.16 · 2026-10-27 · Proposed</p>
+
+<nav class="toc" aria-label="Contents">
+<ul>
+<li><a href="#context">Context</a></li>
+<li><a href="#goals">Goals and non-goals</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration and rollback</a></li>
+</ul>
+</nav>
+
+<h2 id="context">Context</h2>
+<p>See proposal.md, Why. The v4 reader already accepts every spelling the pinned schema allows. The writer builds each node in <code>packages/morphir/src/morphir/ir/v4/codec.py</code> with <code>_wrap(tag, _with_attributes(attrs, members))</code>, recursing through about 50 call sites that thread only a location. morphir-core 0.2.0 is the reference writer at the same profile: it chooses compact or expanded per node from a thread-local encoding and writes <code>doc</code> flattened and first.</p>
+<p>Encoding the morphir-core output of the compiler fixtures with the current Python writer differs only in the node shapes listed in the proposal: type references, tuples, literals, variables and references.</p>
+
+<h2 id="goals">Goals and non-goals</h2>
+<p>The default output of a model must equal morphir-core's output for the same model, byte for byte, including member order. Nothing in the decoded model may change. Not covered: field order in records or maps beyond what the model holds, number lexemes that Python's <code>json</code> does not keep, and the deferred re-sync items listed in the proposal.</p>
+
+<h2 id="decisions">Decisions</h2>
+<h3>CDC-1. Select the spelling per public call with a context variable</h3>
+<p>A <code>Spelling</code> enum (<code>COMPACT</code>, <code>EXPANDED</code>) is held in a <code>contextvars.ContextVar</code> that defaults to <code>COMPACT</code>. Public encoders take a keyword-only <code>spelling: Spelling | None = None</code>. They set the variable for the duration of the call only when given one, so nested public encoders inherit the caller's choice. Each node encoder reads it once.</p>
+<p>Alternative: a parameter on every internal encoder. Rejected because about 50 recursive call sites and the <code>_keyed</code> helpers would each have to forward it, and one missed forward would silently mix spellings. The context variable is task- and thread-local, matches morphir-core's design, and tests check both spellings over every node kind.</p>
+<h3>CDC-2. Compact only nodes without attributes</h3>
+<p>Each node first builds its expanded members as today, then returns the compact form when its attributes are empty. The table follows morphir-core's <code>serialize_compact_type</code>, <code>serialize_value</code>, <code>serialize_pattern</code> and <code>serialize_literal</code>.</p>
+<table>
+<thead><tr><th>Node</th><th>Compact form</th></tr></thead>
+<tbody>
+<tr><td>Type Variable / argument-free Reference</td><td><code>"a"</code> / <code>"pkg:mod#name"</code></td></tr>
+<tr><td>Type Reference with arguments</td><td><code>{"Reference": [fqname, arg, ...]}</code></td></tr>
+<tr><td>Type Tuple</td><td><code>{"Tuple": [type, ...]}</code></td></tr>
+<tr><td>Record, ExtensibleRecord, Function, Unit, Union types</td><td>Wrapper without <code>attributes</code>, as today</td></tr>
+<tr><td>Literal</td><td><code>{"IntegerLiteral": 42}</code></td></tr>
+<tr><td>Literal, Constructor, Reference, Variable, FieldFunction, Tuple, List values</td><td>Payload directly under the tag</td></tr>
+<tr><td>TuplePattern / LiteralPattern</td><td>Pattern list / literal directly under the tag</td></tr>
+</tbody>
+</table>
+<h3>CDC-3. Flatten documentation in both spellings</h3>
+<p><code>_encode_documented</code> writes <code>{"doc": text, **members}</code> with <code>doc</code> first. Decision 0010 makes this the canonical form, and the nested wrapper is only a reader compatibility spelling, so the expanded spelling uses it as well. A documented node whose encoding is not an object, such as a compact string type, cannot occur at the documented positions: type and value definitions and specifications are always objects. The encoder fails with <code>no_v4_spelling</code> if it ever does.</p>
+<h3>CLI-1. Expose the choice in <code>ir convert</code> only</h3>
+<p><code>ir convert --to v4</code> gains <code>--v4-spelling compact|expanded</code>, default <code>compact</code>. <code>compile --ir-version v4</code> writes the default compact spelling, which is also what the native compiler emits.</p>
+
+<h2 id="risks">Risks and trade-offs</h2>
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>A downstream reader accepts only the expanded spelling</td><td><code>--v4-spelling expanded</code> and <code>Spelling.EXPANDED</code>; the proposal marks the change BREAKING.</td></tr>
+<tr><td>Compact and expanded spellings mix in one document</td><td>A test walks the expanded output of every node kind and finds no compact form. The byte-for-byte fixture test covers the compact side.</td></tr>
+<tr><td>Ambiguous strings</td><td>The reader already separates FQName strings (containing <code>:</code> and <code>#</code>) from names, as the schema patterns do. Round-trip tests cover both.</td></tr>
+</tbody>
+</table>
+
+<h2 id="migration">Migration and rollback</h2>
+<p>This is a minor release of <code>morphir</code> and, for the CLI option, of <code>morphir-python</code>. Readers are unaffected. To roll back, select the expanded spelling or revert the change; no stored data needs migration, because both spellings decode to the same model.</p>
+</main>
+</body>
+</html>
