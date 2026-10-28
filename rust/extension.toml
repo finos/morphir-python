@@ -9,7 +9,7 @@ package = "morphir-python-binding"
 artifact = "morphir-python-binding"
 extension_id = "morphir-python"
 name = "Morphir Python"
-mep_versions = ["0.1"]
+mep_versions = ["0.2.0-draft.1", "0.1"]
 targets = ["python"]
 languages = [{ id = "python", file_extensions = [".py"] }]
 ir_versions = ["3", "4"]
@@ -32,3 +32,19 @@ release = "https://github.com/finos/morphir/releases/download/v0.4.0-beta.10"
 "aarch64-unknown-linux-gnu" = "76a92a11030cd254d2283e98363cf203f86aaecd583fa480bdf6f508c86710f6"
 "aarch64-apple-darwin" = "98635ec74fbdc3c2cef1d4ae184bb1c5ed9e2960575f3d8abb4b97e0e4da363f"
 "x86_64-apple-darwin" = "4080dcfb04f6e1c902bce2780756c6af44320ac0dd6ff6bd953ca74a0da8e128"
+
+"x86_64-pc-windows-msvc" = "c178002d570f4cb8c9ceed4bf7b51f04d4ebec2458765935839c90ac1cc01176"
+
+# Shared executable conformance, independently authored in finos/morphir.
+# This source is merged; the Python and MoonBit profiles remain separate.
+[mep]
+repository = "https://github.com/finos/morphir.git"
+rev = "85cf4352eeb517fefb85cda10961f749cce51004"
+tree = "c42c55ef3aa9d0190850251dac97bd094cebb4c4"
+cargo_lock_sha256 = "b502b3c627b4b2b8f5835f5ad56d9f341ad24722471c75113f49688b39e56f9b"
+runner_version = "0.4.0-beta.10"
+kit = "spec/mep/mck/guest-python-json.json"
+profile = "python-json-library-v1"
+corpus_sha256 = "9b4b5079ec36275b6ab5f11e7029e40959bc6577dcae41c4659d4151fab45a9d"
+required_cases = 91
+case_set_sha256 = "a1d451ed13bee322b574637d74548d36e3846205a88b4e1830a9a5bf708a7264"

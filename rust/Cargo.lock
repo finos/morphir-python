@@ -1430,9 +1430,9 @@ dependencies = [
 
 [[package]]
 name = "morphir-extension-sdk"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fcb8913b6cb5d45fc20aadd638ddb0c1d83efac9868b8409937e4cfca6babc0"
+checksum = "56820fd793c213eb0cd571cc6af6e24196171dbb40e4ab5f65c3838ca6c73dd8"
 dependencies = [
  "base64 0.22.1",
  "extism-pdk",
@@ -1460,11 +1460,12 @@ dependencies = [
 
 [[package]]
 name = "morphir-python-binding"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "cucumber",
  "morphir-core",
  "morphir-extension-sdk",
+ "morphir-json",
  "num-bigint 0.5.1",
  "ruff_python_ast",
  "ruff_python_codegen",
@@ -1476,8 +1477,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "morphir-python-extension"
+version = "0.1.0"
+dependencies = [
+ "morphir-extension-sdk",
+ "morphir-python-binding",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "morphir-python-native"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "morphir-extension-sdk",
  "morphir-python-binding",

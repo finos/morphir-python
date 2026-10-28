@@ -305,7 +305,14 @@ def _mismatch(python: Path, path: str) -> None:
         text=True,
     ).stdout.strip()
     file = Path(metadata) / "METADATA"
-    file.write_text(re.sub(r"(?m)^Version: .*$", "Version: 0.0.0", file.read_text()))
+    # uv may hard-link installed metadata to its wheel cache. Replace this
+    # installation's directory entry so the negative fixture cannot corrupt
+    # the cache or another environment's copy of the qualified distribution.
+    replacement = file.with_name("METADATA.mismatch")
+    replacement.write_text(
+        re.sub(r"(?m)^Version: .*$", "Version: 0.0.0", file.read_text())
+    )
+    replacement.replace(file)
     result = subprocess.run(
         [
             _script(python, "morphir-python"),

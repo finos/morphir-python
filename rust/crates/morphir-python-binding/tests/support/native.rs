@@ -25,7 +25,12 @@ pub fn an_initialized_extension() -> NativeExtension {
         .unwrap(),
     );
     assert!(response.error.is_none(), "{:?}", response.error);
-    let expected = serde_json::to_value(PythonExtension::capabilities()).unwrap();
+    let mut capabilities = PythonExtension::capabilities();
+    assert!(capabilities.model_transport.is_some());
+    // This fixture deliberately selects legacy0.1; model support is static
+    // inventory, but must be absent from the selected legacy session.
+    capabilities.model_transport = None;
+    let expected = serde_json::to_value(capabilities).unwrap();
     assert_eq!(expected["frontend"]["multiDocument"], true);
     assert_eq!(response.result.unwrap()["capabilities"], expected);
     let response = extension

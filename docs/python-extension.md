@@ -4,8 +4,8 @@ The `morphir-python` extension lets a Morphir host, such as the Rust `morphir`
 CLI, compile Python with `morphir compile --language python` and generate Python
 with `morphir generate --target python`. It is the
 [`morphir-python-binding`](https://github.com/finos/morphir-python/blob/main/rust/crates/morphir-python-binding/README.md)
-compiler built as a WebAssembly guest that speaks the Morphir extension protocol
-(MEP). It is the same compiler that the `morphir-python` Python package runs
+compiler built as a WebAssembly guest or a standalone process speaking the
+Morphir extension protocol (MEP). It is the same compiler that the Python package runs
 natively, so both give the same IR and the same diagnostic codes.
 
 This repository builds and releases the extension. Bundles up to
@@ -20,7 +20,8 @@ available there.
 | Language | `python` (`.py`) |
 | Target | `python` |
 | IR versions | `3`, `4` |
-| MEP version | `0.1` |
+| Published 0.4.2 MEP version | `0.1` |
+| Development 0.5.0 MEP versions | `0.2.0-draft.1`, `0.1` |
 | Multiple source documents | `multiDocument: true`, from `0.4.2` |
 
 Extension `0.4.2` pairs with `morphir-python==0.1.0` and
@@ -28,6 +29,45 @@ Extension `0.4.2` pairs with `morphir-python==0.1.0` and
 The native API reports compiler version `0.4.2`.
 Use `0.4.2` or later with hosts that require an explicit multi-document claim;
 `0.4.1` omits that claim.
+
+Development extension `0.5.0` pairs with `morphir-python==0.1.1` and
+`morphir-python-native==0.1.2`, using published Rust SDK `0.4.0`. These Python
+and extension versions are candidates, not published installation targets.
+The bridge API remains revision `1`; the core `morphir` library remains `0.1.0`.
+
+## Model protocol in the development candidate
+
+Package, protocol, envelope, claims and IR versions identify different contracts:
+
+| Contract | Candidate value |
+| --- | --- |
+| Compiler / extension package | `0.5.0` |
+| Rust extension SDK dependency | exactly `0.4.0` from crates.io |
+| MEP offers | exact `0.2.0-draft.1` and legacy `0.1` |
+| Model envelope | exact `0.1.0-draft.1` |
+| Claim set | `0.1.0-draft.2` |
+| Model profile / codec | `morphir-ir` / `morphir-json` |
+| Semantic IR | `3.0.0` or `4.0.0`, Library distributions |
+
+The host must offer complete operation/profile/codec/envelope/IR tuples through
+`modelTransport` during initialization. The guest selects only their intersection
+and the lower value of each limit. Both `morphir.frontend.compileModel` and
+`morphir.backend.generateModel` support each stated IR version. The static limits
+are 12 MiB encoded content, 8 MiB decoded content, depth 128 and 100,000 nodes.
+Session capabilities remain fixed after initialization. Legacy sessions use
+`compile`/`generate` and cannot call model methods. Other MEP drafts do not match.
+
+Numeric and string request IDs retain their type and value. Unsupported Ion
+profiles or evidence, required guarantees, and Specs/Application generation are
+refused explicitly. No rich-model preservation or automatic codec fallback is
+advertised.
+
+The shared executable MCK's separate `python-json-library-v1` profile qualifies
+the supported JSON subset. Its fixed expectations and existing MoonBit rich-Ion
+profile remain independent. WASM qualification uses the pinned Rust Extism host
+adapter; raw request and response bodies pass unchanged to the guest. This ABI
+handles requests only, so notification silence and exit describe the adapter and
+guest route, not notification delivery inside the WASM guest.
 
 The declaration is in [`rust/extension.toml`](https://github.com/finos/morphir-python/blob/main/rust/extension.toml).
 
@@ -110,6 +150,94 @@ Use `python3 scripts/docs_hosts.py qualify` to repeat the displayed workflow and
 offline checks. Receipts record pins, file hashes, host identity, checker and
 input digest. Download failure never counts as a passing qualification.
 
+## Choose a runtime in development
+
+Published bundles remain WASM. The process bundle is a development candidate
+from the manual release-qualification workflow, not a published installation
+channel yet. Its executable is a MEP guest for the finos/morphir host. The
+`morphir-python` CLI continues to use its pinned native Python wheel through the
+[mise/pipx installation](python-compiler.md); choosing an extension runtime does
+not configure that CLI.
+
+Use two separate canonical bundle directories and named local repositories.
+The WASM bundle contains its `.wasm`, checksum and `release.json`. The process
+bundle contains the raw executables, their checksums and its own `release.json`.
+The canonical repository writer refuses a bundle mixing both runtimes.
+The process candidate includes Linux x86_64/ARM64, macOS x86_64/ARM64 and Windows
+x86_64. Installation chooses the matching platform and refuses an absent one.
+
+The `process-release-candidate` workflow artifact also retains `process-assets/`:
+five raw executables and checksums, a separately named process descriptor,
+`morphir-python-extension-VERSION.tar.gz`, a source-bound packaging receipt and
+`SHA256SUMS`. The archive contains the complete canonical process bundle, with
+`release.json` and executable permissions. Its payloads match the raw assets.
+These are development candidates. GitHub release publication requires matching
+independent conformance evidence and the approved release tag.
+
+After downloading the candidate, verify and extract it in Bash:
+
+```bash
+cd process-assets
+shasum -a 256 -c SHA256SUMS
+mkdir ../python-process
+tar -xzf morphir-python-extension-*.tar.gz -C ../python-process
+export PROCESS_BUNDLE="$(cd ../python-process && pwd)"
+```
+
+The qualification workflow runs the installation and runtime-switching checks
+against this extracted archive. Its original WASM bundle remains separate.
+
+Set `WASM_BUNDLE` and `PROCESS_BUNDLE` to those unmodified directories. With
+`MORPHIR_HOST` pointing at the pinned host described above, an isolated trial is:
+
+```bash
+export MORPHIR_HOME="$(mktemp -d)"
+VERSION=0.5.0 # Current development candidate version from release.json.
+"$MORPHIR_HOST" extension repository init ./wasm-repository
+"$MORPHIR_HOST" extension repository init ./process-repository
+"$MORPHIR_HOST" extension repository add python-wasm --directory ./wasm-repository
+"$MORPHIR_HOST" extension repository add python-process --directory ./process-repository
+"$MORPHIR_HOST" extension repository publish python-wasm --bundle "$WASM_BUNDLE"
+"$MORPHIR_HOST" extension repository publish python-process --bundle "$PROCESS_BUNDLE"
+"$MORPHIR_HOST" extension install morphir-python --repository python-wasm --version "$VERSION"
+
+# Switch the active provider in this isolated Morphir home.
+"$MORPHIR_HOST" extension uninstall morphir-python
+"$MORPHIR_HOST" extension install morphir-python --repository python-process --version "$VERSION"
+```
+
+The repository selects the runtime; this host has no `--runtime` installation
+flag. It permits one active `morphir-python` provider per home. Uninstall it
+before installing the other runtime from its explicit repository. Compile and
+generate commands remain the same. The process guest starts in stdio mode with
+no arguments; `--stdio` is also accepted by hosts configured to pass it.
+Installation restores executable permissions, so the Morphir host can launch a
+downloaded raw executable without a user Rust toolchain or Python interpreter.
+A process has ordinary OS rights; WASM uses the host's Extism isolation.
+
+The developer [Rust host checker](https://github.com/finos/morphir-python/tree/main/tools/extension-qualification)
+pins the upstream host source and tests actual WASM/process bytes independently
+of the installation recipe. It verifies legacy v3/v4 operations, diagnostic
+parity, orderly shutdown and process timeout cleanup. Its timing runner retains
+fresh-guest startup and compile/generate samples for small and larger inputs,
+including the machine, build profile, input and artifact identities. These
+observations do not establish newer-draft conformance or a general speed claim.
+
+The release-assembly check runs this switch in both directions with fresh
+project caches, compares v3/v4 IR and generated-file digests, rejects an actual
+foreign-only bundle, and checks that changing installed bytes causes a digest
+refusal before compilation. Each platform's own bundle qualifier also checks
+installed-byte integrity. These are legacy-route checks. The separate executable
+MCK qualification covers the new MEP draft and its model operations. Promotion
+must retain and verify both kinds of evidence for the candidate being released.
+
+To verify already built candidates without rebuilding them:
+
+```bash
+python -m scripts.qualify_runtime --wasm "$WASM_BUNDLE" \
+  --process "$PROCESS_BUNDLE" --report .dev/qualification/runtime-choice.json
+```
+
 ## Build a development bundle
 
 From the repository root:
@@ -133,7 +261,9 @@ This task:
    deletes the repository, blocks network access, and compiles, generates and
    recompiles a two-module model in IR v3 and v4;
 4. checks that the IR from the extension equals the IR from the Python API for
-   the same sources.
+   the same sources;
+5. requires digest refusal when installed bytes are changed in a fresh project,
+   then restores the original artifact.
 
 The bundle is written to `.morphir/build/extensions/python/`, and JSON receipts
 with every digest are written to `.dev/qualification/`. A bundle built from a

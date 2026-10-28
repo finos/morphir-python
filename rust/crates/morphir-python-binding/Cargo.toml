@@ -1,6 +1,6 @@
 [package]
 name = "morphir-python-binding"
-version = "0.4.2"
+version = "0.5.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -15,6 +15,7 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 num-bigint.workspace = true
 morphir-core.workspace = true
+morphir-json.workspace = true
 morphir-extension-sdk.workspace = true
 ruff_python_parser.workspace = true
 ruff_python_ast.workspace = true

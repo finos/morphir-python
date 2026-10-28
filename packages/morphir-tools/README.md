@@ -75,7 +75,7 @@ format-version rules and the draft v4 status.
 ## Requirements
 
 - Python 3.14+
-- `morphir>=0.1.0` and `morphir-python-native==0.1.1` (installed as dependencies)
+- `morphir>=0.1.0` and `morphir-python-native==0.1.2` (installed as dependencies)
 
 ## License
 
