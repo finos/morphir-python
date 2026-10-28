@@ -14,7 +14,7 @@ class TestMorphirToolsPackage:
 
     def test_version_matches_expected(self) -> None:
         """The version should match the expected value."""
-        assert morphir_tools.__version__ == "0.0.3"
+        assert morphir_tools.__version__ == "0.0.4"
 
     def test_installed_distribution_name(self) -> None:
         """The tools import belongs to the morphir-python distribution."""

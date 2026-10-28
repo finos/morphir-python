@@ -21,6 +21,12 @@ available there.
 | Target | `python` |
 | IR versions | `3`, `4` |
 | MEP version | `0.1` |
+| Multiple source documents | `multiDocument: true`, from `0.4.2` |
+
+Extension `0.4.2` pairs with `morphir-python==0.0.4` and
+`morphir-python-native==0.1.1`. The native API reports compiler version `0.4.2`.
+Use `0.4.2` or later with hosts that require an explicit multi-document claim;
+`0.4.1` omits that claim.
 
 The declaration is in [`rust/extension.toml`](../rust/extension.toml).
 

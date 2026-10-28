@@ -1,6 +1,6 @@
 [project]
 name = "morphir-python"
-version = "0.0.3"
+version = "0.0.4"
 description = "CLI tools and extensions for Morphir Python"
 readme = "README.md"
 license = "Apache-2.0"
@@ -24,7 +24,7 @@ authors = [
 dependencies = [
     "morphir>=0.0.2",
     # Exact qualified native compiler; checked again when the compiler first loads.
-    "morphir-python-native==0.1.0",
+    "morphir-python-native==0.1.1",
     "typer>=0.15",
     # Rich uses Pygments; older versions are affected by CVE-2026-4539.
     "pygments>=2.20.0",

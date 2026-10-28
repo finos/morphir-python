@@ -6,8 +6,8 @@ Morphir domain models, including code generation and development tools.
 Example:
     >>> import morphir_tools
     >>> morphir_tools.__version__
-    '0.0.3'
+    '0.0.4'
 """
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __all__ = ["__version__"]
