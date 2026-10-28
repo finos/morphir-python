@@ -2,49 +2,50 @@
   "schema_version": 1,
   "state": "succeeded",
   "inputs": {
-    "site/integrations.json": "d83a529d8d4d59c7505892f93cb7e991939e38174892cd0f11f2172c090b3578",
+    "site/integrations.json": "60f218368844cd99681719319c5b8dfc69ce1151ec4b5d5eabd913004e42b658",
     "rust/extension.toml": "31a882701022d95198aad254c4db61659d2b6ec138585a49c673d13a16c80272",
     "scripts/docs_hosts.py": "791c2e220217e8931e1c090749987a17e7787fcdbba35443d83b3e234f8b7cc6",
     "scripts/extension_bundle.py": "ca03e3d959428dfef41fb0c852eaa3d656f13133f6e4f996db77ea9952126bc3",
-    "examples/extension.sh": "bbe0a0cf27070b888439f57a9e495eb75506b8fafbafd259b1a8512bcf1af35b",
+    "examples/extension.sh": "ddfd2afa50e42c16e7d16023e4149c4f36fce0c9fb962b20eb93d7005707fa63",
     "examples/model/acme/models.py": "0f57ac6f4ffd2524373ec9ba3df079f23291ce42ca7f7700e4df50fad9d43b50",
     "examples/model/acme/rules.py": "cf475c980096c8645550c4c53c5e6343e3a584f2a19cba26c16cf1291ce235c2",
-    "docs/python-extension.md": "326b9ee7ca856ba88b3ad67accac5fa4657444e0b7968f3eec23287d9db4459c",
+    "docs/python-extension.md": "01c32c72e0bc9b7f0ea44b05b6e73cb0d68e7ea08fb0f23cf8780e0fb0f4a28d",
     "docs/moonbit.md": "574f1e0129975dc10ea68882b48dda07ced36f429b2a30746c6bc724e9f119c2",
-    "docs/compatibility.md": "3f5ef69142991edf9d30d23dce768d66cf0047f4b325c1f042166a5c2f9c29f8",
+    "docs/compatibility.md": "d5c712e019a6923346eae9f2211a2f39eb399aa5da1cc139113fd3f1032e3fc8",
     "tests/fixtures/python/loans/acme/models.py": "02b453935df7a03fd8e58c88616836d8f09e78868b9c66cae572c18852f6ccf4",
     "tests/fixtures/python/loans/acme/rules.py": "6aa4573844f82910c06079ef1af11a56103dc48cbcdc142bfc23c3aa25f6162e"
   },
   "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
   "python": "3.14.7 (main, Sep  1 2026, 14:05:28) [Clang 22.1.3 ]",
-  "working_tree_dirty": false,
-  "git_head": "6e88b295017d346007409bdd7182e8584c91c622",
+  "working_tree_dirty": true,
+  "git_head": "56dd4992268432cb903bc0b2117843e9e2189e75",
   "rust_recipe": {
     "recipe": "examples/extension.sh",
     "exit_code": 0,
     "host_sha256": "e610796e758c4f2b8925228082efd78f9b9d46c45ee22b6e393d9b76b8e807e2",
     "offline": {
       "bundle": {
-        "morphir-python-binding-0.4.2.wasm": "10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5",
-        "morphir-python-binding-0.4.2.wasm.sha256": "64f60ff9e58e6cbe2f3323e1c375cef77be7db81b9879974f943918a92a42634",
-        "release.json": "72770f73f05a72535fd8c86ad4629175019037441a758b827c1ba47cc9a52ebd"
+        "morphir-python-binding-0.5.0.wasm": "791d6cc60f442b1088b291e9aed4f2740a38b0f0cc920f5f7418735c2b88aeb6",
+        "morphir-python-binding-0.5.0.wasm.sha256": "0da1e166b504d97584bde22280411aae7dd872dfa18d867652553b91f784647e",
+        "release.json": "a78df591623388a95f3f7f8f7465422cee3dd4f6d86a64224d2a02291d8a81b3"
       },
-      "wasm_sha256": "10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5",
+      "wasm_sha256": "791d6cc60f442b1088b291e9aed4f2740a38b0f0cc920f5f7418735c2b88aeb6",
       "extension": "morphir-python",
-      "version": "0.4.2",
-      "git_commit": "1f547d17f648d5b398862f9dfceb05b6d463cb3f",
+      "version": "0.5.0",
+      "git_commit": "d1fb8217ae266c588ffe39a5a769aef2943b0fab",
       "packager_rev": "0aa60eb799d46f8a317ec47abef4a7a4e61dc8ac",
       "capabilities": [
         "backend",
-        "frontend"
+        "frontend",
+        "modelTransport"
       ],
       "multiDocument": true,
       "installed_integrity": {
-        "expected_sha256": "10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5",
-        "tampered_sha256": "9fd562d8ee2d99ede2e7bd41bb219d755ec23a72813c5cbf81854a8d8b9d1fc3",
+        "expected_sha256": "791d6cc60f442b1088b291e9aed4f2740a38b0f0cc920f5f7418735c2b88aeb6",
+        "tampered_sha256": "17a4f379770516a596494ea1859ff43ee0b5c7f6ab07f4391bd50b1a73dd8b27",
         "exit_code": 1,
         "stdout": "",
-        "stderr": "Operation ID: op-215cbd72-59bc-4117-880b-f2bff34e2544\nLog: /var/folders/gk/kq2l8mzd0lq64qspbc_6j80m0000gn/T/python-bundle-host-kuoivpf8/home/logs/cli/2026-10-28/20261028T212014.733Z-7424-1d00-18e2ce4909789a80.jsonl\nError: cli::extension_error\n\n  \u00d7 Extension error: Failed to verify installed provider 'morphir-python':\n  \u2502 digest mismatch for /private/var/folders/gk/kq2l8mzd0lq64qspbc_6j80m0000gn/\n  \u2502 T/python-bundle-host-kuoivpf8/home/store/extensions/\n  \u2502 sha256/10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5/\n  \u2502 morphir-python-binding-0.4.2.wasm: expected\n  \u2502 10acafa0f0282c5240e9620a5f2bb21629cc7580b9add528e7b77c7e54db22b5, got\n  \u2502 9fd562d8ee2d99ede2e7bd41bb219d755ec23a72813c5cbf81854a8d8b9d1fc3\n\n",
+        "stderr": "Operation ID: op-ccf5cb98-db47-4fbd-a84c-bf8559741b4c\nLog: /var/folders/gk/kq2l8mzd0lq64qspbc_6j80m0000gn/T/python-bundle-host-gj7y_82s/home/logs/cli/2026-10-28/20261028T224826.774Z-45146-b05a-18e2d3192fb46790.jsonl\nError: cli::extension_error\n\n  \u00d7 Extension error: Failed to verify installed provider 'morphir-python':\n  \u2502 digest mismatch for /private/var/folders/gk/kq2l8mzd0lq64qspbc_6j80m0000gn/\n  \u2502 T/python-bundle-host-gj7y_82s/home/store/extensions/\n  \u2502 sha256/791d6cc60f442b1088b291e9aed4f2740a38b0f0cc920f5f7418735c2b88aeb6/\n  \u2502 morphir-python-binding-0.5.0.wasm: expected\n  \u2502 791d6cc60f442b1088b291e9aed4f2740a38b0f0cc920f5f7418735c2b88aeb6, got\n  \u2502 17a4f379770516a596494ea1859ff43ee0b5c7f6ab07f4391bd50b1a73dd8b27\n\n",
         "fresh_project": true
       },
       "host": {
@@ -54,8 +55,8 @@
       },
       "qualification_script_sha256": "ca03e3d959428dfef41fb0c852eaa3d656f13133f6e4f996db77ea9952126bc3",
       "python_api": {
-        "native_version": "0.1.1",
-        "compiler_version": "0.4.2"
+        "native_version": "0.1.2",
+        "compiler_version": "0.5.0"
       },
       "offline_round_trips": {
         "v3": {
