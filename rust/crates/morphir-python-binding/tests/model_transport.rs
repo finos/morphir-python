@@ -212,7 +212,8 @@ fn aggregate_nodes_and_dependency_support_are_bounded() {
     request.model.payload =
         ModelPayload::from_bytes(ModelCodec::MorphirJson, &serde_json::to_vec(&ir).unwrap())
             .unwrap();
-    assert!(PythonExtension.generate_model(request).is_err());
+    let error = PythonExtension.generate_model(request).unwrap_err();
+    assert!(error.to_string().contains("node_limit"), "{error}");
 
     let mut request = a_request("4.0.0");
     request.dependencies.push(CompileModelDependency {
@@ -225,4 +226,67 @@ fn aggregate_nodes_and_dependency_support_are_bounded() {
         panic!("dependencies are unsupported")
     };
     assert_eq!(diagnostics[0].code.as_deref(), Some("PY001"));
+}
+
+#[test]
+fn ion_evidence_is_refused_uniformly_across_native_and_wasm() {
+    let mut request = generation(a_model("4.0.0"));
+    request.model.evidence.push(ModelGuaranteeEvidence {
+        guarantee: "urn:example:optional".into(),
+        model_id: request.model.model_id.clone(),
+        model_revision: request.model.revision.clone(),
+        context_digest: request.context_digest.clone(),
+        scope: format!("model:{}", request.model.model_id),
+        producer: "fixture".into(),
+        evidence: ModelPayload::from_bytes(ModelCodec::IonBinary, &[0xe0, 1, 0, 0xea, 0x21, 1])
+            .unwrap(),
+    });
+    let error = PythonExtension.generate_model(request).unwrap_err();
+    assert!(error.to_string().contains("JSON-only"), "{error}");
+}
+
+#[test]
+fn unsupported_distribution_forms_are_explicit_language_refusals() {
+    for distribution in [
+        json!({"Specs":{"packageName":"acme","dependencies":{},"spec":{"modules":{}}}}),
+        json!({"Application":{"packageName":"acme","dependencies":{},"def":{"modules":{}},"entryPoints":{}}}),
+    ] {
+        let ir = json!({"formatVersion":4,"distribution":distribution});
+        // Prove these are complete valid IR, rather than malformed enum inputs.
+        serde_json::from_value::<morphir_core::ir::v4::IRFile>(ir.clone()).unwrap();
+        let mut request = generation(a_model("4.0.0"));
+        request.model.payload =
+            ModelPayload::from_bytes(ModelCodec::MorphirJson, &serde_json::to_vec(&ir).unwrap())
+                .unwrap();
+        let result = PythonExtension.generate_model(request).unwrap();
+        assert!(!result.success);
+        assert!(result.artifacts.is_empty());
+        assert_eq!(result.diagnostics[0].code.as_deref(), Some("PY004"));
+        assert!(result.diagnostics[0].message.contains("Only Library"));
+    }
+}
+
+#[test]
+fn semantic_versions_and_payload_resource_limits_are_checked_before_generation() {
+    let payloads = [
+        (
+            br#"{"formatVersion":3,"distribution":{}}"#.to_vec(),
+            "unsupported_ir_version",
+        ),
+        (
+            format!("{}0{}", "[".repeat(128), "]".repeat(128)).into_bytes(),
+            "depth_limit",
+        ),
+        (vec![b' '; 8 * 1024 * 1024 + 1], "decoded_limit"),
+    ];
+    for (bytes, reason) in payloads {
+        let mut request = generation(a_model("4.0.0"));
+        request.model.payload = ModelPayload::from_bytes(ModelCodec::MorphirJson, &bytes).unwrap();
+        let error = PythonExtension.generate_model(request).unwrap_err();
+        assert!(error.to_string().contains(reason), "{reason}: {error}");
+    }
+    let mut request = generation(a_model("4.0.0"));
+    request.model.payload.content = "A".repeat(12 * 1024 * 1024 + 4);
+    let error = PythonExtension.generate_model(request).unwrap_err();
+    assert!(error.to_string().contains("encoded_limit"), "{error}");
 }

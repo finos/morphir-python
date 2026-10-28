@@ -41,10 +41,29 @@ fn admit(method: &str, value: &serde_json::Value) -> Result<()> {
     validate_model_invocation(&admitted, &capabilities, method, value).map_err(invalid)
 }
 
+// Native SDK builds can inspect Ion evidence, but WASM cannot. Keep this
+// adapter's accepted subset identical across runtimes, including sidecars.
+fn require_json(model: &MorphirModel) -> Result<()> {
+    if model.payload.codec != ModelCodec::MorphirJson
+        || model
+            .evidence
+            .iter()
+            .any(|item| item.evidence.codec != ModelCodec::MorphirJson)
+    {
+        return Err(invalid(
+            "Python model transport is JSON-only, including evidence",
+        ));
+    }
+    Ok(())
+}
+
 pub(crate) fn compile(
     extension: &PythonExtension,
     request: CompileModelRequest,
 ) -> Result<CompileModelResult> {
+    for dependency in &request.dependencies {
+        require_json(&dependency.model)?;
+    }
     admit(
         "morphir.frontend.compileModel",
         &serde_json::to_value(&request)?,
@@ -95,6 +114,7 @@ pub(crate) fn generate(
     extension: &PythonExtension,
     request: GenerateModelRequest,
 ) -> Result<GenerateResult> {
+    require_json(&request.model)?;
     admit(
         "morphir.backend.generateModel",
         &serde_json::to_value(&request)?,
@@ -174,5 +194,22 @@ impl morphir_json::ReadBudget for JsonBudget {
         } else {
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn output_json_stops_at_its_decoded_budget() {
+        let value = serde_json::json!("λ");
+        assert_eq!(bounded_json(&value, 4).unwrap(), "\"λ\"".as_bytes());
+        assert!(
+            bounded_json(&value, 3)
+                .unwrap_err()
+                .to_string()
+                .contains("decoded limit")
+        );
     }
 }

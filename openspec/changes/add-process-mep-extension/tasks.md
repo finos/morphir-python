@@ -10,9 +10,9 @@ This change is being applied. The published SDK prerequisite is tracked in morph
 
 ## 2. Adapt supported model envelopes (morphir-5hxy.2)
 
-- [ ] 2.1 Implement bounded canonical JSON model-envelope admission using SDK helpers; verify base64, byte length, hash, critical fields, semantic IR version and size-limit negative cases.
-- [ ] 2.2 Adapt compileModel/generateModel for admitted JSON-profile v3/v4 Library tuples through the shared compiler; verify compile/generate/recompile semantics and diagnostic parity with legacy operations.
-- [ ] 2.3 Refuse unadvertised Ion profiles, unsupported distributions and guarantees without lossy fallback; test these refusals and document the initial support matrix.
+- [x] 2.1 Implement bounded canonical JSON model-envelope admission using SDK helpers; verify base64, byte length, hash, critical fields, semantic IR version and size-limit negative cases.
+- [x] 2.2 Adapt compileModel/generateModel for admitted JSON-profile v3/v4 Library tuples through the shared compiler; verify compile/generate/recompile semantics and diagnostic parity with legacy operations.
+- [x] 2.3 Refuse unadvertised Ion profiles, unsupported distributions and guarantees without lossy fallback; test these refusals and document the initial support matrix.
 
 ## 3. Serve native stdio sessions (morphir-5hxy.3)
 

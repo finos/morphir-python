@@ -11,7 +11,8 @@ This is an initial implementation of a defined subset of Python 3.12 and later
 and Morphir IR v3 and v4. It supports ADT declarations, fixed tuples and annotated pure conditional
 functions, typed calls and unary lambdas. It does not implement all Python syntax or all Morphir IR nodes, and
 does not claim full Morphir Compatibility Kit conformance for this extension.
-The crate depends on the published `morphir-core` and `morphir-extension-sdk` crates only.
+Morphir dependencies use published `morphir-core`, `morphir-json` and
+`morphir-extension-sdk` crates.
 It does not link CPython; the separate `morphir-python-native` crate in this workspace
 adapts it for the `morphir-python` Python package.
 
@@ -22,6 +23,32 @@ and releases it. Bundles up to `extension/python/v0.4.0` remain available from t
 `extension/python/v0.1.0` bundle does not include multi-module, private-module, IR v3 or higher-order
 function support, and Morphir CLI `0.4.0-beta.1` and later cannot compile with it. Use the
 [extension guide](../../../docs/python-extension.md) to build and install the bundle.
+
+## Development model adapter
+
+The direct Rust `Frontend::compile_model` and `Backend::generate_model` methods
+share the legacy compiler. Model transport is not yet advertised in MEP discovery;
+protocol qualification and the published SDK prerequisite remain in progress in
+`add-process-mep-extension`.
+
+| Boundary | Initial support |
+| --- | --- |
+| Operation | `compileModel`, `generateModel` |
+| Profile and codec | `morphir-ir`, `morphir-json` |
+| Envelope version | `0.1.0-draft.1` |
+| Semantic IR versions | `3.0.0`, draft `4.0.0` |
+| Distribution | `Library`, within the documented Python subset |
+| Evidence | JSON only; no preservation or typing guarantees established |
+| Encoded / decoded bytes | 12 MiB / 8 MiB, aggregated with dependencies and evidence |
+| Parse budget | 128 levels, 100,000 aggregate value nodes |
+
+Admission checks canonical padded base64, exact decoded length and SHA-256,
+semantic IR version, critical fields and resource bounds before generation.
+Compilation output has the same decoded-byte bound. Model compilation preserves
+legacy diagnostics and refuses dependency compilation. Generation refuses `Specs`
+and `Application` distributions with `PY004`. Ion payloads and evidence, other
+profiles, unsupported tuples and required guarantees are refused without
+conversion. Limits negotiated by a session can only narrow these static bounds.
 
 ## A complete model
 
