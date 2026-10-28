@@ -111,3 +111,33 @@ def test_rust_free_path_drops_directories_holding_only_rustup(
     rustup.chmod(0o755)
     monkeypatch.setenv("PATH", f"{tools}{os.pathsep}/usr/bin")
     assert str(tools) not in q.rust_free_path(tmp_path / "venv").split(os.pathsep)
+
+
+def test_mismatched_install_does_not_modify_hardlinked_wheel_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+
+    cached = tmp_path / "cached-metadata"
+    original = "Name: morphir-python-native\nVersion: 0.1.1\n"
+    cached.write_text(original)
+    installed = tmp_path / "installed.dist-info"
+    installed.mkdir()
+    metadata = installed / "METADATA"
+    metadata.hardlink_to(cached)
+
+    def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if "from importlib.metadata" in command[-1]:
+            return subprocess.CompletedProcess(
+                command, 0, stdout=str(installed), stderr=""
+            )
+        assert "Version: 0.0.0" in metadata.read_text()
+        return subprocess.CompletedProcess(
+            command, 1, stdout="", stderr="morphir-python-native 0.0.0"
+        )
+
+    monkeypatch.setattr(q.subprocess, "run", run)
+    monkeypatch.setattr(q, "_script", lambda python, name: "not-executed")
+    q._mismatch(tmp_path / "python", "empty-path")
+    assert cached.read_text() == original
+    assert "Version: 0.0.0" in metadata.read_text()
