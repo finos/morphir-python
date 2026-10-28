@@ -1,6 +1,6 @@
 # Tasks
 
-This change is proposed. No process guest or newer-MEP implementation has started.
+This change is being applied. The published SDK prerequisite is tracked in morphir-4wrx and finos/morphir-rust#316. Python process/model implementation tasks remain incomplete.
 
 ## 1. Negotiate current and legacy MEP (morphir-5hxy.1)
 

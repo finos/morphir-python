@@ -10,7 +10,7 @@ Implement the contracts in `specs/docs/` using the decisions in `design.html`. S
 - [x] 1.4 Add browser smoke coverage for desktop and 360px, light/dark themes, keyboard focus, navigation, search and code copying; verify no page-level overflow and retain screenshots/results for the candidate.
 - [x] 1.5 Record the foundation/version/limitations in `docs/site-foundation.md`; link Telescope's existing tutorial intent when durable, and report any confirmed reusable blocker upstream with reproduction and acceptance criteria. Verify each remaining gap has a linked report or an explicit non-blocking consumer workaround.
 
-- [ ] 1.6 Match morphir-moonbit revision bd3adc52 colors and landing design using an attributed theme and Python example; verify both themes, desktop/mobile layouts, canonical source, base paths and atomic failure preservation, report the Telescope customization gap upstream and verify the published site after merge.
+- [x] 1.6 Match morphir-moonbit revision bd3adc52 colors and landing design using an attributed theme and Python example; verify both themes, desktop/mobile layouts, canonical source, base paths and atomic failure preservation, report the Telescope customization gap upstream and verify the published site after merge.
 
 ## 2. Publish verified Python API and CLI examples (morphir-ukvn.9.2)
 

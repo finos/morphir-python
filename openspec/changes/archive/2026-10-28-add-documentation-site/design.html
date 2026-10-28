@@ -13,16 +13,16 @@
   Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
   list them in nav.toc.
 -->
-<link rel="stylesheet" href="../../../docs/templates/assets/agent-document.css">
-<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
-<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
-<script defer src="../../../docs/templates/assets/highlight/highlight.min.js"></script>
-<script defer src="../../../docs/templates/assets/agent-document.js"></script>
+<link rel="stylesheet" href="../../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../../docs/templates/assets/agent-document.js"></script>
 </head>
 <body>
 <main>
 <h1>add-documentation-site</h1>
-<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.9</code> · 2026-10-28 · Published foundation; MoonBit visual alignment in progress</p>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.9</code> · 2026-10-28 · Published and verified; MoonBit visual alignment complete</p>
 
 <nav class="toc" aria-label="Contents">
 <ul>
@@ -41,12 +41,12 @@
 <table>
 <thead><tr><th>Observed source</th><th>Consequence</th></tr></thead>
 <tbody>
-<tr><td><a href="../../../docs/python-compiler.md">Python compiler guide</a> and <a href="../../../tests/tools/test_python_docs.py">its tests</a></td><td>Reuse the typed API example and fresh-interpreter/type-checking coverage. The current test assumes one page and fixed stdout; expand it for named examples and assertions.</td></tr>
-<tr><td><a href="../../../docs/python-extension.md">Extension guide</a> and <a href="../../../rust/extension.toml">bundle pins</a></td><td>The Python artifact is an Extism guest. Existing host qualification and bundle metadata are the starting evidence for finos/morphir.</td></tr>
+<tr><td><a href="../../../../docs/python-compiler.md">Python compiler guide</a> and <a href="../../../../tests/tools/test_python_docs.py">its tests</a></td><td>Reuse the typed API example and fresh-interpreter/type-checking coverage. The current test assumes one page and fixed stdout; expand it for named examples and assertions.</td></tr>
+<tr><td><a href="../../../../docs/python-extension.md">Extension guide</a> and <a href="../../../../rust/extension.toml">bundle pins</a></td><td>The Python artifact is an Extism guest. Existing host qualification and bundle metadata are the starting evidence for finos/morphir.</td></tr>
 <tr><td><a href="https://github.com/finos/morphir-moonbit/blob/bd3adc52e6b8f6368fdaee50f76535799732f8d6/docs/WRITING_FOR_THE_SITE.md">MoonBit site authoring guide</a></td><td>Follow its user journeys, tested examples and checked links. Use Telescope rather than copy its custom MoonBit renderer.</td></tr>
 <tr><td><a href="https://github.com/finos/morphir-moonbit/blob/bd3adc52e6b8f6368fdaee50f76535799732f8d6/apps/morphir/docs/extension.md">MoonBit extension adapters</a></td><td>Core-WASM process and native-process support do not qualify an Extism guest. The portable path uses an IR v4 model envelope and has explicit codec/provenance constraints.</td></tr>
 <tr><td><a href="https://github.com/moonrockz/telescope/blob/615d75c/docs/cli.md">Telescope CLI</a> and <a href="https://github.com/moonrockz/telescope/blob/615d75c/docs/release/0.2.1.md">0.2.1 release evidence</a></td><td>A stock native CLI builds Markdown/HTML, checks links, and embeds CSS and browser controls. Its API adapter consumes MoonBit metadata, not Python signatures.</td></tr>
-<tr><td><a href="../../../scripts/ci_changes.py">CI selector</a> and <a href="../../../.github/workflows/ci.yml">CI workflow</a></td><td>Most docs currently select no work. Unknown paths, workflow changes and full runs select all categories. Add explicit docs ownership without weakening aggregate failure handling.</td></tr>
+<tr><td><a href="../../../../scripts/ci_changes.py">CI selector</a> and <a href="../../../../.github/workflows/ci.yml">CI workflow</a></td><td>Most docs currently select no work. Unknown paths, workflow changes and full runs select all categories. Add explicit docs ownership without weakening aggregate failure handling.</td></tr>
 </tbody>
 </table>
 </section>
@@ -134,19 +134,20 @@
 <summary>Build-master reassessment and validation evidence</summary>
 <p>Implementation <code>af9c725</code> passed every check in <a href="https://github.com/finos/morphir-python/actions/runs/40637061027">CI run 40637061027</a>, against base <code>f9c9af6</code>. The retained site binds the integrated candidate <code>302892bc85fdbac838c9b0b850f03a7e3ed48023</code>, Telescope 0.2.1, all three installed-example groups, Linux host qualification and hashes of 20 published files. A local download independently passed artifact verification and Telescope checking. <a href="https://github.com/finos/morphir-python/pull/51">PR 51</a> has no automated review findings.</p>
 <p>After rebasing onto the corrected companion release <code>1f547d1</code>, local full checks passed 2,518 tests, 34 BDD scenarios and 98.35% coverage. The current qualified set is core/CLI 0.1.0, native 0.1.1 and extension 0.4.2. Clean published-wheel, candidate-wheel and library-only examples passed after publication; the strict multi-document check remains enforced. The first refreshed CI attempt reached PyPI before its CLI index entry was visible, so fresh-index acquisition and final CI repeat that qualification before merging. Twelve browser cases passed at both deployment bases. Linux CI measured installed examples at 43 seconds, host qualification at 76 seconds, and site/browser validation at 45 seconds. These are one-run job durations, not queue time, billing or a measured before/after speedup. The compatible native wheel was produced once and reused by tests, bundle qualification, installed examples and packaging.</p>
-<p>The implementation preserves required failure/cancellation/skip handling, binds evidence and artifact bytes, and refuses PR/fork/failed/unrelated producers. No required coverage was deferred to a schedule. GitHub Pages now reports Actions deployment enabled. A first authorized production promotion and a real production rollback remain workflow follow-up after review and merge.</p>
+<p>The implementation preserves required failure/cancellation/skip handling, binds evidence and artifact bytes, and refuses PR/fork/failed/unrelated producers. No required coverage was deferred to a schedule. GitHub Pages now reports Actions deployment enabled. Production promotion passed; a real production rollback remains untested, while the retained-artifact recovery contract has regression coverage.</p>
 <table>
 <thead><tr><th>Criterion</th><th>Weight</th><th>Implemented rating</th><th>Evidence and confidence</th></tr></thead>
 <tbody>
 <tr><td>Risk and coverage fit</td><td>25</td><td>4</td><td>Selector/aggregate regressions, broken-build preservation, stale receipt and artifact/producer refusal tests; full CI passed. High confidence for tested contracts.</td></tr>
 <tr><td>Feedback and placement</td><td>20</td><td>3</td><td>Measured category jobs run independently after their real producer. No prior site baseline; one Linux run gives medium confidence.</td></tr>
-<tr><td>Evidence and trust</td><td>20</td><td>U</td><td>Candidate binding and producer refusals pass; first production workflow invocation awaits authorized main publication.</td></tr>
+<tr><td>Evidence and trust</td><td>20</td><td>4</td><td>Candidate binding and producer refusals pass. Published final bytes match their source-bound manifest after authorized promotion. High confidence.</td></tr>
 <tr><td>Execution efficiency</td><td>15</td><td>3</td><td>Native artifact reuse verified. Small pure wheels are built for early docs feedback before the broader package gate; no compute-saving estimate is claimed.</td></tr>
 <tr><td>Ownership and structure</td><td>10</td><td>4</td><td>One reusable documentation workflow with explicit example/host inputs, stable aggregate and separate privileged publisher. High confidence from source and CI.</td></tr>
 <tr><td>Operability and recovery</td><td>10</td><td>2</td><td>Failure diagnostics, 30-day retention and run-ID rollback are documented and their refusal checks pass. A real Pages rollback is untested.</td></tr>
 </tbody>
 </table>
-<p>The total remains withheld because the 20-weight production trust criterion is unknown. Retain the scoped design provisionally: the all-checks-on-every-prose-edit alternative adds unrelated compiler work, while this selector preserves conservative unknown/full-run behavior and qualifies relevant examples and host changes. The maintainer owns the first production promotion and rollback evidence; a green proposal or PR does not grant merge or deployment approval.</p>
+<p>The implemented design scores 86/100 after production verification, denominator 100. Retain the scoped design: the all-checks-on-every-prose-edit alternative adds unrelated compiler work, while this selector preserves conservative unknown/full-run behavior and qualifies relevant examples and host changes. The maintainer owns recovery and any future publication decisions; the score does not grant publication approval.</p>
+<p>Final visual alignment landed in PR 53 as <code>d02f260c8040d24941aafa38938ab0e01e59a1be</code>. Main CI <a href="https://github.com/finos/morphir-python/actions/runs/40657687946">40657687946</a> and Pages deployment <a href="https://github.com/finos/morphir-python/actions/runs/40658741564">40658741564</a> passed. Independent public verification retrieved all 21 files, checked their SHA-256 digests against the source-bound eligible manifest, and verified the home design, search, release quickstart, clipboard, dark mobile layout and keyboard menu with no browser errors. Local checks passed 2,526 tests and 34 BDD scenarios, 12 explicit site/example checks and 20 browser cases. Telescope customization is tracked in <a href="https://github.com/moonrockz/telescope/issues/13">issue 13</a>.</p>
 </details>
 </section>
 
