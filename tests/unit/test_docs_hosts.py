@@ -5,10 +5,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from scripts.docs_hosts import INPUTS, input_hashes, verify_evidence
+from scripts.docs_hosts import INPUTS, ROOT, input_hashes, verify_evidence
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def test_committed_host_evidence_matches_documented_inputs() -> None:
+    """Keep the selective CI fallback usable after documentation changes."""
+    verify_evidence(json.loads((ROOT / "site/evidence/hosts.json").read_text()))
 
 
 def test_edited_recipe_invalidates_previously_successful_evidence(
