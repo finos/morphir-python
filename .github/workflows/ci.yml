@@ -36,7 +36,7 @@ jobs:
       docs-hosts: ${{ steps.select.outputs.docs-hosts }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -63,7 +63,7 @@ jobs:
       MORPHIR_SKIP_NATIVE: '1'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -86,7 +86,7 @@ jobs:
       MORPHIR_SKIP_NATIVE: '1'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build the manylinux_2_28 wheel and source archive
         uses: PyO3/maturin-action@v1
@@ -157,7 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -216,7 +216,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -332,7 +332,7 @@ jobs:
     if: fromJSON(needs.changes.outputs.jobs).build
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -408,7 +408,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Require every selected check
         env:

@@ -112,6 +112,8 @@ def isolated_environment(
             "MISE_YES": "1",
             "MISE_AUTO_INSTALL": "0",
             "PIP_CONFIG_FILE": os.devnull,
+            "PIP_CACHE_DIR": str(directory / "cache" / "pip"),
+            "UV_CACHE_DIR": str(directory / "cache" / "uv"),
             "NO_COLOR": "1",
         }
     )

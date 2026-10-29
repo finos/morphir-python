@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shlex
+import shutil
+import subprocess
+import textwrap
 from typing import TYPE_CHECKING
 
 import pytest
@@ -125,3 +130,57 @@ def test_the_command_writes_a_receipt(tmp_path: Path) -> None:
         pytest.skip("fixture names the current native version")
     r.main(["native", str(tmp_path), "--tag", f"native-v{version}"])
     assert len((tmp_path / "SHA256SUMS").read_text().splitlines()) == 6
+
+
+@pytest.mark.skipif(
+    os.name == "nt" or shutil.which("bash") is None,
+    reason="The native-candidates workflow shell runs on Ubuntu",
+)
+@pytest.mark.parametrize(
+    ("tag", "accepted"),
+    [
+        (None, True),
+        ("native-v{native}", True),
+        ("extension/python/v{extension}", True),
+        ("native-v9.9.9", False),
+    ],
+)
+def test_workflow_verifies_native_candidates_for_each_tag_route(
+    tmp_path: Path, tag: str | None, accepted: bool
+) -> None:
+    """Execute the production shell and its strict validator with real ref inputs."""
+    versions = r.source_versions()
+    native_set(tmp_path, versions["native"])
+    workflow = (r.ROOT / ".github/workflows/release.yml").read_text()
+    step = workflow.split(
+        "      - name: Refuse missing, extra or mismatched candidates\n", 1
+    )[1]
+    script = textwrap.dedent(
+        step.split("        run: |\n", 1)[1].split("\n      - name:", 1)[0]
+    )
+    ref_name = tag.format(**versions) if tag else "main"
+    # GitHub expands this expression before handing a step to Bash.
+    script = script.replace(
+        "${{ github.ref_type == 'tag' && github.ref_name || '' }}",
+        ref_name if tag else "",
+    ).replace("dist/candidates", shlex.quote(str(tmp_path)))
+    result = subprocess.run(
+        ["bash", "-e", "-c", script],
+        cwd=r.ROOT,
+        env=os.environ
+        | {
+            "GITHUB_REF": f"refs/tags/{ref_name}" if tag else "refs/heads/main",
+            "GITHUB_REF_NAME": ref_name,
+            "GITHUB_REF_TYPE": "tag" if tag else "branch",
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert (result.returncode == 0) == accepted, result.stderr
+    receipt = tmp_path / "SHA256SUMS"
+    if accepted:
+        assert len(receipt.read_text().splitlines()) == 6
+    else:
+        assert not receipt.exists()

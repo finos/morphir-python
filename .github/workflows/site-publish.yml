@@ -36,7 +36,7 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Validate the producer before consuming its artifact
@@ -51,7 +51,7 @@ jobs:
           gh api "repos/$REPOSITORY/actions/runs/$RUN_ID" > .dev/site-producer.json
           python3 scripts/site_release.py producer --run-json .dev/site-producer.json --repository "$REPOSITORY" >> "$GITHUB_OUTPUT"
       - name: Checkout the producer's exact source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.producer.outputs.source }}
           path: candidate

@@ -14,7 +14,7 @@ your project's `mise.toml`:
 [tools]
 python = "3.14"
 uv = "0.12.10"
-"pypi:morphir-python" = { version = "0.1.0", uvx_args = "--no-build" }
+"pypi:morphir-python" = { version = "0.1.2", uvx_args = "--no-build" }
 ```
 <!-- /example -->
 
@@ -44,7 +44,7 @@ pipx = "pypi:pipx"
 python = "3.14"
 uv = "0.12.10"
 pipx = { version = "1.18.4", python = "3.14", expose = ["pipx"] }
-"pipx:morphir-python" = { version = "0.1.0", python = "3.14", uvx = false, pipx_args = "--pip-args='--only-binary=:all:'" }
+"pipx:morphir-python" = { version = "0.1.2", python = "3.14", uvx = false, pipx_args = "--pip-args='--only-binary=:all:'" }
 ```
 <!-- /example -->
 
@@ -80,13 +80,13 @@ Choose a package according to what your application needs.
 | `morphir-python` | The CLI and `morphir_tools.python` compiler API | `morphir`, Typer and an exact compatible native compiler |
 | `morphir-python-native` | Compiler implementation dependency | Installed automatically by `morphir-python` |
 
-The released quickstarts use `morphir-python==0.1.0`, `morphir==0.1.0` and
-`morphir-python-native==0.1.1`. The core and CLI have independent versions.
+The released quickstarts use `morphir-python==0.1.2`, `morphir==0.1.1` and
+`morphir-python-native==0.1.2`. The core and CLI have independent versions.
 
 ```bash
 python3.14 -m venv .venv
 . .venv/bin/activate
-python -m pip install --only-binary=:all: morphir==0.1.0 morphir-python==0.1.0
+python -m pip install --only-binary=:all: morphir==0.1.1 morphir-python==0.1.2
 morphir-python --help
 ```
 
@@ -106,7 +106,7 @@ requires Rust 1.98 or later and is distinct from the wheel-only quickstart.
 ## Use only the library
 
 ```bash
-python -m pip install morphir==0.1.0
+python -m pip install morphir==0.1.1
 ```
 
 The [IR and SDK examples](library.md) work without the native compiler. Installing
