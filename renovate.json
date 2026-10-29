@@ -2,5 +2,19 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchPackageNames": [
+        "ruff_python_parser",
+        "ruff_python_ast",
+        "ruff_python_codegen",
+        "ruff_text_size"
+      ],
+      "groupName": "Ruff components"
+    }
   ]
 }
