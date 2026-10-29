@@ -29,7 +29,7 @@ Issues = "https://github.com/finos/morphir-python/issues"
 
 [build-system]
 # Pinned with PyO3 =0.30.1 in rust/crates/morphir-python-native/Cargo.toml.
-requires = ["maturin==1.15.0"]
+requires = ["maturin==1.16.0"]
 build-backend = "maturin"
 
 [tool.maturin]
