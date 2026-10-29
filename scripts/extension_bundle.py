@@ -25,13 +25,16 @@ import io
 import json
 import os
 import platform
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
 import tomllib
 import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -170,10 +173,10 @@ def package(wasm: Path, output: Path, git_commit: str | None) -> dict[str, objec
     return receipt(output)
 
 
-def receipt(bundle: Path) -> dict[str, object]:
+def receipt(bundle: Path, *, version: str | None = None) -> dict[str, object]:
     """Check a bundle's files, digest and claims, and describe them."""
     extension = declaration()["extension"]
-    version = crate_version()
+    version = crate_version() if version is None else version
     artifact = f"{extension['artifact']}-{version}.wasm"
     names = sorted(p.name for p in bundle.iterdir())
     if names != sorted([artifact, f"{artifact}.sha256", "release.json"]):
@@ -198,6 +201,7 @@ def receipt(bundle: Path) -> dict[str, object]:
     if not (
         isinstance(frontend, dict)
         and frontend.get("compile") is True
+        and frontend.get("multiDocument") is True
         and frontend.get("irVersions") == extension["ir_versions"]
         and isinstance(backend, dict)
         and backend.get("generate") is True
@@ -212,15 +216,18 @@ def receipt(bundle: Path) -> dict[str, object]:
         "git_commit": descriptor.get("gitCommit"),
         "packager_rev": declaration()["packager"]["rev"],
         "capabilities": sorted(k for k, v in capabilities.items() if v),
+        "multiDocument": frontend["multiDocument"],
     }
 
 
 def _target() -> str:
     machine = platform.machine().lower()
     arch = {"arm64": "aarch64", "amd64": "x86_64"}.get(machine, machine)
-    system = {"Darwin": "apple-darwin", "Linux": "unknown-linux-gnu"}.get(
-        platform.system()
-    )
+    system = {
+        "Darwin": "apple-darwin",
+        "Linux": "unknown-linux-gnu",
+        "Windows": "pc-windows-msvc",
+    }.get(platform.system())
     if system is None:
         raise BundleError(f"no pinned Morphir CLI for {platform.system()}")
     return f"{arch}-{system}"
@@ -234,16 +241,29 @@ def morphir_cli() -> tuple[Path, str]:
     if expected is None:
         raise BundleError(f"no pinned Morphir CLI digest for {target}")
     directory = CACHE / f"morphir-{host['version']}-{target}"
-    binary = directory / "morphir"
-    archive_name = f"morphir-{host['version']}-{target}.tgz"
-    if not binary.is_file():
+    is_windows = target.endswith("windows-msvc")
+    binary = directory / ("morphir.exe" if is_windows else "morphir")
+    extension = "zip" if is_windows else "tgz"
+    archive_name = f"morphir-{host['version']}-{target}.{extension}"
+    archive_path = directory / archive_name
+    if archive_path.is_symlink() or binary.is_symlink():
+        raise BundleError("cached Morphir CLI and archive must be regular files")
+    if archive_path.is_file():
+        data = archive_path.read_bytes()
+    else:
         with urllib.request.urlopen(
             f"{host['release']}/{archive_name}", timeout=120
-        ) as r:
-            data = r.read()
-        if sha256(data) != expected:
-            raise BundleError(f"{archive_name} digest differs from the pin")
-        directory.mkdir(parents=True, exist_ok=True)
+        ) as response:
+            data = response.read()
+    if sha256(data) != expected:
+        raise BundleError(f"{archive_name} digest differs from the pin")
+    if is_windows:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            zip_member = next(
+                m for m in archive.namelist() if Path(m).name == "morphir.exe"
+            )
+            executable_bytes = archive.read(zip_member)
+    else:
         with tarfile.open(fileobj=io.BytesIO(data)) as archive:
             member = next(
                 m for m in archive.getmembers() if Path(m.name).name == "morphir"
@@ -251,15 +271,124 @@ def morphir_cli() -> tuple[Path, str]:
             extracted = archive.extractfile(member)
             if extracted is None:
                 raise BundleError(f"{archive_name} has no morphir executable")
-            binary.write_bytes(extracted.read())
-        binary.chmod(0o755)
+            executable_bytes = extracted.read()
+    if binary.exists() and binary.read_bytes() != executable_bytes:
+        raise BundleError("cached Morphir CLI differs from the verified archive")
+    directory.mkdir(parents=True, exist_ok=True)
+    if not archive_path.exists():
+        archive_path.write_bytes(data)
+    if not binary.exists():
+        binary.write_bytes(executable_bytes)
+    binary.chmod(0o755)
     return binary, expected
 
 
-def host_check(bundle: Path) -> dict[str, object]:
+def is_digest_mismatch(text: str, expected: str, observed: str) -> bool:
+    """Require the verifier's mismatch and both exact hashes, allowing wrapping."""
+    compact = re.sub(r"[\s│╰─]", "", text.lower())
+    return "digestmismatch" in compact and expected in compact and observed in compact
+
+
+def check_installed_integrity(
+    cli: Path, home: Path, environment: dict[str, str]
+) -> dict[str, Any]:
+    """Refuse changed installed bytes in a fresh project, then restore them."""
+    catalog = json.loads((home / "catalog/extensions.json").read_text())
+    (installed,) = catalog["extensions"]
+    stored = home / installed["storePath"]
+    if (
+        stored.is_symlink()
+        or not stored.is_file()
+        or not stored.resolve().is_relative_to(home.resolve())
+    ):
+        raise BundleError("integrity fixture must be a regular file inside its home")
+    original = stored.read_bytes()
+    expected = sha256(original)
+    if installed["digest"] != expected:
+        raise BundleError("installed artifact already disagrees with its catalog")
+    modified = bytearray(original)
+    modified[-1] ^= 1
+    observed = sha256(bytes(modified))
+    mode = stat.S_IMODE(stored.stat().st_mode)
+
+    def replace_bytes(data: bytes) -> None:
+        # Replacing the directory entry preserves any hardlinked cache or input.
+        with tempfile.NamedTemporaryFile(dir=stored.parent, delete=False) as file:
+            file.write(data)
+            replacement = Path(file.name)
+        try:
+            replacement.chmod(mode)
+            replacement.replace(stored)
+        finally:
+            replacement.unlink(missing_ok=True)
+
+    with tempfile.TemporaryDirectory(prefix="morphir-integrity-") as temporary:
+        project = Path(temporary)
+        shutil.copytree(SAMPLE, project / "src")
+        (project / "morphir.toml").write_text(
+            '[project]\nname = "acme/example"\nversion = "0.1.0"\n'
+            'source_directory = "src"\n[frontend]\nlanguage = "python"\n'
+            "emit_parse_stage = false\n"
+        )
+        env = {**environment, "MORPHIR_HOME": str(home)}
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+            env[name] = env[name.lower()] = OFFLINE
+        env.pop("NO_PROXY", None)
+        env.pop("no_proxy", None)
+        command = [
+            str(cli),
+            "--no-banner",
+            "compile",
+            "--language",
+            "python",
+            "--input",
+            "src",
+            "--ir-version",
+            "4",
+            "--output",
+            "must-not-exist",
+        ]
+        replace_bytes(bytes(modified))
+        try:
+            result = subprocess.run(
+                command,
+                cwd=project,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            reason = result.stdout + result.stderr
+            if (
+                result.returncode == 0
+                or not is_digest_mismatch(reason, expected, observed)
+                or (project / "must-not-exist").exists()
+            ):
+                raise BundleError(
+                    f"installed artifact integrity was not enforced: {reason}"
+                )
+        finally:
+            replace_bytes(original)
+    return {
+        "expected_sha256": expected,
+        "tampered_sha256": observed,
+        "exit_code": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "fresh_project": True,
+    }
+
+
+def host_check(bundle: Path, *, version: str | None = None) -> dict[str, object]:
     """Install the bundle with the pinned CLI and round trip offline."""
+    return host_round_trips(bundle, receipt(bundle, version=version))
+
+
+def host_round_trips(bundle: Path, described: dict[str, Any]) -> dict[str, object]:
+    """Qualify an admitted runtime bundle through installed, offline CLI routes."""
+    from morphir_tools.python import native_compiler
+
     bundle = bundle.resolve()
-    described = receipt(bundle)
     cli, cli_digest = morphir_cli()
     with tempfile.TemporaryDirectory(prefix="python-bundle-host-") as scratch:
         work = Path(scratch)
@@ -286,6 +415,7 @@ def host_check(bundle: Path) -> dict[str, object]:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=60,
             )
             if result.returncode != 0:
                 raise BundleError(f"morphir {' '.join(args)}: {result.stderr}")
@@ -330,16 +460,38 @@ def host_check(bundle: Path) -> dict[str, object]:
             )
             results[f"v{tag}"] = {
                 "modules": files,
-                "agrees_with_python_api": agrees_with_api(first, tag),
+                "ir_sha256": sha256(
+                    json.dumps(first, sort_keys=True, separators=(",", ":")).encode()
+                ),
+                "generated_sha256": {
+                    path: sha256((project / generated / path).read_bytes())
+                    for path in files
+                },
+                "agrees_with_python_api": agrees_with_api(
+                    first, tag, compiler_version=str(described["version"])
+                ),
             }
+        integrity = check_installed_integrity(cli, home, base)
     return {
         **described,
-        "host": {"morphir": declaration()["host"]["version"], "sha256": cli_digest},
+        "installed_integrity": integrity,
+        "host": {
+            "morphir": declaration()["host"]["version"],
+            "sha256": cli_digest,
+            "binary_sha256": sha256(cli.read_bytes()),
+        },
+        "qualification_script_sha256": sha256(Path(__file__).read_bytes()),
+        "python_api": {
+            "native_version": native_compiler().version,
+            "compiler_version": native_compiler().compiler_version,
+        },
         "offline_round_trips": results,
     }
 
 
-def agrees_with_api(document: dict[str, Any], tag: str) -> bool:
+def agrees_with_api(
+    document: dict[str, Any], tag: str, *, compiler_version: str | None = None
+) -> bool:
     """Compare host output with the Python API's model for the same sources."""
     from morphir.ir.v3 import codec as v3_codec
     from morphir.ir.v4 import codec as v4_codec
@@ -348,8 +500,16 @@ def agrees_with_api(document: dict[str, Any], tag: str) -> bool:
         IrVersion,
         SourceDocument,
         compile_sources,
+        native_compiler,
     )
 
+    compiler = native_compiler()
+    expected_version = crate_version() if compiler_version is None else compiler_version
+    if compiler.compiler_version != expected_version:
+        raise BundleError(
+            f"API compiler {compiler.compiler_version} differs from "
+            f"bundle {expected_version}"
+        )
     sources = [
         SourceDocument(p.relative_to(SAMPLE).as_posix(), p.read_text())
         for p in sorted(SAMPLE.rglob("*.py"))

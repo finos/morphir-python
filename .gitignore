@@ -79,3 +79,8 @@ rust/target/
 
 # Extension bundles built by mise run extension:bundle
 .morphir/
+
+# Checked documentation output and browser dependencies
+_site/
+site/browser/node_modules/
+site/downloads/

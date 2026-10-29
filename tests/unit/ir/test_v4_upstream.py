@@ -6,6 +6,8 @@ commit; the case id is named in each test.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from morphir.ir import diagnostics as d
@@ -29,6 +31,16 @@ from morphir.ir.v4.documented import Documented
 from morphir.ir.v4.fqname import FQName
 from morphir.ir.v4.name import Name
 from morphir.ir.v4.path import Path
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+
+@pytest.fixture(autouse=True)
+def _expanded_spelling() -> Iterator[None]:
+    """The upstream kit cases quote the expanded spelling, so encode with it."""
+    with codec.use_spelling(codec.Spelling.EXPANDED):
+        yield
 
 
 def n(*words: str) -> Name:

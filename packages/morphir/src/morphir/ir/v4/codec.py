@@ -9,8 +9,16 @@ The envelope is ``{"formatVersion": 4, "distribution": {"Library": {...}}}``, wi
 the distribution wrapped by its kind (``Library``, ``Specs``, or ``Application``).
 The codec never writes a format-3 tagged-array shape.
 
-The writer emits every node in the schema's expanded form, ``{"Kind": {members}}``,
-with ``attributes`` omitted when empty. The profile says that readers MUST accept
+The writer emits the compact canonical spelling by default, as the profile asks
+and as Rust ``morphir-core`` writes it: a node without attributes takes its
+shortest form (a type variable or argument-free reference as a string, a literal
+as ``{"Kind": payload}``, a variable as ``{"Variable": "x"}``, a tuple as
+``{"Tuple": [...]}``), and a node with attributes keeps the expanded form
+``{"Kind": {"attributes": ..., members}}``. `Spelling.EXPANDED`, passed as
+``spelling=`` or selected with `use_spelling`, writes every node expanded.
+Documentation is written flattened, ``doc`` first beside the documented type or
+value (decision 0010); a module definition writes its ``doc`` after ``types``
+and ``values``. The profile says that readers MUST accept
 every spelling the v4 JSON Schema marks as valid, so the reader also accepts the
 compact canonical vocabulary that Rust ``morphir-core`` writes, and the legacy
 spellings that the schema itself lists. Each spelling of a node gives the same
@@ -93,8 +101,6 @@ Known gaps between the Python v4 model and upstream v4, each handled explicitly:
   (upstream makes them definition bodies); encoding fails with ``no_v4_spelling``.
 - Structured ``TypeConstraints`` (deprecated) have no spelling; encoding fails
   with ``no_v4_spelling``.
-- The writer emits only the expanded spelling, not the compact canonical one the
-  profile prefers.
 - The reader refuses the decision-0006 legacy-window spellings that the pinned
   schema marks invalid (``attrs``, ``thenBranch``, ``argumentType``, a record's
   field map directly under ``Record``, the nested ``{"value": ...}`` wrapper with
@@ -129,8 +135,11 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from decimal import Decimal, InvalidOperation
+from enum import Enum
 from typing import Any
 
 from .. import diagnostics as d
@@ -809,14 +818,94 @@ def _with_attributes(
     return {"attributes": attrs, **members} if attrs else members
 
 
+class Spelling(Enum):
+    """Which v4 JSON spelling the encoders write.
+
+    ``COMPACT``, the default, is the canonical spelling the v4 JSON profile asks
+    writers to emit, as morphir-core writes it: a node without attributes takes
+    its shortest schema-valid form. ``EXPANDED`` writes every node as
+    ``{"Kind": {members}}``. Both decode to the same model, and both write
+    documentation flattened beside the node it documents (decision 0010).
+    """
+
+    COMPACT = "compact"
+    EXPANDED = "expanded"
+
+
+_SPELLING: ContextVar[Spelling] = ContextVar(
+    "morphir_ir_v4_spelling", default=Spelling.COMPACT
+)
+
+
+@contextmanager
+def use_spelling(spelling: Spelling | None) -> Iterator[None]:
+    """Use ``spelling`` for the v4 encoders called inside the block.
+
+    The selection is local to the current thread or task. ``None`` keeps the
+    selection already in effect.
+
+    Example:
+        >>> from morphir.ir.v4 import codec
+        >>> with codec.use_spelling(codec.Spelling.EXPANDED):
+        ...     codec.encode_type(codec.decode_type("a"))
+        {'Variable': {'name': 'a'}}
+    """
+    if spelling is None:
+        yield
+        return
+    token = _SPELLING.set(spelling)
+    try:
+        yield
+    finally:
+        _SPELLING.reset(token)
+
+
+def _compact(attrs: dict[str, Json]) -> bool:
+    return not attrs and _SPELLING.get() is Spelling.COMPACT
+
+
+# The member a compact value or pattern writes directly under its tag.
+_PAYLOAD = {
+    "Literal": "literal",
+    "Constructor": "fqname",
+    "Reference": "fqname",
+    "Variable": "name",
+    "FieldFunction": "name",
+    "Tuple": "elements",
+    "List": "items",
+    "TuplePattern": "patterns",
+    "LiteralPattern": "literal",
+}
+
+
 # --- Types ---
 
 
-def encode_type(tpe: t.Type, loc: Location = ()) -> Json:
-    """Encode a v4 type in the expanded draft spelling."""
+def encode_type(
+    tpe: t.Type, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode a v4 type, compact unless ``spelling`` or the caller selects expanded."""
+    with use_spelling(spelling):
+        return _encode_type(tpe, loc)
+
+
+def _encode_type(tpe: t.Type, loc: Location) -> Json:
     attrs = _encode_type_attributes(tpe.attributes, loc)
 
     def node(tag: str, members: dict[str, Json]) -> Json:
+        if _compact(attrs):
+            match tag:
+                case "Variable" if _TYPE_VARIABLE_STRING.fullmatch(members["name"]):
+                    return members["name"]
+                case "Variable":
+                    # The bare string grammar is lowercase only; keep the tag.
+                    return {"Variable": members["name"]}
+                case "Reference" if "args" in members:
+                    return {"Reference": [members["fqname"], *members["args"]]}
+                case "Reference":
+                    return members["fqname"]
+                case "Tuple":
+                    return {"Tuple": members["elements"]}
         return _wrap(tag, _with_attributes(attrs, members))
 
     here = (*loc, type(tpe).__name__)
@@ -1231,12 +1320,21 @@ def _decode_literal_spelling(
 # --- Patterns ---
 
 
-def encode_pattern(p: v.Pattern, loc: Location = ()) -> Json:
-    """Encode a v4 pattern in the expanded draft spelling."""
+def encode_pattern(
+    p: v.Pattern, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode a v4 pattern, compact unless ``spelling`` or the caller selects expanded."""
+    with use_spelling(spelling):
+        return _encode_pattern(p, loc)
+
+
+def _encode_pattern(p: v.Pattern, loc: Location) -> Json:
     attrs = _encode_value_attributes(p.attributes, loc)
     here = (*loc, type(p).__name__)
 
     def node(tag: str, members: dict[str, Json]) -> Json:
+        if _compact(attrs) and tag in _PAYLOAD:
+            return {tag: members[_PAYLOAD[tag]]}
         return _wrap(tag, _with_attributes(attrs, members))
 
     def many(items: list[v.Pattern], key: str) -> list[Json]:
@@ -1336,13 +1434,20 @@ def decode_pattern(j: object, loc: Location = ()) -> v.Pattern:
 # --- Values ---
 
 
-def encode_value(val: v.Value, loc: Location = ()) -> Json:
-    """Encode a v4 value in the expanded draft spelling.
+def encode_value(
+    val: v.Value, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode a v4 value, compact unless ``spelling`` or the caller selects expanded.
 
     Raises:
         DiagnosticError: With ``no_v4_spelling`` for ``Native`` and ``External``
             nodes, or ``duplicate_member`` for repeated record fields.
     """
+    with use_spelling(spelling):
+        return _encode_value(val, loc)
+
+
+def _encode_value(val: v.Value, loc: Location) -> Json:
     construct = type(val).__name__
     here = (*loc, construct)
     if isinstance(val, (v.Native, v.External)):
@@ -1356,6 +1461,8 @@ def encode_value(val: v.Value, loc: Location = ()) -> Json:
     attrs = _encode_value_attributes(val.attributes, loc)
 
     def node(tag: str, members: dict[str, Json]) -> Json:
+        if _compact(attrs) and tag in _PAYLOAD:
+            return {tag: members[_PAYLOAD[tag]]}
         return _wrap(tag, _with_attributes(attrs, members))
 
     def sub(x: v.Value, key: str) -> Json:
@@ -1833,7 +1940,17 @@ def _decode_externals(j: object, loc: Location) -> list[v.ExternalBinding]:
     return bindings
 
 
-def encode_value_definition(defn: v.ValueDefinitionBody, loc: Location = ()) -> Json:
+def encode_value_definition(
+    defn: v.ValueDefinitionBody, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_value_definition_body(defn, loc)
+
+
+def _encode_value_definition_body(
+    defn: v.ValueDefinitionBody, loc: Location = ()
+) -> Json:
     """Encode a value definition as ``{"<Kind>Body": {...}}``.
 
     Raises:
@@ -1950,7 +2067,15 @@ def decode_value_definition(j: object, loc: Location = ()) -> v.ValueDefinitionB
             )
 
 
-def encode_value_specification(spec: v.Specification, loc: Location = ()) -> Json:
+def encode_value_specification(
+    spec: v.Specification, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_value_specification_body(spec, loc)
+
+
+def _encode_value_specification_body(spec: v.Specification, loc: Location = ()) -> Json:
     return _with_annotations(
         spec.annotations,
         loc,
@@ -2151,7 +2276,15 @@ def _decode_ctor_args(j: object, loc: Location) -> list[tuple[Name, t.Type]]:
     return _decode_list(_decode_name_type_pair, j, loc, "Constructor")
 
 
-def encode_type_specification(spec: ts.Specification, loc: Location = ()) -> Json:
+def encode_type_specification(
+    spec: ts.Specification, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_type_specification_body(spec, loc)
+
+
+def _encode_type_specification_body(spec: ts.Specification, loc: Location = ()) -> Json:
     tag = type(spec).__name__
     encoded = _encode_type_specification(spec, loc)
     return _wrap(tag, _with_annotations(spec.annotations, (*loc, tag), encoded[tag]))
@@ -2256,7 +2389,15 @@ def _decode_legacy_type_specification(
             )
 
 
-def encode_type_definition(defn: td.Definition, loc: Location = ()) -> Json:
+def encode_type_definition(
+    defn: td.Definition, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_type_definition_body(defn, loc)
+
+
+def _encode_type_definition_body(defn: td.Definition, loc: Location = ()) -> Json:
     params = _encode_params(defn.type_params, loc)
     match defn:
         case td.TypeAliasDefinition(_, tpe):
@@ -2335,9 +2476,19 @@ def _encode_documented[A](
     encode: Callable[[A, Location], Json],
 ) -> Callable[[Documented[A], Location], Json]:
     def run(item: Documented[A], loc: Location) -> Json:
+        encoded = encode(item.value, loc)
         if item.doc is None:
-            return encode(item.value, loc)
-        return {"doc": item.doc, "value": encode(item.value, (*loc, "value"))}
+            return encoded
+        if not isinstance(encoded, dict):
+            raise fail(
+                d.NO_V4_SPELLING,
+                "doc",
+                loc,
+                "documentation is flattened beside the node it documents, "
+                "so the node must be a JSON object",
+            )
+        # Decision 0010: `doc` is a flattened member placed first.
+        return {"doc": item.doc, **encoded}
 
     return run
 
@@ -2471,7 +2622,17 @@ def _decode_doc(obj: dict[str, object], loc: Location) -> str | None:
     return _expect_str(obj["doc"], (*loc, "doc"), "doc")
 
 
-def encode_module_specification(spec: module.Specification, loc: Location = ()) -> Json:
+def encode_module_specification(
+    spec: module.Specification, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_module_specification_body(spec, loc)
+
+
+def _encode_module_specification_body(
+    spec: module.Specification, loc: Location = ()
+) -> Json:
     return _with_annotations(
         spec.annotations,
         loc,
@@ -2518,7 +2679,15 @@ def decode_module_specification(j: object, loc: Location = ()) -> module.Specifi
     )
 
 
-def encode_module_definition(defn: module.Definition, loc: Location = ()) -> Json:
+def encode_module_definition(
+    defn: module.Definition, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_module_definition_body(defn, loc)
+
+
+def _encode_module_definition_body(defn: module.Definition, loc: Location = ()) -> Json:
     return _with_doc(
         {
             "types": _keyed(
@@ -2563,6 +2732,14 @@ _dec_module_def = _decode_access(decode_module_definition)
 
 
 def encode_package_specification(
+    spec: package.Specification, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_package_specification_body(spec, loc)
+
+
+def _encode_package_specification_body(
     spec: package.Specification, loc: Location = ()
 ) -> Json:
     return {
@@ -2594,7 +2771,17 @@ def decode_package_specification(
     )
 
 
-def encode_package_definition(defn: package.Definition, loc: Location = ()) -> Json:
+def encode_package_definition(
+    defn: package.Definition, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_package_definition_body(defn, loc)
+
+
+def _encode_package_definition_body(
+    defn: package.Definition, loc: Location = ()
+) -> Json:
     return {
         "modules": _keyed(
             defn.modules, _path_key, _enc_module_def, (*loc, "modules"), "modules"
@@ -2651,7 +2838,15 @@ def _decode_entry_point(j: object, loc: Location) -> EntryPoint:
     )
 
 
-def encode_distribution(dist: Distribution, loc: Location = ()) -> Json:
+def encode_distribution(
+    dist: Distribution, loc: Location = (), *, spelling: Spelling | None = None
+) -> Json:
+    """Encode with `Spelling.COMPACT` unless `spelling` or the caller selects otherwise."""
+    with use_spelling(spelling):
+        return _encode_distribution_body(dist, loc)
+
+
+def _encode_distribution_body(dist: Distribution, loc: Location = ()) -> Json:
     """Encode a distribution wrapped by its kind.
 
     The package release version is not written; the v4 profile has no member for it.
@@ -2772,17 +2967,24 @@ def decode_distribution(j: object, loc: Location = ()) -> Distribution:
             )
 
 
-def encode_versioned_distribution(dist: Distribution) -> dict[str, Json]:
+def encode_versioned_distribution(
+    dist: Distribution, *, spelling: Spelling | None = None
+) -> dict[str, Json]:
     """Encode ``{"formatVersion": 4, "distribution": ...}``, version first.
+
+    Args:
+        dist: The distribution to encode.
+        spelling: `Spelling.COMPACT`, the default, or `Spelling.EXPANDED`.
 
     Raises:
         DiagnosticError: When the distribution uses a construct with no draft
             spelling.
     """
-    return {
-        "formatVersion": write_format_version(V4),
-        "distribution": encode_distribution(dist, ("distribution",)),
-    }
+    with use_spelling(spelling):
+        return {
+            "formatVersion": write_format_version(V4),
+            "distribution": encode_distribution(dist, ("distribution",)),
+        }
 
 
 def decode_versioned_distribution(document: str | object) -> Distribution:

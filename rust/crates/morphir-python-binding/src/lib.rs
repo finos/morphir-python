@@ -26,6 +26,7 @@
 mod backend;
 mod frontend;
 mod ir;
+mod model_transport;
 mod modules;
 mod names;
 mod values;
@@ -58,6 +59,7 @@ impl Extension for PythonExtension {
                 }],
                 ir_versions: vec!["3".into(), "4".into()],
                 compile: true,
+                multi_document: true,
                 ..Default::default()
             }),
             backend: Some(BackendCapability {
@@ -65,12 +67,20 @@ impl Extension for PythonExtension {
                 ir_versions: vec!["3".into(), "4".into()],
                 generate: true,
             }),
+            model_transport: Some(model_transport::support()),
             ..Default::default()
         }
     }
 }
 
 impl Frontend for PythonExtension {
+    fn compile_model(
+        &self,
+        request: morphir_extension_sdk::model::CompileModelRequest,
+    ) -> Result<morphir_extension_sdk::model::CompileModelResult> {
+        model_transport::compile(self, request)
+    }
+
     fn compile(&self, request: CompileRequest) -> Result<CompileResult> {
         let diagnostics = if frontend::parse_stage_requested(&request) {
             vec![Diagnostic {
@@ -117,6 +127,13 @@ impl Frontend for PythonExtension {
 }
 
 impl Backend for PythonExtension {
+    fn generate_model(
+        &self,
+        request: morphir_extension_sdk::model::GenerateModelRequest,
+    ) -> Result<GenerateResult> {
+        model_transport::generate(self, request)
+    }
+
     fn generate(&self, request: GenerateRequest) -> Result<GenerateResult> {
         Ok(match backend::generate(&request) {
             Ok(artifacts) => GenerateResult {

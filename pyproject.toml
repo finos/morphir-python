@@ -66,6 +66,7 @@ ignore = [
 "scripts/bench.py" = ["E501"]
 # Compiler input: the supported subset has no TYPE_CHECKING blocks.
 "tests/fixtures/python/**/*" = ["TC001", "TC003"]
+"examples/model/**/*" = ["TC001", "TC003", "D101", "D103"]
 "packages/morphir/src/morphir/ir/**/*.py" = ["D101", "D102", "D103", "UP006", "UP007", "UP035", "UP037", "UP046", "TC001", "TC003", "E501", "C408", "RUF005", "E402"]
 
 [tool.ruff.lint.pydocstyle]

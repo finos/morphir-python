@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -133,11 +132,8 @@ def bundle_candidates(directory: Path, version: str, commit: str) -> list[str]:
         raise CandidateError(
             f"the bundle was built from {descriptor.get('gitCommit')}, not {commit}"
         )
-    if not re.fullmatch(
-        r"[0-9a-f]{64}  " + re.escape(artifact) + "\n",
-        (directory / f"{artifact}.sha256").read_text(),
-    ):
-        raise CandidateError("the .sha256 file is malformed")
+    if (directory / f"{artifact}.sha256").read_text() != f"{digest}  {artifact}\n":
+        raise CandidateError("the .sha256 checksum disagrees with the WASM")
     return sorted(expected)
 
 

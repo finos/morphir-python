@@ -65,8 +65,15 @@ fn generate(ir: Value) -> GenerateResult {
 
 #[test]
 fn both_versions_preserve_imports_privacy_tuples_and_conditionals() {
+    assert!(
+        PythonExtension::capabilities()
+            .frontend
+            .unwrap()
+            .multi_document
+    );
     for version in ["3", "3.0.0", "4", "4.0.0"] {
         let mut request = a_request(version);
+        assert_eq!(request.sources.documents.len(), 2);
         let ir = compile(request.clone());
         if version.starts_with('3') {
             let decoded: classic::Distribution = serde_json::from_value(ir.clone()).unwrap();

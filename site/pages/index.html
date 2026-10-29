@@ -1,0 +1,55 @@
+<!-- ---
+title: Morphir Python
+--- -->
+<section class="hero">
+  <div class="hero-text">
+    <h1>Morphir, in <span class="hero-accent">Python</span></h1>
+    <p class="lede">Write domain models in Python, exchange Morphir IR and generate Python libraries.
+      Use the same compiler through the Python API, CLI or Morphir extension.</p>
+    <p class="actions">
+      <a class="button primary" href="/docs/quickstart/">Start with Python</a>
+      <a class="button" href="/docs/python-compiler/">Explore the API</a>
+    </p>
+  </div>
+  <figure class="code-window" aria-label="A Python domain model">
+    <figcaption><span class="code-dot" aria-hidden="true"></span>models.py <span class="code-note">compiles to Morphir IR</span></figcaption>
+    <pre><code class="language-python"><span class="tok-keyword">from</span> __future__ <span class="tok-keyword">import</span> annotations
+
+<span class="tok-keyword">from</span> dataclasses <span class="tok-keyword">import</span> dataclass
+
+
+@dataclass(frozen=<span class="tok-keyword">True</span>)
+<span class="tok-keyword">class</span> <span class="tok-name">Pending</span>:
+    <span class="tok-keyword">pass</span>
+
+
+@dataclass(frozen=<span class="tok-keyword">True</span>)
+<span class="tok-keyword">class</span> <span class="tok-name">Approved</span>:
+    amount: <span class="tok-name">float</span>
+
+
+<span class="tok-keyword">type</span> Decision = Pending | Approved</code></pre>
+  </figure>
+</section>
+<ol class="pipeline" aria-label="How Morphir Python works">
+  <li class="step-source">Python domain model</li>
+  <li class="step-ir">Morphir IR</li>
+  <li class="step-target">Generated Python library</li>
+</ol>
+<section class="features" aria-label="Work with Morphir Python">
+  <article class="feature feature-blue">
+    <span class="feature-icon icon-ir" aria-hidden="true"></span>
+    <h2>Work with Morphir IR</h2>
+    <p>Read, write and migrate versioned models with the dependency-free <a href="/docs/library/">Python library</a>.</p>
+  </article>
+  <article class="feature feature-orange">
+    <span class="feature-icon icon-run" aria-hidden="true"></span>
+    <h2>Compile through Python or the CLI</h2>
+    <p>Compile and generate in memory with the <a href="/docs/python-compiler/">typed API</a>, or follow a complete <a href="/docs/quickstart/">CLI round trip</a>.</p>
+  </article>
+  <article class="feature feature-blue">
+    <span class="feature-icon icon-code" aria-hidden="true"></span>
+    <h2>Connect to Morphir</h2>
+    <p>Install the extension with <a href="/docs/python-extension/">finos/morphir</a>. Check the <a href="/docs/compatibility/">qualified host matrix</a> for MoonBit integration and IR interchange.</p>
+  </article>
+</section>

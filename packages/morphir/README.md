@@ -1,5 +1,10 @@
 # Morphir
 
+Read the [documentation site](https://finos.github.io/morphir-python/) for
+[installation](https://finos.github.io/morphir-python/docs/installation/),
+[API examples](https://finos.github.io/morphir-python/docs/python-compiler/) and
+[CLI workflows](https://finos.github.io/morphir-python/docs/quickstart/).
+
 Python port of [Morphir](https://morphir.finos.org) - functional domain modeling for the enterprise.
 
 This is the core library package containing:
@@ -176,6 +181,13 @@ change in a later minor release of this package. It writes `formatVersion` 4 and
 the distribution wrapped by its kind, never a format-3 shape. The module
 docstring lists the gaps between the Python v4 model and upstream v4, each of
 which fails with a diagnostic instead of guessing or dropping data.
+
+The reader accepts every spelling the pinned schema allows. The writer emits the
+compact canonical spelling that the profile prefers and Rust `morphir-core`
+writes, so `{"Reference": {"fqname": "morphir/SDK:basics#int"}}` is written as
+`"morphir/SDK:basics#int"`. Pass `spelling=v4_codec.Spelling.EXPANDED`, or use
+`with v4_codec.use_spelling(v4_codec.Spelling.EXPANDED):`, to write every node in
+the expanded form. Both spellings decode to the same model.
 
 The v4 model follows the upstream reference model at that commit:
 

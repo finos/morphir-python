@@ -22,7 +22,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-CATEGORIES = ("python", "native", "rust", "bundle")
+CATEGORIES = (
+    "python",
+    "native",
+    "rust",
+    "bundle",
+    "docs",
+    "docs-examples",
+    "docs-hosts",
+)
 """``python``: lint, type check and Python tests; ``native``: the native wheel and
 its clean-install qualification; ``rust``: Rust format, lint, tests and the
 independent consumer; ``bundle``: the WASM extension bundle and its host check."""
@@ -35,33 +43,56 @@ JOBS: Mapping[str, tuple[str, ...]] = {
     "rust": ("rust",),
     "bundle": ("bundle",),
     "build": ("python", "native"),
+    "docs": ("docs", "docs-examples", "docs-hosts"),
 }
 """Each job runs when any of its categories is selected."""
 
 # First match wins. Each rule names the categories a matching path selects.
 RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (".github/workflows/docs.yml", ("docs", "docs-examples", "docs-hosts")),
+    (".github/workflows/site-publish.yml", ("docs", "docs-examples", "docs-hosts")),
+    (".config/mise/tasks/site/*", ("docs",)),
+    (".config/mise/tasks/docs/*", ("docs", "docs-examples")),
+    ("site/integrations.json", ("docs", "docs-examples", "docs-hosts")),
+    ("site/evidence/*", ("docs", "docs-hosts")),
+    ("site/*", ("docs",)),
+    ("examples/extension.sh", ("docs", "docs-examples", "docs-hosts")),
+    ("examples/model/*", ("docs", "docs-examples", "docs-hosts")),
+    ("examples/install/*", ("python", "native", "docs", "docs-examples")),
+    ("examples/*", ("docs", "docs-examples")),
+    ("scripts/docs_hosts.py", ("docs", "docs-examples", "docs-hosts")),
+    ("scripts/docs_*.py", ("docs", "docs-examples")),
+    ("scripts/site_*.py", ("docs", "docs-examples")),
+    ("tests/tools/test_python_docs.py", ("docs", "docs-examples")),
+    ("tests/unit/test_docs*.py", ("docs", "docs-examples")),
+    ("tests/unit/test_site*.py", ("docs", "docs-examples")),
+    ("docs/python-extension.md", ("docs", "docs-examples", "docs-hosts")),
+    ("docs/moonbit.md", ("docs", "docs-examples", "docs-hosts")),
+    ("docs/compatibility.md", ("docs", "docs-examples", "docs-hosts")),
+    ("docs/templates/*", ()),
+    ("docs/site.md", ("docs",)),
+    ("docs/site-foundation.md", ("docs",)),
+    ("docs/*", ("docs", "docs-examples")),
     (".github/*", CATEGORIES),
     (".config/mise/*", CATEGORIES),
-    ("rust/extension.toml", ("bundle",)),
+    ("rust/extension.toml", ("bundle", "docs", "docs-examples", "docs-hosts")),
     # Lint and type checks cover every script.
-    ("scripts/extension_bundle.py", ("python", "bundle")),
+    ("scripts/extension_bundle.py", ("python", "bundle", "docs", "docs-hosts")),
     ("rust/crates/morphir-python-binding/*", CATEGORIES),
     ("rust/crates/morphir-python-native/*", ("python", "native", "rust")),
     ("rust/*", CATEGORIES),
-    ("packages/morphir-python-native/*", ("python", "native")),
+    ("packages/morphir-python-native/*", ("python", "native", "docs", "docs-examples")),
     ("scripts/qualify_native.py", ("python", "native")),
-    ("tests/fixtures/python/*", ("python", "native", "bundle")),
-    ("packages/*", ("python", "native")),
+    ("tests/fixtures/python/*", ("python", "native", "bundle", "docs", "docs-hosts")),
+    ("packages/*", ("python", "native", "docs", "docs-examples")),
     ("tests/*", ("python", "native")),
     ("features/*", ("python", "native")),
     ("scripts/*", ("python", "native")),
-    ("pyproject.toml", ("python", "native")),
-    ("uv.lock", ("python", "native")),
+    ("pyproject.toml", ("python", "native", "docs", "docs-examples")),
+    ("uv.lock", ("python", "native", "docs", "docs-examples")),
     ("behave.ini", ("python",)),
     (".pre-commit-config.yaml", ("python",)),
-    ("docs/python-compiler.md", ("python",)),
     ("*.md", ()),
-    ("docs/*", ()),
     ("openspec/*", ()),
     ("LICENSE", ()),
     ("LICENSE.spdx", ()),
@@ -70,7 +101,7 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("skills-lock.json", ()),
     (".beads/*", ()),
     # Hatchling uses .gitignore to choose the files in each source archive.
-    (".gitignore", ("python", "native")),
+    (".gitignore", ("python", "native", "docs", "docs-examples")),
     (".gitattributes", ()),
 )
 

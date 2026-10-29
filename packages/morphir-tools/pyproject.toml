@@ -1,6 +1,6 @@
 [project]
 name = "morphir-python"
-version = "0.0.2"
+version = "0.1.2"
 description = "CLI tools and extensions for Morphir Python"
 readme = "README.md"
 license = "Apache-2.0"
@@ -22,9 +22,9 @@ authors = [
     { name = "FINOS", email = "morphir@finos.org" }
 ]
 dependencies = [
-    "morphir>=0.0.1",
+    "morphir>=0.1.0",
     # Exact qualified native compiler; checked again when the compiler first loads.
-    "morphir-python-native==0.1.0",
+    "morphir-python-native==0.1.2",
     "typer>=0.15",
     # Rich uses Pygments; older versions are affected by CVE-2026-4539.
     "pygments>=2.20.0",
@@ -32,7 +32,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/finos/morphir-python"
-Documentation = "https://morphir.finos.org"
+Documentation = "https://finos.github.io/morphir-python/"
 Repository = "https://github.com/finos/morphir-python"
 Issues = "https://github.com/finos/morphir-python/issues"
 

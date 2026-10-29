@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "title": "Morphir Python",
+  "description": "Model in Python. Exchange Morphir IR. Generate Python.",
+  "base_path": "/morphir-python/",
+  "site_url": "https://finos.github.io/morphir-python/",
+  "repo_url": "https://github.com/finos/morphir-python",
+  "repo_ref": "main",
+  "packages": [],
+  "api": [],
+  "source_roots": [
+    "docs",
+    "site/pages"
+  ],
+  "nav": [
+    {
+      "group": "Start",
+      "items": [
+        "installation.md",
+        "quickstart.md"
+      ]
+    },
+    {
+      "group": "Python API",
+      "items": [
+        "python-compiler.md",
+        "library.md",
+        "api-reference.md"
+      ]
+    },
+    {
+      "group": "CLI",
+      "items": [
+        "cli-reference.md"
+      ]
+    },
+    {
+      "group": "Connect to Morphir",
+      "items": [
+        "compatibility.md",
+        "python-extension.md",
+        "moonbit.md"
+      ]
+    },
+    {
+      "group": "Contribute",
+      "items": [
+        "site.md",
+        "site-foundation.md",
+        "releasing.md"
+      ]
+    }
+  ],
+  "static": [
+    {
+      "from": "site/downloads",
+      "to": "assets/downloads"
+    }
+  ]
+}

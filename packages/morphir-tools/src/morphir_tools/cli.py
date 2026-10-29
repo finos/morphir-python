@@ -53,6 +53,13 @@ ir_app = typer.Typer(
 app.add_typer(ir_app, name="ir")
 
 
+class V4Spelling(str, Enum):
+    """The draft v4 JSON spelling to write."""
+
+    COMPACT = "compact"
+    EXPANDED = "expanded"
+
+
 class Target(str, Enum):
     """The IR version to convert to."""
 
@@ -184,6 +191,14 @@ def convert(
             "writing v4, which spells an input as a bare type."
         ),
     ] = False,
+    v4_spelling: Annotated[
+        V4Spelling,
+        typer.Option(
+            "--v4-spelling",
+            help="The v4 JSON spelling to write: compact, the canonical form, or "
+            "expanded. Ignored when writing v3.",
+        ),
+    ] = V4Spelling.COMPACT,
 ) -> None:
     """Convert between format 3 (3.0.x and 3.1.x) and draft IR v4.
 
@@ -209,7 +224,9 @@ def convert(
                 upgraded = Ok(migrated.value, migrated.warnings)
             if drop_input_attributes:
                 upgraded = drop_inputs(upgraded.value)
-            document = v4_codec.encode_versioned_distribution(upgraded.value)
+            document = v4_codec.encode_versioned_distribution(
+                upgraded.value, spelling=v4_codec.Spelling(v4_spelling.value)
+            )
             warnings: tuple[Diagnostic, ...] = upgraded.warnings
         else:
             if not _is_v4(version):

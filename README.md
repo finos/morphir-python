@@ -3,6 +3,11 @@
 
 # Morphir Python
 
+Read the [documentation site](https://finos.github.io/morphir-python/) for
+[installation](https://finos.github.io/morphir-python/docs/installation/),
+[API examples](https://finos.github.io/morphir-python/docs/python-compiler/) and
+[CLI workflows](https://finos.github.io/morphir-python/docs/quickstart/).
+
 Python port of [Morphir](https://morphir.finos.org) - a library of tools for building and working with functional domain models.
 
 Morphir enables you to write business logic once and use it across multiple platforms, languages, and runtimes. It provides a strongly-typed intermediate representation (IR) that captures the semantics of your domain model.
@@ -20,16 +25,20 @@ The library and CLI are separate distributions:
 Install just the library and SDK:
 
 ```bash
-pip install morphir==0.0.1
-# or: uv add morphir==0.0.1
+pip install morphir==0.1.1
+# or: uv add morphir==0.1.1
 ```
 
 Install the CLI, which also installs the library:
 
 ```bash
-pip install morphir-python==0.0.2
-# or: uv add morphir-python==0.0.2
+python -m pip install --only-binary=:all: morphir-python==0.1.2
+# or: uv add morphir-python==0.1.2
 ```
+
+For an isolated command-line installation, use the
+[mise/uv or mise/pipx configuration](docs/installation.md#install-the-cli-with-mise).
+mise manages Python and the CLI environment for you.
 
 Python 3.14 or later is required. The CLI inspects and converts IR, compiles a
 supported subset of Python to Morphir IR, and generates Python from Morphir IR.
@@ -51,10 +60,10 @@ existing virtual environment:
 
 ```bash
 python -m pip uninstall -y morphir-python morphir
-python -m pip install morphir-python==0.0.2
+python -m pip install morphir-python==0.0.3
 ```
 
-Library-only consumers can install `morphir==0.0.1` instead. Imports remain
+Library-only consumers can install `morphir==0.0.2` instead. Imports remain
 `morphir` and `morphir_tools`; the command remains `morphir-python`. The release
 checks exercise the uninstall/reinstall migration from the published old bundle.
 

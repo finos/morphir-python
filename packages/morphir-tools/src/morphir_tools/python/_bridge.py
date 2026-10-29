@@ -8,7 +8,7 @@ from typing import Protocol, cast
 
 from ._types import NativeCompilerInfo, NativeCompilerUnavailable
 
-EXPECTED_NATIVE_VERSION = "0.1.0"
+EXPECTED_NATIVE_VERSION = "0.1.2"
 """The exact ``morphir-python-native`` version this release was qualified with.
 
 It must equal the pin in this distribution's ``pyproject.toml``.

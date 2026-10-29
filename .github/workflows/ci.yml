@@ -5,12 +5,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
   workflow_call:
     inputs:
       release-tag:
         description: Package-specific tag that must match its project version
         type: string
         default: ''
+      qualify-mep:
+        description: Run the source-pinned canonical MCK before release promotion
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,9 +32,11 @@ jobs:
     outputs:
       jobs: ${{ steps.select.outputs.jobs }}
       reason: ${{ steps.select.outputs.reason }}
+      docs-examples: ${{ steps.select.outputs.docs-examples }}
+      docs-hosts: ${{ steps.select.outputs.docs-hosts }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -56,7 +63,7 @@ jobs:
       MORPHIR_SKIP_NATIVE: '1'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -79,7 +86,7 @@ jobs:
       MORPHIR_SKIP_NATIVE: '1'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -97,16 +104,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build the manylinux_2_28 wheel and source archive
         uses: PyO3/maturin-action@v1
+        env:
+          # Maturin builds the wheel from an isolated sdist. Share registry
+          # dependency objects with the process hook across that source path.
+          CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
         with:
           working-directory: packages/morphir-python-native
           maturin-version: '1.15.0'
           rust-toolchain: '1.98.1'
           manylinux: '2_28'
           target: x86_64-unknown-linux-gnu
+          # Build the standalone guest in the same glibc 2.28 container. Its
+          # shared compiler objects are then reused by the Python wheel build.
+          before-script-linux: >-
+            cargo build --manifest-path ../../rust/Cargo.toml --locked --release
+            -p morphir-python-extension --target x86_64-unknown-linux-gnu
           args: --release --locked --sdist --out ../../dist/native
 
       - name: Audit the Linux baseline and bundled libraries
@@ -127,6 +143,13 @@ jobs:
           path: dist/native/
           if-no-files-found: error
 
+      - name: Upload the process executable from the portable build
+        uses: actions/upload-artifact@v6
+        with:
+          name: process-linux-x86_64
+          path: rust/target/x86_64-unknown-linux-gnu/release/morphir-python-extension
+          if-no-files-found: error
+
   test:
     name: Test
     needs: [changes, native-wheel]
@@ -134,7 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -170,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -193,7 +216,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -215,8 +238,82 @@ jobs:
         run: |
           MORPHIR_NATIVE_WHEEL="$(ls dist/native/*.whl)" mise run install
 
+      - name: Download the portable process executable
+        uses: actions/download-artifact@v7
+        with:
+          name: process-linux-x86_64
+          path: dist/process/
+
       - name: Package and qualify the bundle offline
         run: mise run extension:bundle
+
+      - name: Package and qualify the process guest offline
+        run: |
+          mkdir -p .morphir/build/extensions .dev/qualification
+          uv run --no-sync python -m scripts.process_extension \
+            --executable dist/process/morphir-python-extension \
+            --output .morphir/build/extensions/python-process \
+            --commit "$GITHUB_SHA" \
+            --report .dev/qualification/process-x86_64-unknown-linux-gnu.json \
+            --host-check
+
+      # Full executable conformance belongs to candidate qualification. The
+      # normal PR path already covers model negotiation and framing in Rust.
+      - name: Cache the source-pinned canonical MCK build
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v5
+        with:
+          path: .dev/mep-tool/
+          key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
+          restore-keys: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-
+
+      - name: Cache the independent WASM adapter build
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/extension-qualification -> ../../.dev/host-qualification-target
+
+      - name: Prepare the shared checker and transparent WASM adapter
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/.dev/host-qualification-target
+        run: |
+          python -m scripts.mep_tool --output .dev/qualification/mep-tool.json
+          cargo build --locked --release --manifest-path tools/extension-qualification/Cargo.toml --bin mep_wasm_host
+
+      - name: Run and independently recheck canonical MEP reports
+        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
+        run: |
+          python -m scripts.qualify_mep \
+            --bundle .morphir/build/extensions/python-process --runtime process \
+            --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
+            --report .dev/qualification/mep-x86_64-unknown-linux-gnu-report.json \
+            --receipt .dev/qualification/mep-x86_64-unknown-linux-gnu-recheck.json
+          python -m scripts.qualify_mep \
+            --bundle .morphir/build/extensions/python --runtime wasm \
+            --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
+            --adapter .dev/host-qualification-target/release/mep_wasm_host \
+            --report .dev/qualification/bundle-mep-report.json \
+            --receipt .dev/qualification/bundle-mep-recheck.json
+
+      - name: Retain failed checker build diagnostics
+        if: failure() && hashFiles('.dev/mep-tool/*/build.log') != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: mep-build-log-linux-x86_64
+          path: .dev/mep-tool/*/build.log
+          include-hidden-files: true
+
+      - name: Upload the qualified process bundle and receipt
+        uses: actions/upload-artifact@v6
+        with:
+          name: morphir-python-process-x86_64-unknown-linux-gnu
+          path: |
+            .morphir/build/extensions/python-process/
+            .dev/qualification/process-x86_64-unknown-linux-gnu.json
+            .dev/qualification/mep-x86_64-unknown-linux-gnu-*.json
+          include-hidden-files: true
+          if-no-files-found: error
 
       - name: Upload the extension bundle
         uses: actions/upload-artifact@v6
@@ -235,7 +332,7 @@ jobs:
     if: fromJSON(needs.changes.outputs.jobs).build
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v3
@@ -259,6 +356,12 @@ jobs:
         env:
           NATIVE_DIST: ${{ github.workspace }}/dist/native
           # A python-v release qualifies the published native wheel instead.
+          RELEASE_TAG: ${{ inputs.release-tag }}
+
+      - name: Qualify mise uv and pipx candidate installs
+        if: ${{ !startsWith(inputs.release-tag, 'morphir-v') }}
+        run: mise run cli:qualify-mise
+        env:
           RELEASE_TAG: ${{ inputs.release-tag }}
 
       - name: Upload morphir distributions
@@ -285,14 +388,27 @@ jobs:
             .dev/qualification/*.json
           include-hidden-files: true
 
+  docs:
+    name: Documentation
+    needs: [changes, native-wheel]
+    if: >-
+      always() && needs.changes.result == 'success' &&
+      fromJSON(needs.changes.outputs.jobs).docs &&
+      (needs.native-wheel.result == 'success' || needs.native-wheel.result == 'skipped')
+    uses: ./.github/workflows/docs.yml
+    with:
+      examples: ${{ needs.changes.outputs.docs-examples == 'true' }}
+      hosts: ${{ needs.changes.outputs.docs-hosts == 'true' }}
+      native-wheel: ${{ fromJSON(needs.changes.outputs.jobs)['native-wheel'] }}
+
   all-checks:
     name: All Checks
     if: always()
-    needs: [changes, lint, typecheck, native-wheel, test, rust, bundle, build]
+    needs: [changes, lint, typecheck, native-wheel, test, rust, bundle, build, docs]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Require every selected check
         env:

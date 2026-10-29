@@ -196,12 +196,12 @@ wheels = [
 
 [[package]]
 name = "morphir"
-version = "0.0.1"
+version = "0.1.1"
 source = { editable = "packages/morphir" }
 
 [[package]]
 name = "morphir-python"
-version = "0.0.2"
+version = "0.1.2"
 source = { editable = "packages/morphir-tools" }
 dependencies = [
     { name = "morphir" },

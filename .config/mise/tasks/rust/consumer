@@ -10,7 +10,7 @@ trap 'rm -rf "$(dirname "$consumer")"' EXIT
 cargo new --quiet "$consumer"
 cat >>"$consumer/Cargo.toml" <<TOML
 morphir-python-binding = { git = "file://$repository", rev = "$revision" }
-morphir-extension-sdk = "=0.3.0"
+morphir-extension-sdk = "=0.4.0"
 serde_json = "1"
 TOML
 # The README example is the consumer's main program.

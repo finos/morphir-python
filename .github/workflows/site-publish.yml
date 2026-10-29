@@ -1,0 +1,73 @@
+name: Publish documentation
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: Successful main CI run whose retained checked site should be deployed or restored
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: documentation-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate the producer before consuming its artifact
+        id: producer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run-id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          mkdir -p .dev
+          gh api "repos/$REPOSITORY/actions/runs/$RUN_ID" > .dev/site-producer.json
+          python3 scripts/site_release.py producer --run-json .dev/site-producer.json --repository "$REPOSITORY" >> "$GITHUB_OUTPUT"
+      - name: Checkout the producer's exact source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.producer.outputs.source }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: documentation-site
+          path: _site
+          run-id: ${{ steps.producer.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Verify checked bytes and candidate identity without rebuilding
+        env:
+          SOURCE_SHA: ${{ steps.producer.outputs.source }}
+        run: python3 candidate/scripts/site_release.py verify --site _site --source "$SOURCE_SHA" --deploy
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
