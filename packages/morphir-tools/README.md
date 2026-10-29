@@ -24,7 +24,7 @@ wheel. No Rust toolchain is required on supported platforms.
 To install the CLI and compiler API into an existing Python environment:
 
 ```bash
-python -m pip install --only-binary=:all: morphir-python==0.1.0
+python -m pip install --only-binary=:all: morphir-python==0.1.2
 ```
 
 Or with uv:

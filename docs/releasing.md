@@ -43,9 +43,11 @@ published package with the same version for the candidate.
 
 Native releases and manual release qualification cover Linux x86_64/aarch64,
 macOS arm64/x86_64 and Windows x86_64. A CLI release also runs these platforms,
-using its pinned published native wheels instead of rebuilding Rust. Every
+using its pinned published native wheels. Every
 selected platform must pass before the CLI publishes. The reused Linux wheel
 already passes the same installer checks in the qualification workflow.
+The shared CI qualification still checks a fresh Linux source build; the
+per-platform CLI installation checks use the published native wheels.
 
 Each installer has separate temporary mise configuration, state, cache and
 package environments outside the checkout. Tests check installed versions,

@@ -25,15 +25,15 @@ The library and CLI are separate distributions:
 Install just the library and SDK:
 
 ```bash
-pip install morphir==0.1.0
-# or: uv add morphir==0.1.0
+pip install morphir==0.1.1
+# or: uv add morphir==0.1.1
 ```
 
 Install the CLI, which also installs the library:
 
 ```bash
-python -m pip install --only-binary=:all: morphir-python==0.1.0
-# or: uv add morphir-python==0.1.0
+python -m pip install --only-binary=:all: morphir-python==0.1.2
+# or: uv add morphir-python==0.1.2
 ```
 
 For an isolated command-line installation, use the

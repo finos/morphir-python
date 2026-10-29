@@ -1,6 +1,6 @@
 # Work with IR and the SDK
 
-**Released:** CPython 3.14 and `morphir==0.1.0`. These examples need neither the
+**Released:** CPython 3.14 and `morphir==0.1.1`. These examples need neither the
 CLI nor the native compiler. Install only `morphir` as described in
 [installation](installation.md#use-only-the-library).
 

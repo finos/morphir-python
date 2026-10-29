@@ -29,7 +29,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.mck-diagnostic
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v3
         with:
           install_args: rust python
@@ -116,7 +116,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Reuse the qualification wheel
         if: matrix.reuse && !startsWith(github.ref, 'refs/tags/python-v')
@@ -198,7 +198,7 @@ jobs:
         if: ${{ !matrix.reuse || startsWith(github.ref, 'refs/tags/python-v') }}
         uses: jdx/mise-action@v3
         with:
-          version: '2026.10.20'
+          version: '2026.10.22'
           install: false
 
       - name: Qualify mise uv and actual pipx installs
@@ -346,7 +346,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download the qualified platform wheels
         uses: actions/download-artifact@v7
@@ -366,7 +366,10 @@ jobs:
 
       - name: Refuse missing, extra or mismatched candidates
         run: |
-          tag="${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/native-v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          fi
           if [[ -z "$tag" ]]; then
             tag="native-v$(python3 -c 'import tomllib; print(tomllib.load(open("rust/crates/morphir-python-native/Cargo.toml","rb"))["package"]["version"])')"
           fi
@@ -390,7 +393,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.14
         uses: actions/setup-python@v6
@@ -513,7 +516,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download the qualified bundle
         uses: actions/download-artifact@v7
@@ -654,7 +657,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download the published package artifacts
         uses: actions/download-artifact@v7

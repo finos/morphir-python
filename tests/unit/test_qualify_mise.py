@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import tomllib
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
 from scripts import qualify_mise as q
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.mark.parametrize("installer", ["uv", "pipx"])
@@ -38,6 +35,22 @@ def test_isolation_does_not_inherit_active_python_environment(tmp_path: Path) ->
     assert "PYTHONPATH" not in env
     assert env["MISE_DATA_DIR"] == str(tmp_path / "data")
     assert env["MISE_CONFIG_DIR"] == str(tmp_path / "config")
+
+
+def test_installer_caches_are_private_to_each_qualification(tmp_path: Path) -> None:
+    original = {
+        key: str(tmp_path / "user-cache" / key)
+        for key in ("PIP_CACHE_DIR", "UV_CACHE_DIR")
+    }
+    environments = {
+        installer: q.isolated_environment(tmp_path / installer, original)
+        for installer in ("uv", "pipx")
+    }
+    for key, user_cache in original.items():
+        for installer, env in environments.items():
+            assert env[key] != user_cache
+            assert Path(env[key]).is_relative_to(tmp_path / installer)
+        assert environments["uv"][key] != environments["pipx"][key]
 
 
 def test_candidate_refuses_a_missing_native_input_before_resolving(

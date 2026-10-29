@@ -22,7 +22,7 @@ jobs:
     if: inputs.examples
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.15'
@@ -52,7 +52,7 @@ jobs:
     if: inputs.hosts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.15'
@@ -66,7 +66,7 @@ jobs:
       - name: Install the qualified Python pair
         run: |
           uv venv .dev/docs-host-python
-          uv pip install --python .dev/docs-host-python/bin/python --only-binary=:all: --refresh morphir==0.1.0 morphir-python==0.1.0
+          uv pip install --python .dev/docs-host-python/bin/python --only-binary=:all: --refresh morphir==0.1.1 morphir-python==0.1.2
       - name: Run displayed recipe, offline bundle checks and MoonBit refusal probes
         run: .dev/docs-host-python/bin/python scripts/docs_hosts.py qualify
       - uses: actions/upload-artifact@v6
@@ -85,7 +85,7 @@ jobs:
       (!inputs.hosts || needs.hosts.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.15'
