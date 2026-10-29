@@ -1481,7 +1481,7 @@ dependencies = [
  "ruff_python_ast 0.0.15",
  "ruff_python_codegen",
  "ruff_python_parser 0.0.15",
- "ruff_text_size 0.0.15",
+ "ruff_text_size 0.0.20",
  "serde_json",
  "tempfile",
  "tokio",
