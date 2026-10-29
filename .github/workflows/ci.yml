@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Install dependencies
         run: mise run install
@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Install dependencies
         run: mise run install
@@ -137,14 +137,14 @@ jobs:
           sha256sum dist/native/*.whl dist/native/*.tar.gz | tee dist/native/SHA256SUMS
 
       - name: Upload the native distributions
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: native-linux-x86_64
           path: dist/native/
           if-no-files-found: error
 
       - name: Upload the process executable from the portable build
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: process-linux-x86_64
           path: rust/target/x86_64-unknown-linux-gnu/release/morphir-python-extension
@@ -160,10 +160,10 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Download the native distributions
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: native-linux-x86_64
           path: dist/native/
@@ -179,7 +179,7 @@ jobs:
         run: mise run test-bdd
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
@@ -196,7 +196,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -219,7 +219,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -229,7 +229,7 @@ jobs:
             .dev/tools/morphir-rust-0aa60eb799d4
 
       - name: Download the native distributions
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: native-linux-x86_64
           path: dist/native/
@@ -239,7 +239,7 @@ jobs:
           MORPHIR_NATIVE_WHEEL="$(ls dist/native/*.whl)" mise run install
 
       - name: Download the portable process executable
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: process-linux-x86_64
           path: dist/process/
@@ -298,14 +298,14 @@ jobs:
 
       - name: Retain failed checker build diagnostics
         if: failure() && hashFiles('.dev/mep-tool/*/build.log') != ''
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: mep-build-log-linux-x86_64
           path: .dev/mep-tool/*/build.log
           include-hidden-files: true
 
       - name: Upload the qualified process bundle and receipt
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: morphir-python-process-x86_64-unknown-linux-gnu
           path: |
@@ -316,7 +316,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload the extension bundle
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: morphir-python-extension-bundle
           path: |
@@ -335,13 +335,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v5
 
       - name: Build packages
         run: mise run build
 
       - name: Download the native distributions
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: native-linux-x86_64
           path: dist/native/
@@ -365,14 +365,14 @@ jobs:
           RELEASE_TAG: ${{ inputs.release-tag }}
 
       - name: Upload morphir distributions
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: morphir-dist
           path: packages/morphir/dist/
           if-no-files-found: error
 
       - name: Upload morphir-python distributions
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: morphir-python-dist
           path: packages/morphir-tools/dist/
@@ -380,7 +380,7 @@ jobs:
 
       - name: Upload release scan reports
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-scan-reports
           path: |

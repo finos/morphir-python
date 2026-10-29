@@ -56,7 +56,7 @@ jobs:
           ref: ${{ steps.producer.outputs.source }}
           path: candidate
           persist-credentials: false
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: documentation-site
           path: _site
