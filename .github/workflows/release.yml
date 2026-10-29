@@ -149,10 +149,10 @@ jobs:
                  format('cargo build --manifest-path ../../rust/Cargo.toml --locked --release -p morphir-python-extension --target {0}', matrix.target) || '' }}
           args: --release --locked --out ../../dist/native
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.15
         uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -395,10 +395,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.15
         uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Download each qualified process platform
         uses: actions/download-artifact@v8
