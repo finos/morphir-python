@@ -2172,7 +2172,7 @@ dependencies = [
 [[package]]
 name = "morphir-common"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "anyhow",
  "cap-fs-ext 4.0.3",
@@ -2213,7 +2213,7 @@ dependencies = [
 [[package]]
 name = "morphir-config"
 version = "0.0.1"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "secrecy",
  "serde",
@@ -2226,7 +2226,7 @@ dependencies = [
 [[package]]
 name = "morphir-core"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "anyhow",
  "bigdecimal",
@@ -2246,7 +2246,7 @@ dependencies = [
 [[package]]
 name = "morphir-distribution"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "flate2",
  "fs2",
@@ -2270,7 +2270,7 @@ dependencies = [
 [[package]]
 name = "morphir-extension-sdk"
 version = "0.4.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "base64 0.22.1",
  "extism-pdk",
@@ -2289,7 +2289,7 @@ dependencies = [
 [[package]]
 name = "morphir-host"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "async-lock",
  "async-trait",
@@ -2305,7 +2305,7 @@ dependencies = [
 [[package]]
 name = "morphir-host-native"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -2329,7 +2329,7 @@ dependencies = [
 [[package]]
 name = "morphir-json"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "serde",
  "serde_json",
@@ -2355,7 +2355,7 @@ dependencies = [
 [[package]]
 name = "morphir-workspace"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "globset",
  "morphir-config",
