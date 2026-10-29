@@ -198,7 +198,7 @@ jobs:
         if: ${{ !matrix.reuse || startsWith(github.ref, 'refs/tags/python-v') }}
         uses: jdx/mise-action@v5
         with:
-          version: '2026.10.20'
+          version: '2026.10.22'
           install: false
 
       - name: Qualify mise uv and actual pipx installs
@@ -366,7 +366,10 @@ jobs:
 
       - name: Refuse missing, extra or mismatched candidates
         run: |
-          tag="${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/native-v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          fi
           if [[ -z "$tag" ]]; then
             tag="native-v$(python3 -c 'import tomllib; print(tomllib.load(open("rust/crates/morphir-python-native/Cargo.toml","rb"))["package"]["version"])')"
           fi
