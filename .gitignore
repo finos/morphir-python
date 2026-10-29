@@ -73,3 +73,14 @@ yarn-error.log*
 
 # behave writes the pretty formatter to this file when its output is piped
 pretty.output
+
+# Rust
+rust/target/
+
+# Extension bundles built by mise run extension:bundle
+.morphir/
+
+# Checked documentation output and browser dependencies
+_site/
+site/browser/node_modules/
+site/downloads/

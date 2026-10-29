@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-#MISE description="Build the bundled morphir-python distribution"
+#MISE description="Build the independent library and CLI distributions"
 set -euo pipefail
 
+echo "Building morphir library and SDK..."
+uv build packages/morphir --out-dir packages/morphir/dist
+
 echo "Building morphir-python package..."
-uv build --out-dir dist
+uv build packages/morphir-tools --out-dir packages/morphir-tools/dist
 
 echo "Build complete!"

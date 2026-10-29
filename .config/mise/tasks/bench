@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Measure native, bridge, API and CLI compile and generate costs"
+# Arguments pass to scripts/bench.py, for example: mise run bench -- --modules 40
+set -euo pipefail
+
+# Measure the release wheel, not a development build.
+NATIVE_SDIST=0 mise run native:build
+uv pip install --quiet --no-deps --reinstall dist/native/morphir_python_native-*.whl
+uv run --no-sync python scripts/bench.py "$@"

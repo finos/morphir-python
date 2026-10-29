@@ -6,4 +6,4 @@ import pytest
 @pytest.fixture
 def sample_version() -> str:
     """Provide the expected version string for tests."""
-    return "0.0.1"
+    return "0.1.1"

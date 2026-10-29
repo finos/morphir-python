@@ -263,7 +263,8 @@ class TestNames:
         assert fail_codes(codec.decode_fqname, "morphir/SDK.list.map") == (
             d.INVALID_NAME,
         )
-        assert fail_codes(codec.decode_name, ["legacy"]) == (d.INVALID_JSON,)
+        assert codec.decode_name(["legacy"]) == n("legacy")
+        assert fail_codes(codec.decode_name, 7) == (d.INVALID_JSON,)
 
 
 class TestRoundTrip:
@@ -363,10 +364,8 @@ class TestDecodeFailures:
         assert err.codes == (d.UNKNOWN_NODE,)
         assert err.diagnostics[0].location == ("Intersection",)
 
-    def test_compact_spelling_is_not_guessed(self) -> None:
-        assert fail_codes(codec.decode_type, "morphir/SDK:basics#int") == (
-            d.INVALID_JSON,
-        )
+    def test_ambiguous_spelling_is_not_guessed(self) -> None:
+        assert fail_codes(codec.decode_type, "morphir/SDK:basics") == (d.INVALID_NAME,)
         assert fail_codes(codec.decode_type, {"Unit": {}, "Tuple": {}}) == (
             d.UNKNOWN_NODE,
         )

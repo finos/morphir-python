@@ -3,29 +3,631 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'morphir-v*'
       - 'python-v*'
-  # Qualification only. Publishing requires a tag push.
+      - 'native-v*'
+      - 'extension/python/v*'
+  # Qualification only, including every native wheel platform. Publishing
+  # requires a tag push.
   workflow_dispatch:
+    inputs:
+      mck-diagnostic:
+        description: Build only the shared MCK on Windows; never stage or publish a release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: ${{ inputs.mck-diagnostic && 'mck-diagnostic' || 'release' }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  mck-diagnostic:
+    name: Diagnose Windows shared MCK build
+    if: github.event_name == 'workflow_dispatch' && inputs.mck-diagnostic
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v3
+        with:
+          install_args: rust python
+      - uses: actions/cache@v5
+        with:
+          path: |
+            .dev/mep-tool/
+            ${{ runner.temp }}/mck
+          key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
+          restore-keys: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-
+      - name: Build the pinned canonical checker
+        env:
+          MORPHIR_MCK_CARGO_HOME: ${{ runner.temp }}/mck
+        run: python -m scripts.mep_tool --output .dev/qualification/mep-tool.json
+      - name: Inspect checkout changes after the Windows build
+        if: always()
+        shell: pwsh
+        run: |
+          Get-Item .dev/mep-tool/*/source | ForEach-Object {
+            $source = $_.FullName
+            Write-Output "Pinned MCK source: $source"
+            git -C $source status --short
+            git -C $source diff --stat
+            git -C $source diff --ignore-space-at-eol --stat
+            git -C $source submodule foreach --recursive 'git status --short'
+            git -C $source submodule foreach --recursive 'git diff --stat'
+          }
+      - name: Retain checker setup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-mck-build-diagnostic
+          path: |
+            .dev/mep-tool/*/build.log
+            .dev/qualification/mep-tool.json
+          include-hidden-files: true
+          if-no-files-found: warn
+
   qualify:
     name: Qualify release
+    if: inputs.mck-diagnostic != true
     uses: ./.github/workflows/ci.yml
     with:
       release-tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      qualify-mep: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/extension/python/v') }}
 
+  # Every advertised platform builds its own wheel once; the same job installs
+  # that exact wheel, with the qualified core and tools wheels, into a clean
+  # environment without Rust before uploading it.
+  native-wheels:
+    name: Native wheel (${{ matrix.platform }})
+    needs: qualify
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/native-v') ||
+      startsWith(github.ref, 'refs/tags/python-v') ||
+      startsWith(github.ref, 'refs/tags/extension/python/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Qualification already built and tested this wheel; reuse its bytes.
+          - platform: manylinux_2_28_x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            manylinux: '2_28'
+            reuse: native-linux-x86_64
+          - platform: manylinux_2_28_aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            manylinux: '2_28'
+          - platform: macosx_11_0_arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            manylinux: ''
+          - platform: macosx_10_12_x86_64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            manylinux: ''
+          - platform: win_amd64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            manylinux: ''
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Reuse the qualification wheel
+        if: matrix.reuse && !startsWith(github.ref, 'refs/tags/python-v')
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ matrix.reuse }}
+          path: dist/reused/
+
+      - name: Keep only the reused wheel
+        if: matrix.reuse && !startsWith(github.ref, 'refs/tags/python-v')
+        shell: bash
+        run: mkdir -p dist/native && cp dist/reused/*.whl dist/native/
+
+      - name: Build the wheel
+        if: ${{ !matrix.reuse && !startsWith(github.ref, 'refs/tags/python-v') }}
+        uses: PyO3/maturin-action@v1
+        env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'aarch64-apple-darwin' && '11.0' || '10.12' }}
+          CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
+        with:
+          working-directory: packages/morphir-python-native
+          maturin-version: '1.15.0'
+          rust-toolchain: '1.98.1'
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux || 'off' }}
+          # Process guests share the wheel's Linux baseline and compiled core.
+          before-script-linux: >-
+            ${{ (github.event_name == 'workflow_dispatch' ||
+                 startsWith(github.ref, 'refs/tags/extension/python/v')) &&
+                 format('cargo build --manifest-path ../../rust/Cargo.toml --locked --release -p morphir-python-extension --target {0}', matrix.target) || '' }}
+          args: --release --locked --out ../../dist/native
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Download the pinned published native wheel for a CLI release
+        if: startsWith(github.ref, 'refs/tags/python-v')
+        shell: bash
+        run: |
+          pin="$(python -c 'from scripts.qualify_native import tools_pin; print(tools_pin())')"
+          uvx --from pip==26.2.2 pip download --no-deps --only-binary=:all: \
+            --dest dist/native "morphir-python-native==$pin"
+
+      - name: Audit the Linux baseline and bundled libraries
+        if: matrix.manylinux != ''
+        shell: bash
+        run: |
+          # The build container writes dist/ as root.
+          sudo chown -R "$(id -u):$(id -g)" dist
+          pipx run --spec 'auditwheel==6.8.2' auditwheel show dist/native/*.whl | tee audit.txt
+          # The report starts with the file name, so match auditwheel's own verdict.
+          tr '\n' ' ' < audit.txt | tr -s ' ' \
+            | grep -q 'consistent with the following platform tag: "${{ matrix.platform }}"'
+
+      - name: Download the qualified core and tools wheels
+        uses: actions/download-artifact@v7
+        with:
+          pattern: morphir*-dist
+          path: dist/pure/
+          merge-multiple: true
+
+      - name: Install the exact wheels without Rust and exercise them
+        shell: bash
+        run: |
+          wheel="$(ls dist/native/*.whl)"
+          [[ "$wheel" == *"-cp314-abi3-${{ matrix.platform }}.whl" ]]
+          python scripts/qualify_native.py wheel "$wheel"
+          python scripts/qualify_native.py install \
+            dist/pure/morphir-*.whl "$wheel" dist/pure/morphir_python-*.whl
+
+      # The Linux reuse already passed this in qualify. Other platforms and
+      # CLI releases exercise the package-manager path with their exact wheels.
+      - name: Set up mise without installing development toolchains
+        if: ${{ !matrix.reuse || startsWith(github.ref, 'refs/tags/python-v') }}
+        uses: jdx/mise-action@v3
+        with:
+          version: '2026.10.22'
+          install: false
+
+      - name: Qualify mise uv and actual pipx installs
+        if: ${{ !matrix.reuse || startsWith(github.ref, 'refs/tags/python-v') }}
+        shell: bash
+        run: |
+          python -m scripts.qualify_mise \
+            dist/pure/morphir-*.whl dist/native/morphir_python_native-*.whl \
+            dist/pure/morphir_python-*.whl --report dist/mise-install.json
+
+      - name: Upload mise qualification evidence
+        if: ${{ !matrix.reuse || startsWith(github.ref, 'refs/tags/python-v') }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: mise-install-${{ matrix.platform }}
+          path: dist/mise-install.json
+          if-no-files-found: error
+
+      # Linux x86_64 already produced and qualified this exact guest in qualify.
+      # The other producers use their matching native wheel for API comparison.
+      - name: Build the process executable on macOS and Windows
+        if: >-
+          matrix.manylinux == '' &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'aarch64-apple-darwin' && '11.0' || '10.12' }}
+          # The standalone guest must not require the VC redistributable.
+          # This setting is confined to the executable, not the Python wheel.
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-C target-feature=+crt-static' || '' }}
+        run: >-
+          cargo +1.98.1 build --manifest-path rust/Cargo.toml --locked --release
+          -p morphir-python-extension --target '${{ matrix.target }}'
+
+      - name: Refuse external VC and Python runtime dependencies
+        if: >-
+          runner.os == 'Windows' &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        shell: pwsh
+        run: |
+          ./.github/scripts/check_process_windows.ps1 `
+            -Executable rust/target/x86_64-pc-windows-msvc/release/morphir-python-extension.exe `
+            -Report .dev/qualification/windows-process-imports.json
+
+      - name: Qualify the process bundle against the matching Python API
+        if: >-
+          !matrix.reuse &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        shell: bash
+        run: |
+          uv venv .dev/process-check --python 3.14
+          qualifier=.dev/process-check/bin/python
+          executable=rust/target/${{ matrix.target }}/release/morphir-python-extension
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            qualifier=.dev/process-check/Scripts/python.exe
+            executable="$executable.exe"
+          fi
+          uv pip install --python "$qualifier" dist/pure/*.whl dist/native/*.whl
+          mkdir -p .morphir/build/extensions .dev/qualification
+          "$qualifier" -m scripts.process_extension \
+            --executable "$executable" \
+            --output .morphir/build/extensions/python-process \
+            --commit "$GITHUB_SHA" \
+            --report .dev/qualification/process-${{ matrix.target }}.json \
+            --host-check
+
+      - name: Set up the canonical MCK toolchain
+        if: >-
+          !matrix.reuse &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        uses: jdx/mise-action@v3
+        with:
+          install_args: rust python
+
+      - name: Cache the source-pinned canonical MCK build
+        if: >-
+          !matrix.reuse &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        uses: actions/cache@v5
+        with:
+          path: |
+            .dev/mep-tool/
+            ${{ runner.os == 'Windows' && format('{0}/mck', runner.temp) || '' }}
+          key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
+          restore-keys: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-
+
+      - name: Build the shared checker and qualify process MEP
+        if: >-
+          !matrix.reuse &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        shell: bash
+        env:
+          MORPHIR_MCK_CARGO_HOME: ${{ runner.os == 'Windows' && format('{0}/mck', runner.temp) || '' }}
+        run: |
+          python -m scripts.mep_tool --output .dev/qualification/mep-tool.json
+          python -m scripts.qualify_mep \
+            --bundle .morphir/build/extensions/python-process --runtime process \
+            --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
+            --report .dev/qualification/mep-${{ matrix.target }}-report.json \
+            --receipt .dev/qualification/mep-${{ matrix.target }}-recheck.json
+
+      - name: Retain failed checker build diagnostics
+        if: failure() && hashFiles('.dev/mep-tool/*/build.log') != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: mep-build-log-${{ matrix.target }}
+          path: .dev/mep-tool/*/build.log
+          include-hidden-files: true
+
+      - name: Upload the qualified process bundle and receipt
+        if: >-
+          !matrix.reuse &&
+          (github.event_name == 'workflow_dispatch' ||
+           startsWith(github.ref, 'refs/tags/extension/python/v'))
+        uses: actions/upload-artifact@v6
+        with:
+          name: morphir-python-process-${{ matrix.target }}
+          path: |
+            .morphir/build/extensions/python-process/
+            .dev/qualification/process-${{ matrix.target }}.json
+            .dev/qualification/mep-${{ matrix.target }}-*.json
+            .dev/qualification/*-process-imports.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+      - name: Upload the qualified wheel
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-wheel-${{ matrix.platform }}
+          path: dist/native/*.whl
+          if-no-files-found: error
+
+  native-candidates:
+    name: Verify native release candidates
+    needs: [qualify, native-wheels]
+    if: >-
+      needs.native-wheels.result == 'success' &&
+      !startsWith(github.ref, 'refs/tags/python-v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download the qualified platform wheels
+        uses: actions/download-artifact@v7
+        with:
+          pattern: native-wheel-*
+          path: dist/candidates/
+          merge-multiple: true
+
+      - name: Download the qualified source archive
+        uses: actions/download-artifact@v7
+        with:
+          name: native-linux-x86_64
+          path: dist/ci-native/
+
+      - name: Add the source archive
+        run: cp dist/ci-native/*.tar.gz dist/candidates/
+
+      - name: Refuse missing, extra or mismatched candidates
+        run: |
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/native-v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          fi
+          if [[ -z "$tag" ]]; then
+            tag="native-v$(python3 -c 'import tomllib; print(tomllib.load(open("rust/crates/morphir-python-native/Cargo.toml","rb"))["package"]["version"])')"
+          fi
+          python3 scripts/release_candidates.py native dist/candidates --tag "$tag"
+
+      - name: Upload the release set
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-release
+          path: dist/candidates/
+          if-no-files-found: error
+
+  # Assembly requires all five process and the portable WASM producer's
+  # canonical MCK run plus saved-report recheck for these exact artifact bytes.
+  process-candidates:
+    name: Verify the process release candidate set
+    needs: [qualify, native-wheels]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/extension/python/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Download each qualified process platform
+        uses: actions/download-artifact@v7
+        with:
+          pattern: morphir-python-process-*
+          path: dist/process-inputs/
+
+      - name: Download the qualified WASM reference
+        uses: actions/download-artifact@v7
+        with:
+          name: morphir-python-extension-bundle
+          path: dist/wasm-check/
+
+      - name: Require canonical MEP rechecks and matching installed results
+        run: |
+          python -m scripts.process_release \
+            --inputs dist/process-inputs \
+            --output dist/process-release \
+            --commit "$GITHUB_SHA" \
+            --wasm-bundle dist/wasm-check/.morphir/build/extensions/python \
+            --wasm-report dist/wasm-check/.dev/qualification/bundle-host.json \
+            --report dist/process-assembly.json \
+            --assets-output dist/process-assets
+
+      - name: Verify runtime switching, installed integrity and platform refusal
+        run: |
+          (cd dist/process-assets && sha256sum --strict --check SHA256SUMS)
+          mkdir -p .dev/process-archive
+          tar -xzf dist/process-assets/morphir-python-extension-*.tar.gz -C .dev/process-archive
+          python -m scripts.qualify_runtime \
+            --wasm dist/wasm-check/.morphir/build/extensions/python \
+            --process .dev/process-archive \
+            --report dist/runtime-choice.json
+
+      # Source-pinned host assurance belongs to the existing manual/release
+      # candidate consumer. Build once; exercise the downloaded guest bytes.
+      - name: Set up the pinned Rust host toolchain
+        uses: jdx/mise-action@v3
+        with:
+          install_args: rust python
+
+      - name: Cache the independent Rust host build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/extension-qualification -> ../../.dev/host-qualification-target
+
+      - name: Build and check the source-pinned Rust host qualifier
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/.dev/host-qualification-target
+        run: |
+          manifest=tools/extension-qualification/Cargo.toml
+          cargo fmt --manifest-path "$manifest" --check
+          cargo clippy --locked --release --manifest-path "$manifest" --all-targets --no-deps -- -D warnings
+          cargo test --locked --release --manifest-path "$manifest"
+          cargo build --locked --release --manifest-path "$manifest"
+
+      - name: Qualify real host channels and retain repeated timing samples
+        run: |
+          wasm=dist/wasm-check/.morphir/build/extensions/python
+          version="$(python -c 'from scripts.extension_bundle import crate_version; print(crate_version())')"
+          python -m scripts.benchmark_extension \
+            --checker .dev/host-qualification-target/release/morphir-python-host-qualification \
+            --wasm "$wasm/morphir-python-binding-$version.wasm" \
+            --process ".dev/process-archive/morphir-python-extension-$version-x86_64-unknown-linux-gnu" \
+            --output dist/host-qualification --samples 5
+
+      - name: Upload the process candidate and its release evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: process-release-candidate
+          path: |
+            dist/process-release/
+            dist/process-assets/
+            dist/process-assembly.json
+            dist/runtime-choice.json
+            dist/host-qualification/
+            dist/process-inputs/*/.dev/qualification/*.json
+            dist/wasm-check/.dev/qualification/bundle-mep-*.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  publish-native:
+    name: Publish morphir-python-native to PyPI
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/native-v')
+    needs: native-candidates
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/morphir-python-native/
+    steps:
+      - name: Download the verified release set
+        uses: actions/download-artifact@v7
+        with:
+          name: native-release
+          path: dist/
+
+      - name: Check the bytes against the receipt
+        run: |
+          cd dist
+          sha256sum --check SHA256SUMS
+          rm SHA256SUMS
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  extension-candidate:
+    name: Verify the extension bundle candidate
+    needs: [qualify, native-wheels, process-candidates]
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/extension/python/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download the qualified bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: morphir-python-extension-bundle
+          path: dist/bundle-check/
+
+      - name: Refuse a bundle that is not from this tag's commit
+        run: |
+          bundle=dist/bundle-check/.morphir/build/extensions/python
+          version="$(python3 -c 'from scripts.extension_bundle import crate_version; print(crate_version())')"
+          tag="extension/python/v$version"
+          if [[ "${{ github.ref_type }}" == tag ]]; then tag="$GITHUB_REF_NAME"; fi
+          python3 scripts/release_candidates.py bundle "$bundle" \
+            --tag "$tag" --commit "$GITHUB_SHA"
+          mkdir -p dist/bundle
+          # Release assets keep morphir-rust's descriptor name.
+          cp "$bundle/morphir-python-binding-$version.wasm" \
+             "$bundle/morphir-python-binding-$version.wasm.sha256" dist/bundle/
+          cp "$bundle/release.json" "dist/bundle/morphir-python-binding-$version.release.json"
+          cp dist/bundle-check/.dev/qualification/bundle*.json dist/bundle/
+
+      - name: Download the qualified process assets and producer evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: process-release-candidate
+          path: dist/process-check/
+
+      - name: Stage both runtimes with their exact qualification evidence
+        run: |
+          (cd dist/process-check/process-assets && sha256sum --strict --check SHA256SUMS)
+          cp dist/process-check/process-assets/morphir-python-extension-* dist/bundle/
+          cp dist/process-check/process-assets/process-assets.json dist/bundle/
+          cp dist/process-check/process-assembly.json dist/process-check/runtime-choice.json dist/bundle/
+          cp dist/process-check/process-inputs/*/.dev/qualification/*.json dist/bundle/
+          version="$(python3 -c 'from scripts.extension_bundle import crate_version; print(crate_version())')"
+          tar -czf "dist/bundle/extension-host-qualification-$version.tar.gz" -C dist/process-check host-qualification
+          # Seal the final asset names, including both renamed descriptors.
+          (cd dist/bundle && sha256sum -- * > SHA256SUMS)
+
+      - name: Upload the release set
+        uses: actions/upload-artifact@v6
+        with:
+          name: extension-release
+          path: dist/bundle/
+          if-no-files-found: error
+
+  publish-extension:
+    name: Publish the morphir-python extension bundle
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/extension/python/v')
+    needs: extension-candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    environment:
+      name: extension-release
+      url: https://github.com/finos/morphir-python/releases
+    steps:
+      - name: Download the verified bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: extension-release
+          path: dist/
+
+      - name: Verify the final release assets
+        run: |
+          cd dist
+          sha256sum --strict --check SHA256SUMS
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: true
+
+  publish-morphir:
+    name: Publish morphir library and SDK to PyPI
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/morphir-v')
+    needs: qualify
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/morphir/
+    steps:
+      - name: Download qualified morphir distributions
+        uses: actions/download-artifact@v7
+        with:
+          name: morphir-dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # Qualification refuses a python-v tag until the pinned native release is on PyPI.
   publish-morphir-python:
     name: Publish morphir-python to PyPI
-    if: github.event_name == 'push' && github.repository == 'finos/morphir-python'
-    needs: qualify
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'finos/morphir-python' &&
+      startsWith(github.ref, 'refs/tags/python-v')
+    needs: [qualify, native-wheels]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -44,18 +646,23 @@ jobs:
 
   github-release:
     name: Create GitHub Release
-    needs: publish-morphir-python
+    needs: [publish-morphir, publish-morphir-python]
+    if: >-
+      always() && !cancelled() &&
+      (needs.publish-morphir.result == 'success' ||
+       needs.publish-morphir-python.result == 'success') &&
+      !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
-      - name: Download all artifacts
+      - name: Download the published package artifacts
         uses: actions/download-artifact@v7
         with:
-          pattern: '*-dist'
+          name: ${{ startsWith(github.ref, 'refs/tags/morphir-v') && 'morphir-dist' || 'morphir-python-dist' }}
           path: dist/
           merge-multiple: true
 
@@ -63,6 +670,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          fail_on_unmatched_files: true
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}

@@ -1,105 +1,116 @@
 #!/usr/bin/env bash
-#MISE description="Check built distributions and scan runtime dependencies"
+#MISE description="Qualify separate library and CLI distributions for release"
 set -euo pipefail
 
-# Keep the candidate environment separate from development and scanner dependencies.
 release_dir="$(pwd)/.dev/release-check"
 mkdir -p "$release_dir"
-
 uv lock --check
-python - <<'PY'
-import os
-import tarfile
-import tomllib
-import zipfile
-from email.parser import BytesParser
-from pathlib import Path
-
-for folder, name in ((".", "morphir-python"),):
-    directory = Path(folder)
-    project = tomllib.loads((directory / "pyproject.toml").read_text())["project"]
-    tag = os.environ.get("RELEASE_TAG", "")
-    if tag and tag not in (f"v{project['version']}", f"python-v{project['version']}"):
-        raise SystemExit(f"{tag} does not match {name} {project['version']}")
-    stem = name.replace("-", "_") + "-" + project["version"]
-    expected = {f"{stem}-py3-none-any.whl", f"{stem}.tar.gz"}
-    files = {p.name for p in (directory / "dist").iterdir()
-             if p.is_file() and p.name != ".gitignore"}
-    if files != expected:
-        raise SystemExit(f"Unexpected distributions for {name}: {files}")
-    for filename in expected:
-        path = directory / "dist" / filename
-        if path.suffix == ".whl":
-            with zipfile.ZipFile(path) as archive:
-                metadata = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
-                raw = archive.read(metadata[0])
-                has_license = any(n.endswith("/licenses/LICENSE") for n in archive.namelist())
-                for source in (Path("packages/morphir/src"), Path("packages/morphir-tools/src")):
-                    expected_sources = {str(p.relative_to(source)) for p in source.rglob("*")
-                                        if p.is_file() and p.suffix in (".py", ".typed")}
-                    missing = expected_sources - set(archive.namelist())
-                    if missing:
-                        raise SystemExit(f"Missing bundled sources in {path}: {missing}")
-        else:
-            with tarfile.open(path) as archive:
-                member = archive.extractfile(f"{stem}/PKG-INFO")
-                if member is None:
-                    raise SystemExit(f"Missing metadata in {path}")
-                raw = member.read()
-                has_license = f"{stem}/LICENSE" in archive.getnames()
-        metadata = BytesParser().parsebytes(raw)
-        if metadata["Name"] != name or metadata["Version"] != project["version"]:
-            raise SystemExit(f"Incorrect name or version in {path}")
-        if metadata["License-Expression"] != "Apache-2.0" or not has_license:
-            raise SystemExit(f"Missing Apache-2.0 license in {path}")
-        if any(req.startswith("morphir") for req in metadata.get_all("Requires-Dist", [])):
-            raise SystemExit(f"{path} must not depend on a separate Morphir distribution")
-PY
-
+python -m scripts.check_distributions
 uvx --from twine==7.0.0 twine check --strict \
-  dist/*
-
+  packages/morphir/dist/* packages/morphir-tools/dist/*
 uv export --frozen --all-packages --no-default-groups --no-emit-workspace \
   --no-hashes --output-file "$release_dir/constraints.txt"
-uv venv --clear --python 3.14 "$release_dir/venv"
-release_python="$release_dir/venv/bin/python"
-uv pip install --python "$release_python" --constraint "$release_dir/constraints.txt" \
-  dist/*.whl
-uv pip check --python "$release_python"
 
-"$release_python" -I - <<'PY'
-from importlib.metadata import PackageNotFoundError, version
+# The CLI needs its exact native compiler. Use the wheel CI built, unless this is
+# a CLI release, which resolves the already published native release from PyPI.
+native_wheels=()
+if [[ ${RELEASE_TAG:-} != python-v* ]]; then
+  shopt -s nullglob
+  native_wheels=("${NATIVE_DIST:-$PWD/dist/native}"/morphir_python_native-*.whl)
+  shopt -u nullglob
+  if [[ ${#native_wheels[@]} -ne 1 ]]; then
+    echo "expected one native wheel in ${NATIVE_DIST:-dist/native}; run mise run native:build" >&2
+    exit 1
+  fi
+fi
+
+packages=(morphir morphir-python)
+if [[ ${RELEASE_TAG:-} == morphir-v* ]]; then
+  packages=(morphir)
+elif [[ ${RELEASE_TAG:-} == python-v* ]]; then
+  packages=(morphir-python)
+fi
+
+for package in "${packages[@]}"; do
+  uv venv --clear --python 3.14 "$release_dir/$package-venv"
+  release_python="$release_dir/$package-venv/bin/python"
+  if [[ "$package" == morphir ]]; then
+    uv pip install --python "$release_python" packages/morphir/dist/*.whl
+    "$release_python" -I - <<'PY_CORE'
+from importlib.metadata import distribution
+from importlib.util import find_spec
 
 import morphir
-import morphir_tools
 from morphir.ir import format_version
 from morphir.sdk import basics
 
-assert morphir.__version__ == version("morphir-python")
-assert morphir_tools.__version__ == version("morphir-python")
+core = distribution("morphir")
+assert morphir.__version__ == core.version
+assert not core.requires
+assert not core.entry_points
 assert basics.round(2.5) == 3
 assert format_version.V3.major == 3
-try:
-    version("morphir")
-except PackageNotFoundError:
-    pass
-else:
-    raise AssertionError("Bundle verification must not install a separate morphir wheel")
-PY
-"$release_dir/venv/bin/morphir-python" --help
-"$release_dir/venv/bin/morphir-python" ir inspect tests/fixtures/ir/v3/elm-simpleValueTree.json
+assert find_spec("morphir_tools") is None
+assert find_spec("typer") is None
+PY_CORE
+  else
+    uv pip install --python "$release_python" --constraint "$release_dir/constraints.txt" \
+      packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl "${native_wheels[@]}"
+    "$release_python" -I - <<'PY_CLI'
+from importlib.metadata import distribution, version
 
-# Audit the exact installed third-party versions without querying PyPI for the
-# first-party bundle being released.
-uv pip freeze --python "$release_python" --exclude morphir-python \
-  > "$release_dir/requirements.txt"
-uvx --from pip-audit==2.10.1 pip-audit --strict --no-deps --disable-pip \
-  --requirement "$release_dir/requirements.txt" \
-  --format json --output "$release_dir/vulnerabilities.json"
+import morphir
+import morphir_tools
 
-# An exact allowlist rejects unknown licenses and newly introduced copyleft or
-# proprietary licenses. Changes to this policy require maintainer review.
-uvx --from pip-licenses==5.5.0 pip-licenses --python "$release_python" \
-  --from=mixed \
-  --allow-only='Apache-2.0;Apache Software License;MIT;MIT License;BSD-2-Clause;BSD-3-Clause;BSD License;ISC;ISC License;ISC License (ISCL)' \
-  --format=json --output-file "$release_dir/licenses.json"
+assert morphir.__version__ == version("morphir")
+assert morphir_tools.__version__ == version("morphir-python")
+core_files = set(distribution("morphir").files or [])
+cli_files = set(distribution("morphir-python").files or [])
+assert not core_files.intersection(cli_files)
+PY_CLI
+    "$release_dir/$package-venv/bin/morphir-python" ir inspect \
+      tests/fixtures/ir/v3/elm-simpleValueTree.json
+  fi
+  uv pip check --python "$release_python"
+  uv pip freeze --python "$release_python" --exclude morphir --exclude morphir-python \
+    --exclude morphir-python-native \
+    > "$release_dir/$package-requirements.txt"
+  if [[ -s "$release_dir/$package-requirements.txt" ]]; then
+    uvx --from pip-audit==2.10.1 pip-audit --strict --no-deps --disable-pip \
+      --requirement "$release_dir/$package-requirements.txt" \
+      --format json --output "$release_dir/$package-vulnerabilities.json"
+  else
+    echo '{"dependencies": [], "fixes": []}' > "$release_dir/$package-vulnerabilities.json"
+    echo "$package has no third-party runtime dependencies to audit"
+  fi
+  uvx --from pip-licenses==5.5.0 pip-licenses --python "$release_python" \
+    --from=mixed \
+    --allow-only='Apache-2.0;Apache Software License;MIT;MIT License;BSD-2-Clause;BSD-3-Clause;BSD License;ISC;ISC License;ISC License (ISCL)' \
+    --format=json --output-file "$release_dir/$package-licenses.json"
+done
+
+# Exercise the supported migration from the old distribution, which owned both
+# namespaces. Uninstall old owners before installing the split distributions.
+if [[ ${RELEASE_TAG:-} == morphir-v* ]]; then
+  exit 0
+fi
+uv venv --clear --python 3.14 "$release_dir/migration-venv"
+migration_python="$release_dir/migration-venv/bin/python"
+uv pip install --python "$migration_python" --constraint "$release_dir/constraints.txt" \
+  'morphir-python==0.0.1'
+uv pip uninstall --python "$migration_python" morphir-python morphir
+uv pip install --python "$migration_python" --constraint "$release_dir/constraints.txt" \
+  packages/morphir/dist/*.whl packages/morphir-tools/dist/*.whl "${native_wheels[@]}"
+"$migration_python" -I - <<'PY_MIGRATION'
+from importlib.metadata import version
+
+import morphir
+import morphir_tools
+from morphir.sdk import basics
+
+assert morphir.__version__ == version("morphir")
+assert morphir_tools.__version__ == version("morphir-python")
+assert basics.round(2.5) == 3
+PY_MIGRATION
+"$release_dir/migration-venv/bin/morphir-python" --help
+uv pip check --python "$migration_python"

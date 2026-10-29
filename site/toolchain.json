@@ -1,0 +1,13 @@
+{
+  "version": "0.2.1",
+  "platforms": {
+    "darwin-arm64": {
+      "url": "https://github.com/moonrockz/telescope/releases/download/v0.2.1/telescope-0.2.1-macos-arm64.tar.gz",
+      "sha256": "9bac662547f7e52867ad57ef914b9518161952337392e5ed8083623a1117ba4e"
+    },
+    "linux-x64": {
+      "url": "https://github.com/moonrockz/telescope/releases/download/v0.2.1/telescope-0.2.1-linux-x64.tar.gz",
+      "sha256": "452fda1f4300f65d2b56e80a526fdc48b4ee027ec0c02f44464566b387cde145"
+    }
+  }
+}

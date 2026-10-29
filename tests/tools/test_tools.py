@@ -12,9 +12,9 @@ class TestMorphirToolsPackage:
         """The package should have a version attribute."""
         assert hasattr(morphir_tools, "__version__")
 
-    def test_version_matches_expected(self, sample_version: str) -> None:
+    def test_version_matches_expected(self) -> None:
         """The version should match the expected value."""
-        assert morphir_tools.__version__ == sample_version
+        assert morphir_tools.__version__ == "0.1.2"
 
     def test_installed_distribution_name(self) -> None:
         """The tools import belongs to the morphir-python distribution."""
@@ -29,10 +29,10 @@ class TestMorphirToolsPackage:
         }
         assert commands == {"morphir-python": "morphir_tools.cli:main"}
 
-    def test_bundle_does_not_require_separate_core(self) -> None:
-        """Installing the bundle must not query PyPI for an unpublished core."""
+    def test_cli_requires_separate_core(self) -> None:
+        """The CLI must install the independent library and SDK distribution."""
         requirements = distribution("morphir-python").requires or []
-        assert not any(item.startswith("morphir") for item in requirements)
+        assert "morphir>=0.1.0" in requirements
 
     def test_version_is_string(self) -> None:
         """The version should be a string."""

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migrate the Python binding: design</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>.
+  Styles and scripts are files in docs/templates/assets/, referenced and not embedded. In a copy, change the
+  "assets/" prefix of each href and src to the relative path from the copy to that directory, for example
+  "../../docs/templates/assets/" from .dev/beads-specs/. See AGENTS.md, "Specs and plans are HTML documents".
+  Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
+  list them in nav.toc.
+-->
+<link rel="stylesheet" href="../../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../../docs/templates/assets/agent-document.js"></script>
+</head>
+<body>
+<main>
+<h1>Migrate the Python binding</h1>
+<p class="meta">OpenSpec change migrate-python-binding · Bead <code>morphir-ukvn.1.6</code> · 2026-10-27 · Proposed</p>
+<nav class="toc" aria-label="Contents"><ul>
+<li><a href="#context">Context and evidence</a></li>
+<li><a href="#goals">Goals and boundaries</a></li>
+<li><a href="#community">Community reference implementations</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#assurance">Build and release assurance</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration and rollback</a></li>
+<li><a href="#acceptance">Acceptance examples</a></li>
+<li><a href="#findings">Implementation findings</a></li>
+</ul></nav>
+<section id="context"><h2>Context and evidence</h2>
+<p>See <a href="proposal.md">proposal.md</a> for motivation. Inspection used the clean local morphir-rust checkout at <code>f4298d0d416628ce3c910b662a78e224cf8eba8a</code>, on <code>chore/openspec-html-designs</code>. This is an observed source revision, not a claim that it is the eventual migration base. Before copying, select the current upstream main revision and reconcile binding changes since this snapshot.</p>
+<table><thead><tr><th>Observed code</th><th>Consequence</th></tr></thead><tbody>
+<tr><td><code>crates/morphir-python-binding</code>, version 0.4.0; native <code>PythonExtension</code> and SDK WASM exports</td><td>This is a Python language compiler implemented in Rust, currently neither a CPython module nor a PyPI distribution.</td></tr>
+<tr><td>Ruff component crates pinned together to 0.0.15; core 0.2.0 and SDK 0.3.0 with sibling paths</td><td>Move compiler tests and lockfile resolution together; replace sibling paths with independently resolvable dependencies.</td></tr>
+<tr><td>ADT, conditional, tuple, function, IR-version and module tests; Gherkin acceptance; native examples</td><td>Migration starts by preserving this behavior. More Python syntax is separate work under <code>morphir-rust-72s</code>.</td></tr>
+<tr><td>Rust host tests include Python fixtures from the crate directory; release tasks and CI classify the crate</td><td>Deleting the directory alone would break host tests, CI selection and bundle publishing.</td></tr>
+<tr><td>Python core and tools use separate Hatch distributions; Python minimum 3.14; existing CLI only inspects/converts IR</td><td>Introduce compiler access without giving the dependency-free core a native build requirement.</td></tr>
+<tr><td>Python supports Library and Specs across its versioned codecs; binding generation accepts only Library and a subset of nodes</td><td>Successful IR decoding does not imply the Python backend can generate it. Report explicit subset diagnostics.</td></tr>
+</tbody></table>
+<p>The approved ecosystem roadmap records independent language repositories and published Rust dependencies. Its A2 template qualification, <code>morphir-ukvn.1.3.3</code>, remains open. Preserve that dependency for final A4 delivery and reuse the canonical bundler rather than creating a new descriptor format.</p>
+</section>
+<section id="goals"><h2>Goals and boundaries</h2>
+<p>Own the compiler here; preserve native Rust and MEP callers; expose in-memory compilation and generation to Python; deliver CLI round trips. Python callers receive the existing Python IR models and ordinary immutable result types.</p>
+<p>This increment preserves the existing language subset. It does not add general Python execution, arbitrary third-party imports, a second pure-Python compiler, full MCK conformance, new component hosts, or additional evaluation engines. The Python host wrapper in <code>morphir-opua.1.4.4</code> remains independent. Existing IR inspection/conversion retains its broader version/distribution coverage.</p>
+</section>
+<section id="community"><h2>Community reference implementations</h2>
+<p>Research on 2026-10-27 inspected tagged releases and their immutable commit revisions. These are architectural examples, not dependency versions to copy into Morphir. Tokenizers main already contains an unreleased binding rewrite, so the release snapshot is the reference below. The selected patterns complement the official PyO3 and Maturin documentation.</p>
+<table><thead><tr><th>Released example and source evidence</th><th>Pattern to adopt</th><th>Limits of the analogy</th></tr></thead><tbody>
+<tr><td>Hugging Face Tokenizers v0.23.3, <code>301277072263fb3830eb66eec7e47adadf76f1dc</code>. Its <a href="https://github.com/huggingface/tokenizers/blob/301277072263fb3830eb66eec7e47adadf76f1dc/bindings/python/Cargo.toml">Python binding crate</a> depends on the separate Rust tokenizers library; its <a href="https://github.com/huggingface/tokenizers/blob/301277072263fb3830eb66eec7e47adadf76f1dc/bindings/python/pyproject.toml">Python package</a> uses Maturin with a nested PyO3 module. The <a href="https://github.com/huggingface/tokenizers/blob/301277072263fb3830eb66eec7e47adadf76f1dc/bindings/python/src/tokenizer.rs">tokenizer methods</a> include owned-input extraction and detached Rust work.</td><td>Keep the Rust compiler reusable and the CPython binding separate. Extract a complete request before detached execution; return to Python only after Rust finishes. Ship Python-facing types and typing support around the native module.</td><td>Its source layout uses a local Rust dependency inside its own repository. Morphir must additionally resolve core/SDK crates independently of morphir-rust. Its async runtime and mutable tokenizer objects are unnecessary for a stateless compiler request.</td></tr>
+<tr><td>Pydantic v2.14.1, <code>b2212c787fb5c73386dc770681ec49cd09da8e73</code>. The <a href="https://github.com/pydantic/pydantic/blob/b2212c787fb5c73386dc770681ec49cd09da8e73/pyproject.toml">Python distribution uses Hatch and exactly pins pydantic-core</a>; the <a href="https://github.com/pydantic/pydantic/blob/b2212c787fb5c73386dc770681ec49cd09da8e73/pydantic-core/pyproject.toml">core distribution uses Maturin and a private extension module</a>. Its <a href="https://github.com/pydantic/pydantic/blob/b2212c787fb5c73386dc770681ec49cd09da8e73/pydantic/version.py">version check</a> detects incompatible installed core versions, and the core ships <a href="https://github.com/pydantic/pydantic/blob/b2212c787fb5c73386dc770681ec49cd09da8e73/pydantic-core/python/pydantic_core/_pydantic_core/__init__.pyi">native API stubs</a>.</td><td>Keep existing pure-Python packaging and add a separately built native dependency. Initially pin the exact qualified native version in each tools release and check bridge compatibility when compiler access initializes. Verify native stubs against the installed extension.</td><td>The Rust core is a required implementation dependency, not an automatic pure-Python fallback. Morphir keeps its standalone IR/SDK distribution independent. We do not copy Pydantic's editable-install exception or its wider interpreter matrix.</td></tr>
+<tr><td>Polars py-2.1.0, <code>7f902bd3ffd27ff82d14278a09a295ff2f7aed92</code>. The <a href="https://github.com/pola-rs/polars/blob/7f902bd3ffd27ff82d14278a09a295ff2f7aed92/py-polars/pyproject.toml">Python distribution exactly depends on a runtime wheel</a>; the <a href="https://github.com/pola-rs/polars/blob/7f902bd3ffd27ff82d14278a09a295ff2f7aed92/py-polars/runtime/polars-runtime-32/pyproject.toml">runtime package uses Maturin and includes explicit build inputs</a>. Its <a href="https://github.com/pola-rs/polars/blob/7f902bd3ffd27ff82d14278a09a295ff2f7aed92/.github/workflows/release-python.yml">release workflow</a> builds runtime artifacts, installs source archives and tests installed wheels.</td><td>Separate the Python package from native wheel production; install the exact produced artifacts during qualification. Include source-build inputs explicitly and prove wheel and sdist behavior outside the checkout.</td><td>Multiple CPU/runtime variants, dataframe FFI and the broad feature matrix solve Polars-specific needs. Start Morphir with one portable native runtime per supported platform/ABI and add variants only with measured need.</td></tr>
+</tbody></table>
+<p>Our inference is that the separate Rust core, small PyO3 adapter and separately built native wheel fit Morphir's existing two-package workspace. The JSON/codec boundary in <a href="#ir-1">IR-1</a> remains a Morphir decision: these projects also expose bound native objects and do not establish serialized requests as a universal binding practice. Keep JSON private, submit a whole source set in one call, and benchmark copies and codec work before considering a different adapter. No example proves Morphir's Rust path is faster than an equivalent Python compiler.</p>
+<p>Apply the official <a href="https://pyo3.rs/main/parallelism">PyO3 parallelism guidance</a> when detaching. Detached work owns its Rust inputs and must not access Python objects or invoke Python callbacks. The <a href="https://www.maturin.rs/project_layout.html">Maturin layout guidance</a> covers private modules and typing files; its <a href="https://www.maturin.rs/distribution.html">distribution guidance</a> covers Linux compatibility checking, native-library bundling and builds from source archives. Validate these properties with Morphir's actual dependency graph and target toolchain.</p>
+</section>
+<section id="decisions"><h2>Decisions</h2>
+<h3 id="repo-1">REPO-1. Keep a Rust half with independently resolvable dependencies</h3>
+<pre><code class="language-bash">rust/
+  Cargo.toml
+  Cargo.lock
+  crates/morphir-python-binding/  # migrated compiler, tests and examples
+  crates/morphir-python-native/   # CPython bridge only
+packages/
+  morphir/                       # existing dependency-free library
+  morphir-tools/                 # public Python compiler API and CLI
+  morphir-python-native/         # native distribution metadata and typing
+</code></pre>
+<p>Use a Cargo workspace under <code>rust/</code>; retain the crate name and public Rust API. Keep PyO3 in the bridge crate so Cargo consumers and the WASM guest never link CPython. Use exact compatible published Morphir core/SDK versions after checking the current APIs. If the APIs require unreleased changes, pin all related Morphir crates to one exact git revision and record the publication dependency. No sibling paths, branches, vendored copies of core or hidden local patches. Carry workspace metadata explicitly and pin the four Ruff dependencies as a group. Cargo consumers can use the package from an exact morphir-python git revision before any crates.io publication.</p>
+<p>Alternative: put PyO3 features in the compiler crate. Rejected because feature unification can pull Python linking into native Rust or WASM builds. A mechanical copy comes before language behavior changes, with source provenance and a file inventory.</p>
+<h3 id="api-1">API-1. Expose a Python API over an in-process bridge</h3>
+<p>Use PyO3 and Maturin to build <code>morphir_python_native._native</code>. The bridge invokes the same SDK frontend/backend traits as Rust callers and exchanges serialized requests/results internally. No host, subprocess, Extism runtime or MEP handshake is needed by Python applications. Extract and own the complete request before using PyO3 detached execution for compilation/generation; convert results after returning to Python. Detached code must not access Python objects or call Python callbacks. Keep request state local and verify concurrent calls do not share mutable state. Convert errors deliberately and do not expose panics or serialized envelopes as the public API.</p>
+<p>Public entry points live in <code>morphir_tools.python</code>: <code>compile_sources</code> and <code>generate_python</code>. Inputs are frozen source-document and options types. Compilation returns a union of version-specific successes and a diagnostic failure; a success always contains its matching Python IR model. Generation returns a success with a tuple of frozen relative-path/text artifacts, or a diagnostic failure. Keep warnings on successes; use a severity enum and source locations distinct from IR member paths. API objects must not hold Rust AST objects or mutable SDK dictionaries. Compiler diagnostic codes are centralized consistently with <code>morphir.ir.diagnostics</code>.</p>
+<p>Alternative: run the WASM extension from Python. It could reuse an existing bundle, but would add a runtime, host protocol and loading costs to every Python installation. A pure-Python compiler would duplicate a substantial implementation before evidence justifies it. Ordinary Python integration here means a Python API with a native implementation, not a second parser.</p>
+<h3 id="ir-1">IR-1. Use versioned JSON as the internal compatibility boundary</h3>
+<p>Decode bridge output through <code>morphir.ir.format_version</code> and the matching v3/v4 codec before constructing a success. Encode Python models through those codecs before generation. Do not invent parallel Python domain models or encode the wire format in the CLI. Any explicit cross-version conversion goes through <code>morphir.ir.migrate</code>; generation does not silently downgrade or drop unsupported attributes.</p>
+<p>Default new Python API and CLI compilation to stable v3.0 Library; allow explicit draft v4. Preserve the existing native Rust request choices. Generation initially accepts supported v3.0 and draft v4 Libraries only; Specs, dependency packages and unsupported language nodes retain explicit rejection. Legacy formats remain usable through the existing <code>ir convert</code> workflow before generation. JSON precision and parameter order must survive both directions. Cross-codec fixtures include arbitrary integers, unary nested function types, ADTs, tuples, private modules and independent IR. This is a qualification obligation, not assumed parity.</p>
+<p>Alternative: expose every Rust model through PyO3. Rejected for the initial migration because it would duplicate this repository's versioned Python types and couple the API to Rust representation changes. JSON adds measurable cost, so benchmark it separately.</p>
+<h3 id="pkg-1">PKG-1. Add a native dependency without changing the core library</h3>
+<p>Add distribution <code>morphir-python-native</code>, containing the private extension, stubs and <code>py.typed</code>. Each tools release initially declares an exact dependency on its qualified native package version and resolves it automatically; the public API remains in the tools namespace. Native and tools versions remain independent numbers. On first compiler access, verify the installed native version and expected bridge API revision; fail clearly on incompatibility without affecting lazy IR-only commands. Match compiled-module identity, distribution metadata and release inputs. A broader version range requires an explicit tested compatibility contract. Keep the two existing distributions on Hatch, their current tags and independent versions. Give the new native distribution its own version/tag, <code>native-v*</code>, and keep the binding bundle on <code>extension/python/v*</code>. No release version is selected by this proposal. Qualify dependency installation using a local wheelhouse before changing release metadata.</p>
+<p>Initial wheel qualification targets CPython 3.14 on Linux glibc x86_64/aarch64, macOS x86_64/arm64 and Windows x86_64. Pin a released PyO3/Maturin pair supporting the selected interpreter and use the stable ABI where qualified. Do not infer free-threaded support from an abi3 wheel; CPython 3.14t needs distinct qualification. Document source builds and other platforms separately. Build the native sdist with all referenced Rust workspace/path dependency files and prove a clean archive-only wheel build. Keep compiler imports lazy so existing IR commands do not initialize it. Verify private native stubs against installed exports/signatures with stubtest or an equivalent focused check, and type-check public API examples; do not hide drift with blanket type-checker ignores. Build portable wheels without host-specific CPU assumptions, set and audit the Linux compatibility baseline, inspect bundled shared libraries and test imports on the declared deployment targets. An abi3 tag alone does not prove platform portability.</p>
+<p><a href="https://www.maturin.rs/project_layout.html">Maturin's mixed-project guidance</a> supports a private native submodule and typing files. <a href="https://pyo3.rs/main/building-and-distribution">PyO3's distribution guidance</a> describes interpreter selection and wheel/ABI choices. These support the packaging approach, not a performance claim.</p>
+<h3 id="cli-1">CLI-1. Keep I/O in tools and publish complete output</h3>
+<p>The compile command reads a single file or a sorted directory tree and makes one API request containing relative source paths. A single file uses its parent as root; a directory uses itself. Explicit exposure selections use repeated <code>--expose</code> options; the Python API also retains the distinction between omitted exposure and an explicitly empty tuple. Do not recursively follow symlink source directories or discover installed packages. Require a package identity rather than guessing it from filesystem names.</p>
+<p>The generate command uses the shared reader/codec before the API. Require an absent or empty destination. Validate every artifact path, including collisions and symlink traversal, and write the complete artifact tree in a sibling temporary directory before publishing it. On failure remove staging, preserve existing files and report I/O errors without a traceback. Compile uses a temporary file and atomic replacement. Keep data/output and diagnostics separate; diagnostics go to stderr.</p>
+<h3 id="perf-1">PERF-1. Measure the delivered path before claiming speed</h3>
+<p>Add a reproducible benchmark command with checked-in small and multi-module fixtures plus generated scale parameters. Measure native Rust compilation/generation, private bridge calls, public Python API calls and CLI end-to-end runs independently. Include warmup, repetitions, medians and spread, input bytes/module counts, target version, build profile, hardware, toolchains and serialization costs. Use release builds and separate cold import/startup from steady-state execution.</p>
+<p>Python <code>ast.parse</code> can be reported only as a parsing baseline; it performs less work than compilation and cannot establish a compiler speed ratio. There is no equivalent pure-Python compiler here. State that limitation in results. Benchmarks report observations; noisy timing thresholds do not gate PRs, and a slower bridge result does not justify silently substituting a compiler.</p>
+</section>
+<section id="assurance"><h2>Build and release assurance</h2>
+<p>Follow the personal build-master skill; this checkout has no repository copy. Preserve existing checks and add scoped Rust/native/bundle categories. No runtime or cost measurements were collected during planning, so estimated performance gains and CI savings are unknown.</p>
+<table><thead><tr><th>Category and owner</th><th>Trigger, risk and deadline</th><th>Producer and consumer</th></tr></thead><tbody>
+<tr><td>Python, Python maintainers</td><td>Python/API/IR or shared changes; regression detection before merge</td><td>Existing Ruff, mypy, pyright, pytest/coverage and behave; API tests consume one built local native wheel.</td></tr>
+<tr><td>Rust/compiler, binding maintainers</td><td>Compiler/dependency or shared changes; subset and protocol regressions before merge</td><td>Cargo fmt/clippy/test including migrated acceptance and doc tests; external Cargo consumer proves independent use.</td></tr>
+<tr><td>Wheel install, packaging maintainers</td><td>Bridge/packaging changes; ABI and missing-file failures before merge on representative Linux and platform-specific checks when touched</td><td>Build once per selected platform/ABI; clean-environment API/CLI smoke consumes that exact wheel. No rebuild in consumers.</td></tr>
+<tr><td>MEP bundle, extension maintainers</td><td>Binding/bundler changes and cutover; host compatibility before merge</td><td>One release WASM build; canonical bundling; digest/capability validation and isolated offline host round trip consume the exact bundle.</td></tr>
+<tr><td>Release qualification, release maintainer</td><td>Tag or explicit qualification request; all advertised wheel platforms and source archive before promotion</td><td>Candidate-bound wheel matrix, sdist rebuild, license/security scans and bundle receipts. Publication consumes qualified bytes; failed, skipped, absent or mismatched evidence blocks promotion.</td></tr>
+<tr><td>Benchmarks, binding maintainers</td><td>Explicit performance request or release assessment; no claim before results</td><td>Fixed-candidate release builds; retain environment and raw measurements with report. No live schedule is created here.</td></tr>
+</tbody></table>
+<p>Test the change selector and aggregate for relevant/irrelevant paths, shared dependencies, cancellations, missing results and expected skips. Documentation-only changes do not install Rust. Keep release qualification callable without publishing; no wheel matrix, bundle publication or registry promotion runs merely because planning files changed. Cache keys include lockfiles, target, toolchain and features; caches never count as test evidence. Record candidate SHA, dependency lock hash, producer run and artifact digest in qualification receipts.</p>
+<details><summary>Build-master comparison and evidence limits</summary>
+<p>Decision scope: proposed PR/release graph for native wheels and MEP bundles. Failure impact is moderate for compiler regressions and high for a broken or mismatched distribution. Merge checks protect touched behavior; release checks protect every advertised artifact. Maintainers named above respond to failures and block promotion until repaired.</p>
+<table><thead><tr><th>Criterion</th><th>Weight</th><th>All platforms on every PR</th><th>Scoped PR plus exact-candidate release</th></tr></thead><tbody>
+<tr><td>Risk and coverage fit</td><td>25</td><td>U, selectors unimplemented</td><td>U, selectors unimplemented</td></tr>
+<tr><td>Feedback and placement</td><td>20</td><td>U, no run measurements</td><td>U, no run measurements</td></tr>
+<tr><td>Release evidence and trust</td><td>20</td><td>U, receipts unimplemented</td><td>U, receipts unimplemented</td></tr>
+<tr><td>Execution efficiency</td><td>15</td><td>U, no measured build graph</td><td>U, no measured build graph</td></tr>
+<tr><td>Ownership and structure</td><td>10</td><td>2, category owners identified</td><td>2, category owners identified</td></tr>
+<tr><td>Operability and recovery</td><td>10</td><td>U, refusal cases untested</td><td>U, refusal cases untested</td></tr>
+</tbody></table>
+<p>Totals withheld; 90% of rubric weight has unknown implementation evidence. Gate preservation, candidate identity, trust and failure routing are all unknown until executable checks verify them. Scoped CI is the provisional choice because the approved roadmap requires it. Reassess with actual run records during implementation. This design provides no merge or release approval.</p>
+</details>
+</section>
+<section id="risks"><h2>Risks and trade-offs</h2>
+<table><thead><tr><th>Risk</th><th>Mitigation</th></tr></thead><tbody>
+<tr><td>Published SDK APIs lag the source snapshot</td><td>Resolve and compile against actual artifacts; use one exact git revision as a documented temporary fallback. Never copy shared core crates here.</td></tr>
+<tr><td>Rust and Python v4 codecs differ despite matching names</td><td>Cross-codec tests are required before marking Python API success; correct the supported mapping and reject unrepresentable attributes rather than dropping them.</td></tr>
+<tr><td>Tools now depend on native wheels</td><td>Keep the core independent, test wheel-only installations and source archives, publish the compatible native dependency before tools, and state the qualified platform matrix.</td></tr>
+<tr><td>JSON bridge overhead erases a possible Rust advantage</td><td>Retain a replaceable private boundary and measure each stage. Performance remains a hypothesis.</td></tr>
+<tr><td>Removing the crate breaks host fixture includes or CI matrices</td><td>Move compiler tests here, replace host fixtures with independent protocol fixtures or pinned external provider input, and run affected workspace/selector gates.</td></tr>
+<tr><td>A2 template qualification and live publication remain open</td><td>Implement and validate local functionality first; preserve the roadmap dependency and record final release/cutover evidence before closing A4.</td></tr>
+</tbody></table>
+</section>
+<section id="migration"><h2>Migration and rollback</h2>
+<ol>
+<li>Select the upstream source revision, record provenance and inventory the binding, fixture includes, bundle registry, release selectors and parent CLI references. Preserve unrelated work in the sibling checkouts.</li>
+<li>Move the crate and behavior tests here; establish standalone Cargo and WASM proofs using declared dependencies. Until cutover, the old provider remains the published provider.</li>
+<li>Add the isolated CPython bridge, versioned Python-model boundary, typed API and CLI. Each group lands its tests and documentation. Qualify clean wheels and an archive-only source build.</li>
+<li>Build and install the replacement bundle through the canonical <code>morphir extension bundle</code> path using pinned compatible tools. Validate checksum, provenance and claims. Run native, Python and offline MEP round trips for both IR versions.</li>
+<li>Prepare coordinated morphir-rust removal and finos/morphir provider-reference changes on feature branches. Remove old release registrations and documentation ownership; retain historical releases. Validate the target repositories independently. Do not close A4 because only the destination builds.</li>
+<li>After maintainer approval, publish qualified native wheels and bundle before releasing dependent tools or promoting ecosystem discovery references. Verify live installation resolves to this repository. Link merged revisions, release receipts and the independent Rust consumer proof in the epic, then close it only after all acceptance conditions hold.</li>
+</ol>
+<p>Rollback before publication means reverting the coordinated commits while the old provider remains available. After publication, retain immutable assets and select the last working provider/version through registry metadata and dependency constraints. Never delete or overwrite historical releases. Merges and real releases require the approval recorded by the repository rules; preparing their concrete artifacts and qualification evidence comes first.</p>
+</section>
+<section id="acceptance"><h2>Acceptance examples</h2>
+<pre><code class="language-bash"># Run from a clean installed environment without Rust on PATH.
+morphir-python compile src --package acme/example --output model.json
+morphir-python ir inspect model.json
+morphir-python generate model.json --output-dir generated
+morphir-python compile generated --package acme/example --output rebuilt.json
+
+# Repeat using draft v4 and the same exposure choices.
+morphir-python compile src --package acme/example --ir-version v4 --output model-v4.json
+morphir-python generate model-v4.json --output-dir generated-v4
+</code></pre>
+<p>Compare decoded models after narrowly documented normalization, then execute generated fixtures in a separate test process to verify conditional branches, tuples, imports and closures. Add negative checks for unsupported constructs, unchanged existing files and malformed versions. Also install the exact MEP bundle into an isolated extension repository and run the ecosystem CLI with networking unavailable. Confirm the provider URL/provenance names finos/morphir-python and the old Rust directory is absent.</p>
+<p>No unresolved design choice changes the scope or task breakdown. Exact release versions and approval timing are release inputs; source revisions and toolchain pins are implementation evidence to record before their dependent tasks.</p>
+</section>
+
+<h2 id="findings">Implementation findings</h2>
+<p>Implementation on 2026-10-27 found these facts. They refine the decisions above without changing scope.</p>
+<table>
+<thead><tr><th>Finding</th><th>Resolution</th></tr></thead>
+<tbody>
+<tr><td>The binding at finos/morphir-rust <code>0aa60eb</code> is unchanged since <code>f4298d0</code>, and published <code>morphir-core 0.2.0</code> and <code>morphir-extension-sdk 0.3.0</code> build it. Its examples failed at upstream too, because they skipped the MEP <code>initialize</code> handshake.</td><td>No git-revision fallback is needed. The examples now initialize, and <code>rust:check</code> runs them.</td></tr>
+<tr><td>The finos/morphir <code>morphir extension bundle</code> command packages native process executables only. A WASM guest still needs morphir-rust's <code>scripts/package_extension.py</code>, which reads claims through its workspace.</td><td>The pinned morphir-rust packager (<code>rust/extension.toml</code>) runs unchanged, with this repository's declaration, so the descriptor format stays the same. Native process bundling remains A2 work, <code>morphir-ukvn.1.3.3</code>.</td></tr>
+<tr><td>Rust core writes the compact canonical v4 spelling. The Python v4 reader accepted only the expanded spelling, but the profile at <code>efa36060</code> requires readers to accept every schema-valid spelling.</td><td>The Python reader now accepts them (the reader half of <code>morphir-ukvn.8.16</code>). The writer is unchanged.</td></tr>
+<tr><td>IR from <code>v3_to_v4</code> carries empty documentation and inferred-type attributes. The v4 backend rejected any documentation and rejects value attributes.</td><td>Empty documentation is now treated as absent, as the v3 reader already did. Value attributes keep their explicit <code>PY004</code>, and the limit is documented.</td></tr>
+<tr><td>A bundle built here would share version 0.4.0 with different morphir-rust bytes.</td><td>The compiler crate is now 0.4.1, so the first bundle from this repository gets a new version. The native distribution starts at 0.1.0.</td></tr>
+<tr><td>The PyO3 build script needs an interpreter even for Rust-only tests.</td><td>The CPython module sits behind a <code>python</code> feature that Maturin enables. Bridge logic, tests and benchmarks build without Python.</td></tr>
+<tr><td>In the first benchmark, the Python codecs and JSON exchange cost more than native compilation for large inputs. Interpreter start-up sets a CLI floor of about 65 ms on the measured machine.</td><td>Recorded as observations only. The private JSON boundary stays replaceable.</td></tr>
+</tbody>
+</table>
+</main>
+</body>
+</html>

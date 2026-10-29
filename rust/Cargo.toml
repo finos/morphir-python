@@ -1,0 +1,31 @@
+[workspace]
+members = ["crates/morphir-python-binding", "crates/morphir-python-native", "crates/morphir-python-extension"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.98"
+authors = ["FINOS <info@finos.org>"]
+license = "Apache-2.0"
+repository = "https://github.com/finos/morphir-python"
+homepage = "https://github.com/finos/morphir-python"
+
+[workspace.dependencies]
+# Published Morphir crates. Never use sibling-checkout paths here.
+morphir-core = "=0.2.0"
+morphir-json = "=0.2.0"
+morphir-extension-sdk = "=0.4.0"
+num-bigint = "0.5"
+# Ruff component crates evolve together; update this group as one unit.
+ruff_python_parser = "=0.0.15"
+ruff_python_ast = "=0.0.15"
+ruff_python_codegen = "=0.0.20"
+ruff_text_size = "=0.0.15"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

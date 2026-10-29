@@ -83,3 +83,14 @@ The tools MUST reject any 3.x release from 3.2.0 on, and any major outside the s
 #### Scenario: Unsupported format version is named
 - **WHEN** the user supplies a file whose `formatVersion` is `"3.2.0"` or 5
 - **THEN** the tool exits non-zero with the format-version diagnostic code and says only 3.0.x, 3.1.x and draft 4.0.x are supported
+
+### Requirement: Choose the v4 spelling on conversion
+`ir convert --to v4` SHALL write the compact canonical spelling by default and SHALL accept `--v4-spelling expanded` to write the expanded spelling. The option SHALL be rejected as a usage error with any other value, and SHALL have no effect on v3 output. (bead: morphir-ukvn.8.16)
+
+#### Scenario: Default conversion is compact
+- **WHEN** the user converts a format 3 file with `ir convert --to v4`
+- **THEN** the written document uses compact spellings, such as type references as FQName strings, and `ir inspect` reads it
+
+#### Scenario: Expanded conversion on request
+- **WHEN** the user adds `--v4-spelling expanded`
+- **THEN** the written document uses the expanded spellings and decodes to the same model as the compact output

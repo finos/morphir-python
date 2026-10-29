@@ -1,0 +1,33 @@
+[package]
+name = "morphir-python-binding"
+version = "0.5.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Python ADT, tuple, function and lambda frontend and backend for Morphir"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+num-bigint.workspace = true
+morphir-core.workspace = true
+morphir-json.workspace = true
+morphir-extension-sdk.workspace = true
+ruff_python_parser.workspace = true
+ruff_python_ast.workspace = true
+ruff_python_codegen.workspace = true
+ruff_text_size.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+cucumber = "0.23"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "acceptance"
+harness = false

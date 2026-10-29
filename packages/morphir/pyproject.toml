@@ -1,6 +1,6 @@
 [project]
 name = "morphir"
-version = "0.0.1"
+version = "0.1.1"
 description = "Python port of Morphir - functional domain modeling for the enterprise"
 readme = "README.md"
 license = "Apache-2.0"
@@ -24,7 +24,7 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/finos/morphir-python"
-Documentation = "https://morphir.finos.org"
+Documentation = "https://finos.github.io/morphir-python/"
 Repository = "https://github.com/finos/morphir-python"
 Issues = "https://github.com/finos/morphir-python/issues"
 

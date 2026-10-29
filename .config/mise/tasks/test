@@ -3,3 +3,5 @@
 set -euo pipefail
 
 uv run pytest tests/
+# The native stubs must match the installed extension module.
+uv run python -m mypy.stubtest morphir_python_native._native

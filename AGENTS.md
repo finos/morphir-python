@@ -12,7 +12,7 @@ Morphir Python is a port of Morphir to Python, providing functional domain model
 morphir-python/
 ├── packages/
 │   ├── morphir/           # Core library workspace - IR models, types, pure functions
-│   └── morphir-tools/     # CLI source; root morphir-python bundles library and CLI
+│   └── morphir-tools/     # morphir-python CLI distribution (depends on morphir)
 ├── tests/
 │   ├── unit/             # Unit tests for morphir package
 │   └── tools/            # Unit tests for morphir-python package
@@ -21,10 +21,12 @@ morphir-python/
 
 ### Package Responsibilities
 
-The root `pyproject.toml` publishes one `morphir-python` distribution containing
-both source components. It provides `import morphir`, `import morphir_tools`, and
-the `morphir-python` command. The core remains a standalone workspace for development;
-the release workflow does not publish or require a separate `morphir` PyPI package.
+The root `pyproject.toml` is a development workspace. `packages/morphir/` publishes
+`morphir`, containing the library and SDK without third-party runtime dependencies.
+`packages/morphir-tools/` publishes `morphir-python`, containing the CLI and depending
+on `morphir`. They own separate import namespaces and have independent versions and
+release tags (`morphir-v*` and `python-v*`). The CLI is the future integration surface
+for MEP extension-protocol commands and potential WASM build tooling.
 
 **`morphir` (core library)**
 - Morphir IR (Intermediate Representation) models, in two versions:

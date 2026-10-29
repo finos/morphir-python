@@ -1,0 +1,4 @@
+[tools]
+python = "3.14"
+uv = "0.12.10"
+"pypi:morphir-python" = { version = "0.1.2", uvx_args = "--no-build" }
