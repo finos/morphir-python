@@ -15,6 +15,20 @@
         "ruff_text_size"
       ],
       "groupName": "Ruff components"
+    },
+    {
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchFileNames": [
+        "tools/extension-qualification/Cargo.toml"
+      ],
+      "matchPackageNames": [
+        "morphir-extension-sdk",
+        "morphir-host",
+        "morphir-host-native"
+      ],
+      "groupName": "qualification host source"
     }
   ]
 }
