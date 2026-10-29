@@ -2172,7 +2172,7 @@ dependencies = [
 [[package]]
 name = "morphir-common"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "anyhow",
  "cap-fs-ext 4.0.3",
@@ -2184,9 +2184,9 @@ dependencies = [
  "indexmap",
  "ion-rs",
  "libc",
- "morphir-config 0.0.1 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-config",
  "morphir-core",
- "morphir-workspace 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-workspace",
  "nbformat",
  "reqwest",
  "rustix 1.1.4",
@@ -2224,29 +2224,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "morphir-config"
-version = "0.0.1"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
-dependencies = [
- "secrecy",
- "serde",
- "serde-saphyr",
- "serde_json",
- "thiserror 2.0.21",
- "toml 1.1.6+spec-1.1.0",
-]
-
-[[package]]
 name = "morphir-core"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "anyhow",
  "bigdecimal",
  "granit-parser",
  "indexmap",
  "lasso",
- "morphir-json 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-json",
  "num-bigint 0.5.1",
  "schemars",
  "serde",
@@ -2259,12 +2246,12 @@ dependencies = [
 [[package]]
 name = "morphir-distribution"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "flate2",
  "fs2",
  "morphir-common",
- "morphir-extension-sdk 0.4.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-extension-sdk",
  "semver",
  "serde",
  "serde_json",
@@ -2288,27 +2275,8 @@ dependencies = [
  "base64 0.22.1",
  "extism-pdk",
  "ion-rs",
- "morphir-json 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05)",
- "morphir-workspace 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05)",
- "percent-encoding",
- "semver",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror 2.0.21",
- "url",
-]
-
-[[package]]
-name = "morphir-extension-sdk"
-version = "0.4.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
-dependencies = [
- "base64 0.22.1",
- "extism-pdk",
- "ion-rs",
- "morphir-json 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
- "morphir-workspace 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-json",
+ "morphir-workspace",
  "percent-encoding",
  "semver",
  "serde",
@@ -2321,13 +2289,13 @@ dependencies = [
 [[package]]
 name = "morphir-host"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "async-lock",
  "async-trait",
  "morphir-core",
- "morphir-extension-sdk 0.4.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
- "morphir-workspace 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-extension-sdk",
+ "morphir-workspace",
  "semver",
  "serde",
  "serde_json",
@@ -2337,7 +2305,7 @@ dependencies = [
 [[package]]
 name = "morphir-host-native"
 version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
+source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -2345,9 +2313,9 @@ dependencies = [
  "morphir-common",
  "morphir-core",
  "morphir-distribution",
- "morphir-extension-sdk 0.4.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-extension-sdk",
  "morphir-host",
- "morphir-workspace 0.2.0 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-workspace",
  "serde",
  "serde_json",
  "tempfile",
@@ -2368,22 +2336,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "morphir-json"
-version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "morphir-python-host-qualification"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "hex",
- "morphir-extension-sdk 0.4.0 (git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05)",
+ "morphir-extension-sdk",
  "morphir-host",
  "morphir-host-native",
  "serde",
@@ -2399,20 +2358,7 @@ version = "0.2.0"
 source = "git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05#945486e1320385e22986ef937db82e344b179d05"
 dependencies = [
  "globset",
- "morphir-config 0.0.1 (git+https://github.com/finos/morphir-rust.git?rev=945486e1320385e22986ef937db82e344b179d05)",
- "semver",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "morphir-workspace"
-version = "0.2.0"
-source = "git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104#d51daa8aea7ae09ae295ff254d72b27770c64104"
-dependencies = [
- "globset",
- "morphir-config 0.0.1 (git+https://github.com/finos/morphir-rust.git?rev=d51daa8aea7ae09ae295ff254d72b27770c64104)",
+ "morphir-config",
  "semver",
  "serde",
  "serde_json",

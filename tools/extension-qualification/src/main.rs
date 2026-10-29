@@ -26,7 +26,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 
-const HOST_SOURCE: &str = "d51daa8aea7ae09ae295ff254d72b27770c64104";
+const HOST_SOURCE: &str = "945486e1320385e22986ef937db82e344b179d05";
 const ID: &str = "morphir-python";
 const TYPES_SOURCE: &str =
     "from dataclasses import dataclass\n@dataclass(frozen=True)\nclass Box:\n    value: int\n";

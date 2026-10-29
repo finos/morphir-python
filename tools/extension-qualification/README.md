@@ -2,7 +2,7 @@
 
 This developer-only executable exercises the actual WASM and native process
 guest bytes through `morphir-host` and `morphir-host-native` at
-`d51daa8aea7ae09ae295ff254d72b27770c64104`. It uses the upstream Extism and
+`945486e1320385e22986ef937db82e344b179d05`. It uses the upstream Extism and
 process channels directly. Process launches have an empty environment and do
 not use Python or a Rust launcher.
 
