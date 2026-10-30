@@ -66,7 +66,7 @@ jobs:
         env:
           SOURCE_SHA: ${{ steps.producer.outputs.source }}
         run: python3 candidate/scripts/site_release.py verify --site _site --source "$SOURCE_SHA" --deploy
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - id: deploy
