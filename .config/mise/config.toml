@@ -4,7 +4,7 @@ uv = "latest"
 # The Rust half under rust/ (compiler, CPython bridge and WASM extension guest).
 rust = { version = "1.98.1", targets = "wasm32-unknown-unknown", components = "rustfmt,clippy" }
 # Validates the release WASM guest before bundling.
-wasm-tools = "1.259.0"
+wasm-tools = "1.263.0"
 
 [env]
 VIRTUAL_ENV = "{{config_root}}/.venv"
