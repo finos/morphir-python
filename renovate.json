@@ -5,30 +5,33 @@
   ],
   "packageRules": [
     {
+      "description": "Keep Rust crate updates together across both Cargo workspaces, including Ruff and the qualification host.",
       "matchManagers": [
         "cargo"
       ],
-      "matchPackageNames": [
-        "ruff_python_parser",
-        "ruff_python_ast",
-        "ruff_python_codegen",
-        "ruff_text_size"
-      ],
-      "groupName": "Ruff components"
+      "groupName": "Rust dependencies",
+      "groupSingleUpdates": true,
+      "separateMajorMinor": false
     },
     {
+      "description": "Keep GitHub Actions updates together.",
       "matchManagers": [
-        "cargo"
+        "github-actions"
       ],
-      "matchFileNames": [
-        "tools/extension-qualification/Cargo.toml"
-      ],
-      "matchPackageNames": [
-        "morphir-extension-sdk",
-        "morphir-host",
-        "morphir-host-native"
-      ],
-      "groupName": "qualification host source"
+      "groupName": "GitHub Actions",
+      "groupSingleUpdates": true,
+      "separateMajorMinor": false
+    },
+    {
+      "description": "Keep Rust compiler and build-tool versions with the Rust dependency group across all their declarations.",
+      "groupName": "Rust dependencies",
+      "groupSingleUpdates": true,
+      "separateMajorMinor": false,
+      "matchDepNames": [
+        "rust",
+        "wasm-tools",
+        "maturin"
+      ]
     }
   ]
 }
