@@ -13,9 +13,9 @@ publish = false
 anyhow = "1"
 async-trait = "0.1"
 hex = "0.4"
-morphir-extension-sdk = { git = "https://github.com/finos/morphir-rust.git", rev = "945486e1320385e22986ef937db82e344b179d05" }
-morphir-host = { git = "https://github.com/finos/morphir-rust.git", rev = "945486e1320385e22986ef937db82e344b179d05" }
-morphir-host-native = { git = "https://github.com/finos/morphir-rust.git", rev = "945486e1320385e22986ef937db82e344b179d05" }
+morphir-extension-sdk = { git = "https://github.com/finos/morphir-rust.git", rev = "9b414e949eaefbf098b61149824f535350719e18" }
+morphir-host = { git = "https://github.com/finos/morphir-rust.git", rev = "9b414e949eaefbf098b61149824f535350719e18" }
+morphir-host-native = { git = "https://github.com/finos/morphir-rust.git", rev = "9b414e949eaefbf098b61149824f535350719e18" }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
