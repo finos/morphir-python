@@ -23,8 +23,8 @@
       "separateMajorMinor": false
     },
     {
-      "description": "Keep Rust compiler and build-tool versions with the Rust dependency group across all their declarations.",
-      "groupName": "Rust dependencies",
+      "description": "Keep Rust compiler and build-tool versions in their own group across all their declarations.",
+      "groupName": "Rust toolchain",
       "groupSingleUpdates": true,
       "separateMajorMinor": false,
       "matchDepNames": [
