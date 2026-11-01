@@ -118,6 +118,14 @@ fn generate_model(model: &Value) -> Value {
     }})
 }
 
+/// The response is a JSON-RPC error with this code and message text.
+fn assert_refused(response: &Value, code: i64, text: &str) {
+    assert!(response.get("result").is_none(), "admitted: {response}");
+    assert_eq!(response["error"]["code"], code, "{}", response["error"]);
+    let message = response["error"]["message"].as_str().unwrap();
+    assert!(message.contains(text), "{message}");
+}
+
 /// The host default is Ion, which this guest does not serve. The host also
 /// offers JSON and does not require Ion, so the guest agrees on JSON, in the
 /// host's order, and both model operations work (finos/morphir-gleam#31).
@@ -176,7 +184,7 @@ fn a_host_that_offers_only_ion_gets_no_model_operation() {
         json!([])
     );
     let refused = send(session.as_ref(), compile_model("4.0.0"));
-    assert!(refused.get("error").is_some(), "Ion-only session compiled");
+    assert_refused(&refused, -32013, "not negotiated");
     let mut legacy = compile_model("4.0.0");
     legacy["method"] = json!("morphir.frontend.compile");
     legacy["params"]["options"]["irVersion"] = json!("4");
@@ -207,10 +215,20 @@ fn compile_support_does_not_grant_generation() {
         session.as_ref(),
         generate_model(&compiled["result"]["model"]),
     );
-    assert!(
-        refused.get("error").is_some(),
-        "generation was not admitted"
+    assert_refused(&refused, -32013, "not negotiated");
+
+    // Positive control: the same request succeeds once generation is agreed.
+    let both = extension.open_protocol();
+    send(
+        both.as_ref(),
+        initialize(
+            json!(["0.2.0-draft.1"]),
+            Some(offer(vec![json_ir4(COMPILE), json_ir4(GENERATE)])),
+        ),
     );
+    let generated = send(both.as_ref(), generate_model(&compiled["result"]["model"]));
+    assert!(generated.get("error").is_none(), "{}", generated["error"]);
+    assert_eq!(generated["result"]["success"], true);
 }
 
 /// A model operation that names another envelope version is refused, in
@@ -229,15 +247,27 @@ fn a_wrong_envelope_version_is_refused() {
     let mut wrong_output = compile_model("4.0.0");
     wrong_output["params"]["output"]["envelopeVersion"] = json!("0.2.0-draft.1");
     let refused = send(session.as_ref(), wrong_output);
-    assert!(refused.get("error").is_some(), "unagreed envelope compiled");
+    assert_refused(&refused, -32602, "unsupported_tuple");
 
     let compiled = send(session.as_ref(), compile_model("4.0.0"));
     assert!(compiled.get("error").is_none(), "{}", compiled["error"]);
     let model = &compiled["result"]["model"];
+    // Positive control: the unchanged request is admitted in this session.
+    let generated = send(session.as_ref(), generate_model(model));
+    assert!(generated.get("error").is_none(), "{}", generated["error"]);
+    assert_eq!(generated["result"]["success"], true);
     let mut wrong_input = generate_model(model);
     wrong_input["params"]["input"]["envelopeVersion"] = json!("0.2.0-draft.1");
-    assert!(send(session.as_ref(), wrong_input).get("error").is_some());
+    assert_refused(
+        &send(session.as_ref(), wrong_input),
+        -32602,
+        "unsupported_tuple",
+    );
     let mut wrong_model = generate_model(model);
     wrong_model["params"]["model"]["envelopeVersion"] = json!("0.2.0-draft.1");
-    assert!(send(session.as_ref(), wrong_model).get("error").is_some());
+    assert_refused(
+        &send(session.as_ref(), wrong_model),
+        -32602,
+        "unsupported_tuple",
+    );
 }
