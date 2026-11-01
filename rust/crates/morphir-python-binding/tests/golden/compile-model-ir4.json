@@ -1,0 +1,22 @@
+{
+  "model": {
+    "envelopeVersion": "0.1.0-draft.1",
+    "modelId": "acme",
+    "revision": "sha256:96647cf9745ad08392a039c2b7445380568b0ba17f5173dc2e18b586906365b0",
+    "irVersion": "4.0.0",
+    "profile": "morphir-ir",
+    "payload": {
+      "codec": "morphir-json",
+      "layout": "single-document",
+      "decodedByteLength": 5955,
+      "sha256": "96647cf9745ad08392a039c2b7445380568b0ba17f5173dc2e18b586906365b0",
+      "content": "<base64 of the payload golden file>"
+    },
+    "evidence": []
+  },
+  "diagnostics": [],
+  "modules": [
+    "acme/functions",
+    "acme/models"
+  ]
+}

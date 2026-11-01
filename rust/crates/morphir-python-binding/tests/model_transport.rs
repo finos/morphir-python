@@ -141,6 +141,8 @@ fn malformed_envelopes_guarantees_and_unadvertised_forms_are_refused() {
         ("/model/payload/content", json!("not canonical base64")),
         ("/model/critical", json!(["future.required"])),
         ("/model/irVersion", json!("3.0.0")),
+        ("/model/envelopeVersion", json!("0.2.0-draft.1")),
+        ("/input/envelopeVersion", json!("0.2.0-draft.1")),
         ("/input/codec", json!("ion-binary")),
         ("/input/profile", json!("rich-model")),
         ("/input/operation", json!("morphir.frontend.compileModel")),
@@ -159,6 +161,9 @@ fn malformed_envelopes_guarantees_and_unadvertised_forms_are_refused() {
     }
     let mut request = a_request("4.0.0");
     request.output.ir_version = "3.1.0".into();
+    assert!(PythonExtension.compile_model(request).is_err());
+    let mut request = a_request("4.0.0");
+    request.output.envelope_version = "0.2.0-draft.1".into();
     assert!(PythonExtension.compile_model(request).is_err());
 }
 

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qualify-mep-model-line: design</title>
+<!--
+  Agent document template (docs/templates/agent-document.html). Specs, plans and reports that a person reviews
+  start from this file: copy it, keep the <head> as it is, and write the content inside <main>.
+  Styles and scripts are files in docs/templates/assets/, referenced and not embedded. In a copy, change the
+  "assets/" prefix of each href and src to the relative path from the copy to that directory, for example
+  "../../docs/templates/assets/" from .dev/beads-specs/. See AGENTS.md, "Specs and plans are HTML documents".
+  Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
+  list them in nav.toc.
+-->
+<link rel="stylesheet" href="../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../docs/templates/assets/agent-document.js"></script>
+</head>
+<body>
+<main>
+<h1>qualify-mep-model-line: design</h1>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.1.6.9</code> · 2026-10-31 · in progress</p>
+
+<nav class="toc" aria-label="Contents">
+<ul>
+<li><a href="#context">Context</a></li>
+<li><a href="#goals">Goals and non-goals</a></li>
+<li><a href="#decisions">Decisions</a></li>
+<li><a href="#risks">Risks and trade-offs</a></li>
+<li><a href="#migration">Migration plan</a></li>
+</ul>
+</nav>
+
+<h2 id="context">Context</h2>
+<p>See proposal.md, "Why". The model line is in <code>model_transport.rs</code> on <code>morphir-extension-sdk</code> <code>0.4.0</code>. The SDK selects the intersection of the host offer and the guest support in the host's order, and the guest admits each call against the session tuples. These facts were true in <code>extension/python/v0.5.0</code>:</p>
+<table>
+<thead><tr><th>Item</th><th>0.5.0</th></tr></thead>
+<tbody>
+<tr><td>Protocol versions</td><td><code>0.2.0-draft.1</code>, <code>0.1</code></td></tr>
+<tr><td>Claims version</td><td><code>0.1.0-draft.2</code></td></tr>
+<tr><td>Model tuples</td><td>compileModel and generateModel × <code>morphir-ir</code> / <code>morphir-json</code> / <code>0.1.0-draft.1</code> / IR <code>3.0.0</code> and <code>4.0.0</code></td></tr>
+<tr><td>Ion</td><td>Not offered. Ion evidence is refused on WASM and native alike.</td></tr>
+</tbody>
+</table>
+
+<h2 id="goals">Goals and non-goals</h2>
+<ul>
+<li>Goal: tests that fail if negotiation, admission or the model outputs change.</li>
+<li>Goal: evidence that the MoonBit worker host runs the model line from both CLIs.</li>
+<li>Non-goal: Ion, dependencies in <code>compileModel</code>, or any change to finos/morphir-moonbit or finos/morphir.</li>
+</ul>
+
+<h2 id="decisions">Decisions</h2>
+
+<h3 id="tst-1">TST-1: golden files hold the exact payload bytes</h3>
+<p>The envelope golden file replaces <code>payload.content</code> with a placeholder, and a second file holds the decoded payload bytes as the guest wrote them. The SDK decodes the payload only after it checks length and SHA-256, so the payload file's digest equals the envelope digest. Pretty-printed IR 3 was 215 KB against 18 KB of exact bytes, and it would not catch a change in serialization. The files are <code>-text</code> in <code>.gitattributes</code> and excluded from the whitespace hooks.</p>
+<p>Set <code>MORPHIR_UPDATE_GOLDEN=1</code> to write them again after an intended change.</p>
+
+<h3 id="tst-2">TST-2: run golden outputs through a negotiated session</h3>
+<p>Calling <code>compile_model</code> directly skips the SDK's session admission. The golden test sends JSON-RPC messages to a session that a host initialized with all four tuples, so it also covers selection, admission and serialization of the result.</p>
+
+<h3 id="qual-1">QUAL-1: qualify without changing finos/morphir-moonbit</h3>
+<p>The host's Python suite pins <code>0.4.1</code> and <code>0.4.2</code> and checks MEP <code>0.1</code> only. A separate script outside both repositories drives the CLIs built from a clean <code>main</code> checkout with the same contract <code>0.2.0</code> WASM pin shape, the same environments (no Node on the native CLI's PATH) and the same checks as the host's Elm model-line suite. The receipt records the CLI program digests and the commit, which prove that the host is unchanged.</p>
+
+<h3 id="rel-1">REL-1: release 0.6.0 as a minor version</h3>
+<p>The protocol surface is the same as in <code>0.5.0</code>, but the compiler now builds with Ruff <code>0.0.20</code> and current dependencies. That can change parsing or generated text, so it is a new minor version, not a patch. The extension tag builds its native wheel from source in the same run, so it needs no native or CLI release.</p>
+
+<h2 id="risks">Risks and trade-offs</h2>
+<ul>
+<li>[A Ruff update changes generated text] → the golden test fails and shows the difference; update the files only after review.</li>
+<li>[The published CLI <code>morphir-python</code> <code>0.1.2</code> keeps compiler <code>0.5.0</code>] → the documentation says which compiler each package pairs with; a native and CLI release is a separate decision.</li>
+<li>[The MoonBit host offers model tuples for IR <code>4.0.0</code> only, and refuses <code>--ir-version 3</code> for any guest that supports the model line (<code>apps/morphir/cli/extension.mbt</code>)] → the qualification records that refusal as an expected row; IR 3 model operations are covered by the Rust session and golden tests. With <code>0.4.2</code>, which declares only MEP <code>0.1</code>, the host compiled IR 3. This is a host change for finos/morphir-moonbit, tracked in its own bead.</li>
+<li>[On the npm CLI a WASM worker runs on a Node worker thread] → its documented stop method is <code>thread-termination</code>; the qualification still requires an acknowledged shutdown and exit code 0. The process executable and the native CLI's WASM worker stop by themselves (<code>exited-after-exit</code>).</li>
+</ul>
+
+<h2 id="migration">Migration plan</h2>
+<p>No migration. Hosts on MEP <code>0.1</code> keep working: the finos/morphir Rust host pins <code>extension/python/v0.4.2</code>, and the <code>0.1</code> suite repeats for <code>0.4.1</code> and <code>0.4.2</code>. To roll back, hosts keep or restore their <code>0.5.0</code> pin; released bytes do not change.</p>
+</main>
+</body>
+</html>
