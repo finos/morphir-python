@@ -12,3 +12,7 @@ tools/extension-qualification/Cargo.toml text eol=lf
 tools/extension-qualification/*.rs text eol=lf
 tools/extension-qualification/src/*.rs text eol=lf
 tools/extension-qualification/src/bin/*.rs text eol=lf
+
+# Golden model outputs are digested bytes; never convert their line endings.
+rust/crates/morphir-python-binding/tests/golden/* -text
+rust/crates/morphir-python-binding/tests/fixtures/** text eol=lf

@@ -251,3 +251,71 @@ fn description_is_fixed_across_initialization_and_reinitialization_refusal() {
     assert_eq!(replies[2]["result"], replies[4]["result"]);
     assert_eq!(replies[3]["error"]["code"], -32600);
 }
+
+/// The released process runs both model operations in a `0.2.0-draft.1`
+/// session, then stops by itself after `morphir.exit`.
+#[test]
+fn standalone_process_serves_the_model_line_and_exits_by_itself() {
+    let tuple = |operation: &str| {
+        json!({"operation":operation,"profile":"morphir-ir","codec":"morphir-json",
+            "envelopeVersion":"0.1.0-draft.1","irVersion":"4.0.0"})
+    };
+    let mut start = initialize();
+    start["params"]["protocolVersions"] = json!(["0.2.0-draft.1", "0.1"]);
+    start["params"]["modelTransport"] = json!({
+        "tuples":[tuple("morphir.frontend.compileModel"), tuple("morphir.backend.generateModel")],
+        "limits":{"maxEncodedBytes":1048576,"maxDecodedBytes":786432,"maxDepth":128,"maxNodes":100000},
+        "guarantees":[],
+    });
+    let compile = json!({"jsonrpc":"2.0","id":2,"method":"morphir.frontend.compileModel","params":{
+        "languageId":"python",
+        "sources":{"documents":[{"uri":"acme/rules.py","languageId":"python","version":1,
+            "text":"def identity(flag: bool) -> bool:\n    return flag\n"}]},
+        "package":{"name":"acme"},"dependencies":[],
+        "options":{"irVersion":"4.0.0","typesOnly":false},"contextDigest":"a".repeat(64),
+        "output":tuple("morphir.frontend.compileModel"),
+    }});
+    let session = |messages: &[Value]| {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_morphir-python-extension"))
+            .env_clear()
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(&wire(messages))
+            .unwrap();
+        let result = child.wait_with_output().unwrap();
+        assert!(result.status.success(), "{:?}", result.stderr);
+        assert!(result.stderr.is_empty());
+        responses(result.stdout)
+    };
+    let shutdown = json!({"jsonrpc":"2.0","id":9,"method":"morphir.shutdown","params":{}});
+    let exit = json!({"jsonrpc":"2.0","method":"morphir.exit"});
+    let first = session(&[start.clone(), compile, shutdown.clone(), exit.clone()]);
+    assert_eq!(first.len(), 3);
+    assert_eq!(first[0]["result"]["protocolVersion"], "0.2.0-draft.1");
+    assert!(first[1].get("error").is_none(), "{}", first[1]["error"]);
+    let model = &first[1]["result"]["model"];
+    assert_eq!(model["envelopeVersion"], "0.1.0-draft.1");
+
+    let generate = json!({"jsonrpc":"2.0","id":3,"method":"morphir.backend.generateModel","params":{
+        "model":model,"target":"python","contextDigest":"a".repeat(64),"requiredGuarantees":[],
+        "options":{},"input":tuple("morphir.backend.generateModel"),
+    }});
+    let second = session(&[start, generate, shutdown, exit]);
+    assert_eq!(second.len(), 3);
+    assert!(second[1].get("error").is_none(), "{}", second[1]["error"]);
+    let artifacts = &second[1]["result"]["artifacts"];
+    assert_eq!(artifacts[0]["path"], "acme/rules.py");
+    assert!(
+        artifacts[0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("def identity(flag: bool) -> bool:")
+    );
+}

@@ -19,7 +19,11 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        # Golden payloads are exact digested bytes with no final newline.
+        exclude: ^rust/crates/morphir-python-binding/tests/golden/
       - id: end-of-file-fixer
+        # Golden payloads are exact digested bytes with no final newline.
+        exclude: ^rust/crates/morphir-python-binding/tests/golden/
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files

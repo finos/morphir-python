@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "artifacts": [
+    {
+      "path": "acme/functions.py",
+      "content": "from __future__ import annotations\nfrom dataclasses import dataclass\nfrom collections.abc import Callable\nimport acme.functions as morphir_module_1\n\n\ndef apply(transform: Callable[[int], int], value: int) -> int:\n    return transform(value)\n\n\ndef capture(value: int) -> Callable[[int], int]:\n    return lambda ignored: value\n\n\ndef choose(flag: bool, first: int, second: int) -> int:\n    if flag:\n        return first\n    else:\n        return second\n\n\ndef conditional(flag: bool) -> Callable[[int], int]:\n    if flag:\n        return morphir_module_1.identity\n    else:\n        return lambda item: item\n\n\ndef constant() -> int:\n    return 42\n\n\ndef curry(flag: bool) -> Callable[[int], Callable[[int], int]]:\n    return lambda first: lambda second: first if flag else second\n\n\ndef forward(value: int) -> int:\n    return morphir_module_1.later(value)\n\n\ndef identity(value: int) -> int:\n    return value\n\n\ndef immediate(value: int) -> int:\n    return (lambda item: item)(value)\n\n\ndef later(value: int) -> int:\n    return value\n\n\ndef read_constant(value: int) -> int:\n    return morphir_module_1.constant()\n\n\ndef recurse(flag: bool, value: int) -> int:\n    if flag:\n        return morphir_module_1.recurse(False, value)\n    else:\n        return value\n\n\ndef run(value: int) -> int:\n    return morphir_module_1.choose(True, morphir_module_1.apply(lambda item: morphir_module_1.identity(item), value), morphir_module_1.curry(False)(1)(2))\n\n\ndef shadow(value: int) -> Callable[[int], int]:\n    return lambda value: value\n\n\ndef tupled(value: int) -> tuple[Callable[[int], int], int]:\n    return lambda ignored: value, value\n",
+      "binary": false
+    },
+    {
+      "path": "acme/models.py",
+      "content": "from __future__ import annotations\nfrom dataclasses import dataclass\nfrom collections.abc import Callable\n\n\n@dataclass(frozen=True)\nclass Address:\n    street: str\n    zip_code: int\n\n\n@dataclass(frozen=True)\nclass Application:\n    decision: Decision\n    verified: bool\n    coordinates: tuple[float, float]\n\n\n@dataclass(frozen=True)\nclass Pending:\n    pass\n\n\n@dataclass(frozen=True)\nclass Approved:\n    amount: float\n    address: Address\n\n\ntype Decision = Pending | Approved\n",
+      "binary": false
+    }
+  ],
+  "diagnostics": []
+}

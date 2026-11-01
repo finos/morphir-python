@@ -87,3 +87,157 @@ fn legacy_or_other_drafts_cannot_admit_model_operations() {
         assert_eq!(refused["error"]["code"], -32011);
     }
 }
+
+fn tuple(operation: &str, profile: &str, codec: &str, ir_version: &str) -> Value {
+    json!({"operation":operation,"profile":profile,"codec":codec,
+        "envelopeVersion":"0.1.0-draft.1","irVersion":ir_version})
+}
+
+fn offer(tuples: Vec<Value>) -> Value {
+    json!({"tuples":tuples,
+        "limits":{"maxEncodedBytes":1048576,"maxDecodedBytes":786432,"maxDepth":128,"maxNodes":100000},
+        "guarantees":[]})
+}
+
+const COMPILE: &str = "morphir.frontend.compileModel";
+const GENERATE: &str = "morphir.backend.generateModel";
+
+fn ion(operation: &str) -> Value {
+    tuple(operation, "morphir-model", "ion-binary", "4.0.0")
+}
+
+fn json_ir4(operation: &str) -> Value {
+    tuple(operation, "morphir-ir", "morphir-json", "4.0.0")
+}
+
+fn generate_model(model: &Value) -> Value {
+    json!({"jsonrpc":"2.0","id":3,"method":GENERATE,"params":{
+        "model":model,"target":"python","contextDigest":"a".repeat(64),
+        "requiredGuarantees":[],"options":{},
+        "input":tuple(GENERATE, "morphir-ir", "morphir-json", model["irVersion"].as_str().unwrap()),
+    }})
+}
+
+/// The host default is Ion, which this guest does not serve. The host also
+/// offers JSON and does not require Ion, so the guest agrees on JSON, in the
+/// host's order, and both model operations work (finos/morphir-gleam#31).
+#[test]
+fn guest_negotiates_json_when_the_host_prefers_ion_but_offers_both() {
+    let extension = NativeExtension::frontend_backend(PythonExtension).unwrap();
+    let session = extension.open_protocol();
+    let host = offer(vec![
+        ion(COMPILE),
+        ion(GENERATE),
+        json_ir4(COMPILE),
+        json_ir4(GENERATE),
+    ]);
+    let selected = send(
+        session.as_ref(),
+        initialize(json!(["0.2.0-draft.1", "0.1"]), Some(host)),
+    );
+    assert!(selected.get("error").is_none(), "{selected}");
+    assert_eq!(selected["result"]["protocolVersion"], "0.2.0-draft.1");
+    assert_eq!(
+        selected["result"]["capabilities"]["modelTransport"]["tuples"],
+        json!([json_ir4(COMPILE), json_ir4(GENERATE)])
+    );
+    let compiled = send(session.as_ref(), compile_model("4.0.0"));
+    assert!(compiled.get("error").is_none(), "{}", compiled["error"]);
+    assert_eq!(
+        compiled["result"]["model"]["payload"]["codec"],
+        "morphir-json"
+    );
+    let generated = send(
+        session.as_ref(),
+        generate_model(&compiled["result"]["model"]),
+    );
+    assert!(generated.get("error").is_none(), "{}", generated["error"]);
+    assert_eq!(generated["result"]["success"], true);
+}
+
+/// A host that offers only Ion leaves no tuple this guest can serve. The
+/// session starts with no model tuple, the guest never converts to JSON, and
+/// the MEP `0.1` compile method still works in that session.
+#[test]
+fn a_host_that_offers_only_ion_gets_no_model_operation() {
+    let extension = NativeExtension::frontend_backend(PythonExtension).unwrap();
+    let session = extension.open_protocol();
+    let selected = send(
+        session.as_ref(),
+        initialize(
+            json!(["0.2.0-draft.1"]),
+            Some(offer(vec![ion(COMPILE), ion(GENERATE)])),
+        ),
+    );
+    assert!(selected.get("error").is_none(), "{}", selected["error"]);
+    assert_eq!(selected["result"]["protocolVersion"], "0.2.0-draft.1");
+    assert_eq!(
+        selected["result"]["capabilities"]["modelTransport"]["tuples"],
+        json!([])
+    );
+    let refused = send(session.as_ref(), compile_model("4.0.0"));
+    assert!(refused.get("error").is_some(), "Ion-only session compiled");
+    let mut legacy = compile_model("4.0.0");
+    legacy["method"] = json!("morphir.frontend.compile");
+    legacy["params"]["options"]["irVersion"] = json!("4");
+    for member in ["output", "contextDigest"] {
+        legacy["params"].as_object_mut().unwrap().remove(member);
+    }
+    let compiled = send(session.as_ref(), legacy);
+    assert!(compiled.get("error").is_none(), "{}", compiled["error"]);
+    assert_eq!(compiled["result"]["success"], true);
+}
+
+/// Admission of a compile tuple does not admit generation of that model.
+#[test]
+fn compile_support_does_not_grant_generation() {
+    let extension = NativeExtension::frontend_backend(PythonExtension).unwrap();
+    let session = extension.open_protocol();
+    let selected = send(
+        session.as_ref(),
+        initialize(
+            json!(["0.2.0-draft.1"]),
+            Some(offer(vec![json_ir4(COMPILE)])),
+        ),
+    );
+    assert!(selected.get("error").is_none(), "{selected}");
+    let compiled = send(session.as_ref(), compile_model("4.0.0"));
+    assert!(compiled.get("error").is_none(), "{}", compiled["error"]);
+    let refused = send(
+        session.as_ref(),
+        generate_model(&compiled["result"]["model"]),
+    );
+    assert!(
+        refused.get("error").is_some(),
+        "generation was not admitted"
+    );
+}
+
+/// A model operation that names another envelope version is refused, in
+/// both directions, even when every other tuple member was agreed.
+#[test]
+fn a_wrong_envelope_version_is_refused() {
+    let extension = NativeExtension::frontend_backend(PythonExtension).unwrap();
+    let session = extension.open_protocol();
+    send(
+        session.as_ref(),
+        initialize(
+            json!(["0.2.0-draft.1"]),
+            Some(offer(vec![json_ir4(COMPILE), json_ir4(GENERATE)])),
+        ),
+    );
+    let mut wrong_output = compile_model("4.0.0");
+    wrong_output["params"]["output"]["envelopeVersion"] = json!("0.2.0-draft.1");
+    let refused = send(session.as_ref(), wrong_output);
+    assert!(refused.get("error").is_some(), "unagreed envelope compiled");
+
+    let compiled = send(session.as_ref(), compile_model("4.0.0"));
+    assert!(compiled.get("error").is_none(), "{}", compiled["error"]);
+    let model = &compiled["result"]["model"];
+    let mut wrong_input = generate_model(model);
+    wrong_input["params"]["input"]["envelopeVersion"] = json!("0.2.0-draft.1");
+    assert!(send(session.as_ref(), wrong_input).get("error").is_some());
+    let mut wrong_model = generate_model(model);
+    wrong_model["params"]["model"]["envelopeVersion"] = json!("0.2.0-draft.1");
+    assert!(send(session.as_ref(), wrong_model).get("error").is_some());
+}
