@@ -1,20 +1,22 @@
 # Tasks
 
+Qualification receipts for 3.1 and 3.2 (finos/morphir-moonbit `main` 40623b8, macOS arm64) are on bead `morphir-ukvn.1.6.9.3`: the `0.1` suite passed 32 of 32 rows, and the candidate model line passed 32 of 32 rows for the WASM and process guests from both CLIs. The host refuses IR 3 on the model line; see design.html, Risks.
+
 ## 1. Test negotiation, golden outputs and refusals (morphir-ukvn.1.6.9.1)
 
-- [ ] 1.1 Add session tests for an Ion-preferring host that also offers JSON, an Ion-only host, compile-only admission and a wrong envelope version; verify `cargo test -p morphir-python-binding --test model_session` passes.
-- [ ] 1.2 Add golden outputs for `compileModel` and `generateModel` for IR `3.0.0` and `4.0.0` through a negotiated session, with byte-exact payload files kept out of line-ending conversion and end-of-file hooks; verify `cargo test -p morphir-python-binding --test model_golden` passes and each payload file's SHA-256 equals its envelope digest.
-- [ ] 1.3 Add a process test that runs both model operations in a `0.2.0-draft.1` session and checks that the process stops by itself; verify `cargo test -p morphir-python-extension` passes.
+- [x] 1.1 Add session tests for an Ion-preferring host that also offers JSON, an Ion-only host, compile-only admission and a wrong envelope version; verify `cargo test -p morphir-python-binding --test model_session` passes.
+- [x] 1.2 Add golden outputs for `compileModel` and `generateModel` for IR `3.0.0` and `4.0.0` through a negotiated session, with byte-exact payload files kept out of line-ending conversion and end-of-file hooks; verify `cargo test -p morphir-python-binding --test model_golden` passes and each payload file's SHA-256 equals its envelope digest.
+- [x] 1.3 Add a process test that runs both model operations in a `0.2.0-draft.1` session and checks that the process stops by itself; verify `cargo test -p morphir-python-extension` passes.
 
 ## 2. Specify and document (morphir-ukvn.1.6.9.2)
 
-- [ ] 2.1 Add the host-default and Ion-only scenarios to `python/model-transport`; verify `openspec validate qualify-mep-model-line --strict` passes.
-- [ ] 2.2 Set the compiler crate version to `0.6.0`; verify `mise run rust:check` and `mise run check` pass.
+- [x] 2.1 Add the host-default and Ion-only scenarios to `python/model-transport`; verify `openspec validate qualify-mep-model-line --strict` passes.
+- [x] 2.2 Set the compiler crate version to `0.6.0`; verify `mise run rust:check` and `mise run check` pass.
 
 ## 3. Qualify on the MoonBit worker host (morphir-ukvn.1.6.9.3)
 
-- [ ] 3.1 Repeat the `0.1`-only Python suite of finos/morphir-moonbit `main` (`mise run test:cli-extism-python`) for `0.4.1` and `0.4.2`; verify every row passes from the native and npm CLIs.
-- [ ] 3.2 Run `extension describe`, model-line `compile` (IR 4), `generate`, recompile and a consumer check of the generated Python for the candidate WASM with a contract `0.2.0` pin from the native and npm CLIs; verify protocol `0.2.0-draft.1`, the JSON tuple, equal outputs across CLIs and `exited-after-exit` worker shutdown, and record the receipt on the epic bead.
+- [x] 3.1 Repeat the `0.1`-only Python suite of finos/morphir-moonbit `main` (`mise run test:cli-extism-python`) for `0.4.1` and `0.4.2`; verify every row passes from the native and npm CLIs.
+- [x] 3.2 Run `extension describe`, model-line `compile` (IR 4), `generate`, recompile and a consumer check of the generated Python for the candidate WASM with a contract `0.2.0` pin from the native and npm CLIs; verify protocol `0.2.0-draft.1`, the JSON tuple, equal outputs across CLIs and `exited-after-exit` worker shutdown, and record the receipt on the epic bead.
 
 ## 4. Release (morphir-ukvn.1.6.9.4)
 

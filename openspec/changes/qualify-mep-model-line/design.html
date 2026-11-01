@@ -72,7 +72,8 @@
 <ul>
 <li>[A Ruff update changes generated text] → the golden test fails and shows the difference; update the files only after review.</li>
 <li>[The published CLI <code>morphir-python</code> <code>0.1.2</code> keeps compiler <code>0.5.0</code>] → the documentation says which compiler each package pairs with; a native and CLI release is a separate decision.</li>
-<li>[The MoonBit host offers IR <code>4.0.0</code> only on the model line] → IR 3 model-line qualification is local to the Rust tests; IR 3 on the host runs on MEP <code>0.1</code>.</li>
+<li>[The MoonBit host offers model tuples for IR <code>4.0.0</code> only, and refuses <code>--ir-version 3</code> for any guest that supports the model line (<code>apps/morphir/cli/extension.mbt</code>)] → the qualification records that refusal as an expected row; IR 3 model operations are covered by the Rust session and golden tests. With <code>0.4.2</code>, which declares only MEP <code>0.1</code>, the host compiled IR 3. This is a host change for finos/morphir-moonbit, tracked in its own bead.</li>
+<li>[On the npm CLI a WASM worker runs on a Node worker thread] → its documented stop method is <code>thread-termination</code>; the qualification still requires an acknowledged shutdown and exit code 0. The process executable and the native CLI's WASM worker stop by themselves (<code>exited-after-exit</code>).</li>
 </ul>
 
 <h2 id="migration">Migration plan</h2>
