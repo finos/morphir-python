@@ -138,7 +138,7 @@ jobs:
           CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
         with:
           working-directory: packages/morphir-python-native
-          maturin-version: '1.15.0'
+          maturin-version: '1.16.0'
           rust-toolchain: '1.98.1'
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'off' }}
