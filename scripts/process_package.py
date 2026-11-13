@@ -39,12 +39,15 @@ def describe(executable: Path) -> dict[str, Any]:
         },
         {"jsonrpc": "2.0", "method": "morphir.exit"},
     ]
+    creation_flags = 0
+    if sys.platform == "win32":
+        creation_flags = subprocess.CREATE_NO_WINDOW
     with subprocess.Popen(
         [str(executable.resolve())],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        creationflags=creation_flags,
         start_new_session=os.name != "nt",
     ) as guest:
         try:
