@@ -129,7 +129,7 @@ def candidates(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
                         "checkerSha256": bundle.sha256(
                             (
                                 bundle.ROOT
-                                / ".github/scripts/check_process_windows.ps1"
+                                / "scripts/check_process_windows.py"
                             ).read_bytes()
                         ),
                         "tool": {

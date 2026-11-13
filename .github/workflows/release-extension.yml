@@ -6,7 +6,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/release-extension.yml'
-      - '.github/scripts/check_*process*.ps1'
+      - 'scripts/check_*.py'
+      - 'scripts/process_command.py'
       - 'scripts/process_package.py'
       - 'rust/**'
   workflow_dispatch:
@@ -52,11 +53,10 @@ jobs:
         run: cargo +1.98.1 test --manifest-path rust/Cargo.toml --locked --release -p morphir-python-extension --target ${{ matrix.target }} --tests
       - name: Refuse external VC and Python runtime dependencies
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          ./.github/scripts/check_process_windows.ps1 `
-            -Executable rust/target/${{ matrix.target }}/release/morphir-python-extension.exe `
-            -Report dist/windows-process-imports.json
+        run: >-
+          python -m scripts.check_process_windows
+          --executable rust/target/${{ matrix.target }}/release/morphir-python-extension.exe
+          --report dist/windows-process-imports.json
       - name: Package the executable with its actual claims
         shell: bash
         run: |
@@ -66,16 +66,10 @@ jobs:
             --platform '${{ matrix.target }}' --commit "$GITHUB_SHA" --output dist/package
       - name: Install, compile and generate with the released .NET CLI
         if: matrix.target == 'aarch64-pc-windows-msvc'
-        shell: pwsh
-        run: |
-          $archive = Join-Path $env:RUNNER_TEMP 'morphir-host.zip'
-          Invoke-WebRequest -Uri 'https://github.com/finos/morphir-dotnet/releases/download/v0.5.0-alpha.1/morphir-dotnet-0.5.0-alpha.1-self-contained-win-arm64.zip' -OutFile $archive
-          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne '07887a38d4a74e7ccd50e8849ff99b37c7f5e2798419b1f2b4c6d4267afccfcd') { throw 'Host archive digest differs' }
-          $hostDir = Join-Path $env:RUNNER_TEMP 'morphir-host'
-          Expand-Archive -LiteralPath $archive -DestinationPath $hostDir
-          ./.github/scripts/check_dotnet_process.ps1 `
-            -HostExecutable "$hostDir/morphir.exe" -PackageDirectory dist/package `
-            -WorkDirectory "$env:RUNNER_TEMP/python-process-smoke"
+        run: >-
+          python -m scripts.check_dotnet_process
+          --package-directory dist/package
+          --work-directory "${{ runner.temp }}/python-process-smoke"
       - uses: actions/upload-artifact@v7
         with:
           name: process-package-${{ matrix.target }}

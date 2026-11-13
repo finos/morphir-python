@@ -44,7 +44,7 @@ def _windows_imports(root: Path, artifact_digest: str, commit: str) -> str:
             and proof["artifact"]["sha256"] == artifact_digest
             and proof["checkerSha256"]
             == bundle.sha256(
-                (bundle.ROOT / ".github/scripts/check_process_windows.ps1").read_bytes()
+                (bundle.ROOT / "scripts/check_process_windows.py").read_bytes()
             )
             and proof["tool"]["name"] == "dumpbin.exe"
             and re.fullmatch(r"[0-9a-f]{64}", proof["tool"]["sha256"])
