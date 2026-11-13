@@ -102,3 +102,16 @@ def test_invalid_package_inputs_do_not_create_output(
     with pytest.raises(bundle.BundleError):
         packages.package(executable, output, platform, commit, observed)
     assert not output.exists()
+
+
+def test_historical_bundle_offers_do_not_define_the_current_process_protocol(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    historical = bundle.declaration()
+    historical["extension"]["mep_versions"] = ["0.2.0-draft.1", "0.1"]
+    monkeypatch.setattr(bundle, "declaration", lambda: historical)
+    executable = tmp_path / "guest"
+    executable.write_bytes(b"guest")
+    packages.package(
+        executable, tmp_path / "package", "aarch64-pc-windows-msvc", "a" * 40, claims()
+    )

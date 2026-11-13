@@ -72,6 +72,8 @@ the Home's current catalog. A process extension has ordinary OS permissions.
 
 The guest describes and negotiates only MEP `0.2.0-draft.1`. Hosts that offer
 only the retired `0.1` protocol are refused. Historical packages are unchanged.
+The older Rust-host guide and `rust/extension.toml` retain their historical
+recipe and offers. They do not define the protocol of these process packages.
 
 ## Build a development package
 

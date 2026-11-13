@@ -23,6 +23,8 @@ from scripts import extension_bundle as bundle
 from scripts import process_diagnostics, process_extension
 
 PLATFORMS = (*process_extension.PLATFORMS, "aarch64-pc-windows-msvc")
+# The historical Rust-host bundle declaration is not the current guest offer.
+MEP_VERSION = "0.2.0-draft.1"
 SCHEMA = (
     "https://morphir.finos.org/schemas/extensions/0.1.0-preview.1/release.schema.json"
 )
@@ -35,7 +37,7 @@ def describe(executable: Path) -> dict[str, Any]:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "morphir.extension.describe",
-            "params": {"protocolVersions": ["0.2.0-draft.1"]},
+            "params": {"protocolVersions": [MEP_VERSION]},
         },
         {"jsonrpc": "2.0", "method": "morphir.exit"},
     ]
@@ -92,8 +94,7 @@ def package(
     if (
         claims.get("extension", {}).get("id") != "morphir-python"
         or claims["extension"].get("version") != version
-        or claims.get("protocolVersions")
-        != bundle.declaration()["extension"]["mep_versions"]
+        or claims.get("protocolVersions") != [MEP_VERSION]
     ):
         raise bundle.BundleError("process claims differ from the compiler identity")
     if executable.is_symlink() or not executable.is_file():
