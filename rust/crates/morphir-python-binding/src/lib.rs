@@ -25,6 +25,7 @@
 
 mod backend;
 mod frontend;
+pub mod guest;
 mod ir;
 mod model_transport;
 mod modules;
@@ -152,8 +153,6 @@ impl Backend for PythonExtension {
         vec!["python".into()]
     }
 }
-
-morphir_extension_sdk::export_extension!(PythonExtension, frontend, backend);
 
 type Outcome<T> = std::result::Result<T, Diagnostic>;
 

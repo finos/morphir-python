@@ -7,15 +7,15 @@ Expose the Python compiler through the current canonical MEP draft with explicit
 ## Requirements
 
 ### Requirement: New model operations require exact draft negotiation
-The extension SHALL support MEP `0.2.0-draft.1` for model operations while preserving legacy `0.1` behavior. Draft negotiation MUST match the full version exactly. A session negotiated as `0.1` MUST NOT enable model operations. Package, claims, model-envelope and IR versions MUST remain independent. (bead: morphir-5hxy)
+Shipped process and WASM guests SHALL describe and negotiate only MEP `0.2.0-draft.1`. They MUST refuse the retired `0.1` protocol. Draft negotiation MUST match the full version exactly. Package, claims, model-envelope and IR versions MUST remain independent. Historical release artifacts MUST remain unchanged. (bead: morphir-5hxy)
 
 #### Scenario: Host offers the supported new draft
 - **WHEN** a host and extension both offer `0.2.0-draft.1`
 - **THEN** initialization selects the exact draft before any model operation is admitted
 
 #### Scenario: Legacy or different draft session
-- **WHEN** the session selects `0.1` or the host offers only another draft version
-- **THEN** model operations are unavailable and an incompatible-only handshake is refused
+- **WHEN** the host offers only `0.1` or another draft version
+- **THEN** describe and initialization refuse the incompatible-only offer without initializing the session
 
 ### Requirement: Model operation admission is bilateral
 Each model operation SHALL require an initialized, advertised tuple matching operation, profile, codec, envelope version and semantic IR version. Session tuples and limits MUST remain within both peers' offers and permitted static claims. Unknown required guarantees and unadmitted tuples MUST be refused. (bead: morphir-5hxy)

@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $processBinary = (Resolve-Path -LiteralPath $Executable).Path
 $vsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
-$toolCandidates = @(& $vsWhere -latest -products "*" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find "VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe")
+$toolCandidates = @(& $vsWhere -latest -products "*" -find "VC\Tools\MSVC\**\bin\Host*\*\dumpbin.exe")
 $toolLocation = $toolCandidates | Select-Object -First 1
 if ($LASTEXITCODE -ne 0 -or !$toolLocation) {
     throw "Cannot locate the MSVC dependency inspector"

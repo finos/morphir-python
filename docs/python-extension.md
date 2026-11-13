@@ -1,5 +1,9 @@
 # The morphir-python Morphir extension
 
+For the .NET CLI, use the [process package installation guide](dotnet-process-extension.md).
+The `0.6.2` candidate adds the package format its existing installer accepts,
+including native Windows ARM64.
+
 The `morphir-python` extension lets a Morphir host, such as the Rust `morphir`
 CLI, compile Python with `morphir compile --language python` and generate Python
 with `morphir generate --target python`. It is the
