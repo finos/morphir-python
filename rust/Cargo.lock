@@ -1451,7 +1451,7 @@ dependencies = [
 
 [[package]]
 name = "morphir-python-binding"
-version = "0.6.0"
+version = "0.6.2"
 dependencies = [
  "cucumber",
  "morphir-core",

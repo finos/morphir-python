@@ -1,4 +1,6 @@
 //! A real process and in-memory streams share the same SDK lifecycle.
+use morphir_extension_sdk::Extension;
+use morphir_python_binding::PythonExtension;
 use morphir_python_extension::{
     framing::{read_frame, write_frame},
     serve,
@@ -23,7 +25,7 @@ fn responses(bytes: Vec<u8>) -> Vec<Value> {
     responses
 }
 fn initialize() -> Value {
-    json!({"jsonrpc":"2.0","id":1,"method":"morphir.initialize","params":{"protocolVersions":["0.1"],"host":{"name":"test","version":"1"}}})
+    json!({"jsonrpc":"2.0","id":1,"method":"morphir.initialize","params":{"protocolVersions":["0.2.0-draft.1"],"host":{"name":"test","version":"1"},"modelTransport":PythonExtension::capabilities().model_transport.unwrap()}})
 }
 
 #[test]
@@ -51,7 +53,7 @@ fn sessions_preserve_lifecycle_ids_and_notification_silence() {
         [0, 1, 2, 3, 4]
     );
     assert_eq!(replies[0]["error"]["code"], -32014);
-    assert_eq!(replies[1]["result"]["protocolVersion"], "0.1");
+    assert_eq!(replies[1]["result"]["protocolVersion"], "0.2.0-draft.1");
     assert_eq!(replies[2]["result"]["ok"], true);
     assert_eq!(replies[4]["error"]["code"], -32014);
 }
@@ -143,7 +145,10 @@ fn invalid_request_ids_do_not_become_notifications_or_poison_the_session() {
 fn independent_stream_sessions_cannot_share_initialization_state() {
     let mut first = Vec::new();
     serve(&mut Cursor::new(wire(&[initialize()])), &mut first).unwrap();
-    assert_eq!(responses(first)[0]["result"]["protocolVersion"], "0.1");
+    assert_eq!(
+        responses(first)[0]["result"]["protocolVersion"],
+        "0.2.0-draft.1"
+    );
     let mut second = Vec::new();
     serve(
         &mut Cursor::new(wire(&[
@@ -225,7 +230,7 @@ fn truncated_input_exits_with_diagnostics_only_on_stderr() {
 
 #[test]
 fn description_is_fixed_across_initialization_and_reinitialization_refusal() {
-    let describe = |id| json!({"jsonrpc":"2.0","id":id,"method":"morphir.extension.describe","params":{"protocolVersions":["0.1"]}});
+    let describe = |id| json!({"jsonrpc":"2.0","id":id,"method":"morphir.extension.describe","params":{"protocolVersions":["0.2.0-draft.1"]}});
     let mut second_init = initialize();
     second_init["id"] = json!(3);
     second_init["params"]["protocolVersions"] = json!(["0.2.0-draft.99"]);
@@ -245,7 +250,7 @@ fn description_is_fixed_across_initialization_and_reinitialization_refusal() {
     assert_eq!(replies.len(), 5);
     assert_eq!(
         replies[0]["result"]["protocolVersions"],
-        json!(["0.2.0-draft.1", "0.1"])
+        json!(["0.2.0-draft.1"])
     );
     assert_eq!(replies[0]["result"], replies[2]["result"]);
     assert_eq!(replies[2]["result"], replies[4]["result"]);
@@ -261,7 +266,7 @@ fn standalone_process_serves_the_model_line_and_exits_by_itself() {
             "envelopeVersion":"0.1.0-draft.1","irVersion":"4.0.0"})
     };
     let mut start = initialize();
-    start["params"]["protocolVersions"] = json!(["0.2.0-draft.1", "0.1"]);
+    start["params"]["protocolVersions"] = json!(["0.2.0-draft.1"]);
     start["params"]["modelTransport"] = json!({
         "tuples":[tuple("morphir.frontend.compileModel"), tuple("morphir.backend.generateModel")],
         "limits":{"maxEncodedBytes":1048576,"maxDecodedBytes":786432,"maxDepth":128,"maxNodes":100000},

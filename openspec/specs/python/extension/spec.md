@@ -92,3 +92,14 @@ Each documented successful host route SHALL have retained candidate-bound instal
 #### Scenario: A host requires unavailable model behavior
 - **WHEN** a host route requires a profile or model operation that the selected guest cannot admit
 - **THEN** documentation records that route as unsupported rather than claiming that process transport resolves the incompatibility
+
+### Requirement: Process packages use the existing extension installation format
+Process packages SHALL use the `extensions/0.1.0-preview.1` release contract with a critical `artifacts.package` declaration, an archive digest and a canonical executable-tree digest. Embedded claims MUST match the executable's actual describe response with only the claims wrapper removed. Native Windows ARM64 packages MUST be produced without requiring a CPython wheel. (bead: morphir-5hxy)
+
+#### Scenario: Install and invoke the Windows ARM64 process package
+- **WHEN** the released .NET CLI installs the native Windows ARM64 package into an absolute Morphir Home using its local-developer installation route
+- **THEN** explicit `morphir-python` selection compiles and generates Python through MEP `0.2.0-draft.1` without CPython or Wasmtime in the guest
+
+#### Scenario: A morphirup generation does not contain Python
+- **WHEN** `morphirup run` selects a generation containing only its pinned F# providers
+- **THEN** a globally installed Python extension is not implicitly added to that generation

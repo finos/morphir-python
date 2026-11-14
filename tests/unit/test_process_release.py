@@ -128,8 +128,7 @@ def candidates(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
                         "artifact": {"sha256": digest},
                         "checkerSha256": bundle.sha256(
                             (
-                                bundle.ROOT
-                                / ".github/scripts/check_process_windows.ps1"
+                                bundle.ROOT / "scripts/check_process_windows.py"
                             ).read_bytes()
                         ),
                         "tool": {

@@ -1,0 +1,122 @@
+name: Release process extension
+
+on:
+  push:
+    tags: ['extension/python/v*']
+  pull_request:
+    paths:
+      - '.github/workflows/release-extension.yml'
+      - 'scripts/check_*.py'
+      - 'scripts/process_command.py'
+      - 'scripts/process_package.py'
+      - 'rust/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: process-extension-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Process package (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      # One installed ARM64 journey on PRs; all six native builds for a release.
+      matrix:
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"target":"aarch64-pc-windows-msvc","runner":"windows-11-arm"}]' || '[{"target":"x86_64-unknown-linux-gnu","runner":"ubuntu-22.04"},{"target":"aarch64-unknown-linux-gnu","runner":"ubuntu-24.04-arm"},{"target":"aarch64-apple-darwin","runner":"macos-latest"},{"target":"x86_64-apple-darwin","runner":"macos-15-intel"},{"target":"x86_64-pc-windows-msvc","runner":"windows-latest"},{"target":"aarch64-pc-windows-msvc","runner":"windows-11-arm"}]') }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      RUSTFLAGS: ${{ contains(matrix.target, 'windows-msvc') && '-C target-feature=+crt-static' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'aarch64-apple-darwin' && '11.0' || '10.12' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+      - name: Validate the release tag
+        shell: bash
+        run: |
+          version="$(python -c 'from scripts.extension_bundle import crate_version; print(crate_version())')"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            [[ "$GITHUB_REF_NAME" == "extension/python/v$version" ]]
+          fi
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: process-${{ matrix.target }}
+      - name: Build and test the native process guest
+        run: cargo +1.98.1 test --manifest-path rust/Cargo.toml --locked --release -p morphir-python-extension --target ${{ matrix.target }} --tests
+      - name: Refuse external VC and Python runtime dependencies
+        if: runner.os == 'Windows'
+        run: >-
+          python -m scripts.check_process_windows
+          --executable rust/target/${{ matrix.target }}/release/morphir-python-extension.exe
+          --report dist/windows-process-imports.json
+      - name: Package the executable with its actual claims
+        shell: bash
+        run: |
+          executable=rust/target/${{ matrix.target }}/release/morphir-python-extension
+          if [[ "${{ runner.os }}" == Windows ]]; then executable="$executable.exe"; fi
+          python -m scripts.process_package --executable "$executable" \
+            --platform '${{ matrix.target }}' --commit "$GITHUB_SHA" --output dist/package
+      - name: Install, compile and generate with the released .NET CLI
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: >-
+          python -m scripts.check_dotnet_process
+          --package-directory dist/package
+          --work-directory "${{ runner.temp }}/python-process-smoke"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: process-package-${{ matrix.target }}
+          path: dist/package/
+          if-no-files-found: error
+
+  assemble:
+    if: github.event_name != 'pull_request'
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: process-package-*
+          path: packages/
+      - name: Verify and collect the six packages
+        run: |
+          set -euo pipefail
+          test "$(find packages -name SHA256SUMS | wc -l)" -eq 6
+          mkdir dist
+          for package in packages/*; do
+            (cd "$package" && sha256sum --strict --check SHA256SUMS)
+            cp "$package"/*.zip "$package"/*.release.json "$package"/*.manifest dist/
+          done
+          (cd dist && sha256sum -- * > SHA256SUMS)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: process-extension-release
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: assemble
+    if: github.event_name == 'push' && github.repository == 'finos/morphir-python'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    environment: extension-release
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: process-extension-release
+          path: dist/
+      - run: cd dist && sha256sum --strict --check SHA256SUMS
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: true
