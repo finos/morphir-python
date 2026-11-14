@@ -51,6 +51,9 @@ The same compiler is the Rust crate
 `morphir-python` Morphir extension. This repository builds and releases both; see
 the [extension guide](docs/python-extension.md).
 
+For the .NET CLI, see the [process package installation guide](docs/dotnet-process-extension.md).
+The `0.6.2` candidate includes native Windows ARM64 and uses MEP `0.2.0-draft.1` only.
+
 ### Migrating from the bundled 0.0.1 release
 
 `morphir-python==0.0.1` bundled both namespaces. Starting with `0.0.2`, library

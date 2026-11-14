@@ -210,120 +210,22 @@ jobs:
         run: mise run rust:consumer
 
   bundle:
-    name: Extension bundle
-    needs: [changes, native-wheel]
+    name: Extension guest build
+    needs: changes
     if: fromJSON(needs.changes.outputs.jobs).bundle
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up mise
-        uses: jdx/mise-action@v5
-
-      - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            rust
-            .dev/tools/morphir-rust-0aa60eb799d4
-
-      - name: Download the native distributions
-        uses: actions/download-artifact@v8
-        with:
-          name: native-linux-x86_64
-          path: dist/native/
-
-      - name: Install dependencies with the built native wheel
+          workspaces: rust
+      # The retired Rust CLI negotiates only 0.1. Current guests expose 0.2.
+      # Process package installation is exercised in release-extension.yml.
+      - name: Build and validate the WASM guest
         run: |
-          MORPHIR_NATIVE_WHEEL="$(ls dist/native/*.whl)" mise run install
-
-      - name: Download the portable process executable
-        uses: actions/download-artifact@v8
-        with:
-          name: process-linux-x86_64
-          path: dist/process/
-
-      - name: Package and qualify the bundle offline
-        run: mise run extension:bundle
-
-      - name: Package and qualify the process guest offline
-        run: |
-          mkdir -p .morphir/build/extensions .dev/qualification
-          uv run --no-sync python -m scripts.process_extension \
-            --executable dist/process/morphir-python-extension \
-            --output .morphir/build/extensions/python-process \
-            --commit "$GITHUB_SHA" \
-            --report .dev/qualification/process-x86_64-unknown-linux-gnu.json \
-            --host-check
-
-      # Full executable conformance belongs to candidate qualification. The
-      # normal PR path already covers model negotiation and framing in Rust.
-      - name: Cache the source-pinned canonical MCK build
-        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
-        uses: actions/cache@v6
-        with:
-          path: .dev/mep-tool/
-          key: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-${{ hashFiles('rust/extension.toml', 'scripts/mep_tool.py') }}
-          restore-keys: mep-${{ runner.os }}-${{ runner.arch }}-rust-1.98.1-
-
-      - name: Cache the independent WASM adapter build
-        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: tools/extension-qualification -> ../../.dev/host-qualification-target
-
-      - name: Prepare the shared checker and transparent WASM adapter
-        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
-        env:
-          CARGO_TARGET_DIR: ${{ github.workspace }}/.dev/host-qualification-target
-        run: |
-          python -m scripts.mep_tool --output .dev/qualification/mep-tool.json
-          cargo build --locked --release --manifest-path tools/extension-qualification/Cargo.toml --bin mep_wasm_host
-
-      - name: Run and independently recheck canonical MEP reports
-        if: inputs.qualify-mep || github.event_name == 'workflow_dispatch'
-        run: |
-          python -m scripts.qualify_mep \
-            --bundle .morphir/build/extensions/python-process --runtime process \
-            --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
-            --report .dev/qualification/mep-x86_64-unknown-linux-gnu-report.json \
-            --receipt .dev/qualification/mep-x86_64-unknown-linux-gnu-recheck.json
-          python -m scripts.qualify_mep \
-            --bundle .morphir/build/extensions/python --runtime wasm \
-            --tool .dev/qualification/mep-tool.json --commit "$GITHUB_SHA" \
-            --adapter .dev/host-qualification-target/release/mep_wasm_host \
-            --report .dev/qualification/bundle-mep-report.json \
-            --receipt .dev/qualification/bundle-mep-recheck.json
-
-      - name: Retain failed checker build diagnostics
-        if: failure() && hashFiles('.dev/mep-tool/*/build.log') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: mep-build-log-linux-x86_64
-          path: .dev/mep-tool/*/build.log
-          include-hidden-files: true
-
-      - name: Upload the qualified process bundle and receipt
-        uses: actions/upload-artifact@v7
-        with:
-          name: morphir-python-process-x86_64-unknown-linux-gnu
-          path: |
-            .morphir/build/extensions/python-process/
-            .dev/qualification/process-x86_64-unknown-linux-gnu.json
-            .dev/qualification/mep-x86_64-unknown-linux-gnu-*.json
-          include-hidden-files: true
-          if-no-files-found: error
-
-      - name: Upload the extension bundle
-        uses: actions/upload-artifact@v7
-        with:
-          name: morphir-python-extension-bundle
-          path: |
-            .morphir/build/extensions/python/
-            .dev/qualification/bundle*.json
-          include-hidden-files: true
-          if-no-files-found: error
+          cargo build --manifest-path rust/Cargo.toml --locked --release -p morphir-python-binding --target wasm32-unknown-unknown
+          wasm-tools validate rust/target/wasm32-unknown-unknown/release/morphir_python_binding.wasm
 
   build:
     name: Build

@@ -1,10 +1,10 @@
 //! Framed stdio sessions around the SDK's native protocol endpoint.
 use crate::framing::{MAX_BODY_BYTES, read_frame, write_frame};
 use morphir_extension_sdk::{
-    NativeExtension,
+    NativeProtocol,
     protocol::{ExtensionRequest, error_codes, methods},
 };
-use morphir_python_binding::PythonExtension;
+use morphir_python_binding::guest::PythonSession;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::value::RawValue;
 use std::io::{self, BufRead, Write};
@@ -60,9 +60,7 @@ fn write_response(writer: &mut impl Write, value: &impl Serialize) -> io::Result
 /// Notifications receive no response; exit stops processing further messages.
 /// Every invocation owns an independent native SDK session.
 pub fn serve(reader: &mut impl BufRead, writer: &mut impl Write) -> io::Result<()> {
-    let extension = NativeExtension::frontend_backend(PythonExtension)
-        .map_err(|error| io::Error::other(error.to_string()))?;
-    let session = extension.open_protocol();
+    let session = PythonSession::new();
     while let Some(body) = read_frame(reader)? {
         // Borrow the raw document to validate syntax without materializing
         // opaque parameters or giving serde-private-looking keys meaning.
