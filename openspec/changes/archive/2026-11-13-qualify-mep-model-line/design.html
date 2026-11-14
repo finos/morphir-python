@@ -13,16 +13,16 @@
   Code goes in <pre><code class="language-python"> (or json, toml, bash, diff). Give sections an id and
   list them in nav.toc.
 -->
-<link rel="stylesheet" href="../../../docs/templates/assets/agent-document.css">
-<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
-<link rel="stylesheet" href="../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
-<script defer src="../../../docs/templates/assets/highlight/highlight.min.js"></script>
-<script defer src="../../../docs/templates/assets/agent-document.js"></script>
+<link rel="stylesheet" href="../../../../docs/templates/assets/agent-document.css">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="../../../../docs/templates/assets/highlight/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script defer src="../../../../docs/templates/assets/highlight/highlight.min.js"></script>
+<script defer src="../../../../docs/templates/assets/agent-document.js"></script>
 </head>
 <body>
 <main>
 <h1>qualify-mep-model-line: design</h1>
-<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.1.6.9</code> · 2026-10-31 · in progress</p>
+<p class="meta">OpenSpec change · Bead <code>morphir-ukvn.1.6.9</code> · released 2026-11-01 · close-out 2026-11-13</p>
 
 <nav class="toc" aria-label="Contents">
 <ul>
@@ -31,6 +31,7 @@
 <li><a href="#decisions">Decisions</a></li>
 <li><a href="#risks">Risks and trade-offs</a></li>
 <li><a href="#migration">Migration plan</a></li>
+<li><a href="#closeout">Delivery close-out</a></li>
 </ul>
 </nav>
 
@@ -78,6 +79,11 @@
 
 <h2 id="migration">Migration plan</h2>
 <p>No migration. Hosts on MEP <code>0.1</code> keep working: the finos/morphir Rust host pins <code>extension/python/v0.4.2</code>, and the <code>0.1</code> suite repeats for <code>0.4.1</code> and <code>0.4.2</code>. To roll back, hosts keep or restore their <code>0.5.0</code> pin; released bytes do not change.</p>
+
+<h2 id="closeout">Delivery close-out</h2>
+<p>PR #80 merged as <code>560a6503b8ffcab87ea667391579b747757bec0d</code>. Manual release run <code>41267831018</code> passed without publishing, and release run <code>41300584158</code> published 0.6.0. Its WASM digest <code>ce0cba07f0395ff8179b42eb021ade05c68197f69b8e9c0c8bc369d2a035727c</code> matches the dry-run bytes documented as passing all 32 MoonBit model-line rows. This carries module evidence forward by byte identity; it does not claim a fresh published-host run or qualification of every process asset.</p>
+<p>The historical 0.5.0 recipe and receipt keep their exact inputs. A separate 0.6.0 release page and pin file record the later release. PR #87 subsequently made the 0.6.2 guest offer only MEP <code>0.2.0-draft.1</code>; the synced delta follows that current policy while the 0.6.0 release retains its original dual-protocol bytes.</p>
+<p>The original plan anticipated attestations, but this release workflow did not emit them. Future signed provenance is tracked in <a href="https://github.com/finos/morphir-python/issues/89">issue #89</a>. Beads reconciliation and the archived epic link remain pending <a href="https://github.com/finos/morphir-python/issues/90">issue #90</a> because the existing shared database has an unresolved merge conflict. Archival does not claim either follow-up is complete.</p>
 </main>
 </body>
 </html>

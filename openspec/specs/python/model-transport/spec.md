@@ -28,6 +28,14 @@ Each model operation SHALL require an initialized, advertised tuple matching ope
 - **WHEN** an operation combines otherwise known tuple members in a combination not admitted as a complete tuple
 - **THEN** the extension refuses that combination rather than forming a Cartesian product
 
+#### Scenario: Host default not supported
+- **WHEN** the host offers an Ion tuple first, as its default, and also offers a JSON tuple this extension serves, without requiring Ion
+- **THEN** the session agrees on the JSON tuple in the host's order, and the model operations for that tuple succeed
+
+#### Scenario: Host offers only formats the extension does not serve
+- **WHEN** the host offers only Ion tuples
+- **THEN** the session agrees on no model tuple, model operations are refused, no payload is converted to JSON, and the session does not fall back to retired MEP `0.1`
+
 ### Requirement: Model envelopes bind exact bounded bytes
 Model payloads SHALL use the canonical `0.1.0-draft.1` envelope and validate codec, layout, canonical padded base64, decoded length, SHA-256, semantic IR version and required critical fields before compiler invocation. Advertised and local message/decoded limits MUST be enforced before unbounded allocation or decoding. (bead: morphir-5hxy)
 

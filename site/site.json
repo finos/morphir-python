@@ -39,6 +39,7 @@
       "items": [
         "compatibility.md",
         "python-extension.md",
+        "extension-0.6.0.md",
         "dotnet-process-extension.md",
         "moonbit.md"
       ]
