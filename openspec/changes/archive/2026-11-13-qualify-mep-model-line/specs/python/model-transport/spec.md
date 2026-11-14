@@ -17,4 +17,4 @@ Each model operation SHALL require an initialized, advertised tuple matching ope
 
 #### Scenario: Host offers only formats the extension does not serve
 - **WHEN** the host offers only Ion tuples
-- **THEN** the session agrees on no model tuple, model operations are refused, no payload is converted to JSON, and the MEP `0.1` operations stay available
+- **THEN** the session agrees on no model tuple, model operations are refused, no payload is converted to JSON, and the session does not fall back to retired MEP `0.1`

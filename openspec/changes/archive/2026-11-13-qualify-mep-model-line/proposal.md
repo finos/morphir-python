@@ -30,3 +30,9 @@ None.
 ## Impact
 
 Tests and golden files in `rust/crates/morphir-python-binding` and `rust/crates/morphir-python-extension`, the compiler crate version (`0.6.0`), `.gitattributes` and pre-commit excludes for byte-exact golden files, and the extension documentation after release. finos/morphir keeps its `extension/python/v0.4.2` pin; its bundle pins move in a separate PR. Merge and tag need maintainer approval.
+
+## Delivery close-out
+
+PR #80 merged as `560a6503b8ffcab87ea667391579b747757bec0d` and extension 0.6.0 was published on 2026-11-01. The successful manual dry run and published WASM have the same digest, so the recorded 32-row MoonBit run applies to the same module bytes. This is evidence reuse, not a new post-release run or qualification of every published process executable.
+
+The close-out adds a separate 0.6.0 release page and digest pins while preserving the byte-bound 0.5.0 host recipe. It syncs the negotiation scenarios against the later 0.6.2 decision to refuse retired MEP 0.1, without changing historical releases. The release workflow did not produce the attestations anticipated in the original plan; future signed provenance is tracked in [#89](https://github.com/finos/morphir-python/issues/89). Shared Beads reconciliation is blocked by its existing merge conflict and tracked in [#90](https://github.com/finos/morphir-python/issues/90). Archival records this delivered scope and these explicit follow-ups.
