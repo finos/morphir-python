@@ -14,6 +14,21 @@
       "separateMajorMinor": false
     },
     {
+      "description": "Keep the historical qualification host aligned with its source receipt. Published host crates are not available yet; update the host and receipt together by hand.",
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchFileNames": [
+        "tools/extension-qualification/Cargo.toml"
+      ],
+      "matchDepNames": [
+        "morphir-extension-sdk",
+        "morphir-host",
+        "morphir-host-native"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Keep GitHub Actions updates together.",
       "matchManagers": [
         "github-actions"
